@@ -1,9 +1,14 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbxlJuasFxMEU2CJzBc1OS084EWUOg5vK0XKTpPARDDAjxPjeWS96qWuPyrjyp5i8FjKFA/exec"; // Replace with your Apps Script Web App URL
+const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
+let allPending      = [];
 let searchTimeout;
 let qrInstance      = null;
+
+// Pending hand-over / reject callbacks
+let pendingHandoverCallback = null;
+let pendingRejectCallback   = null;
 
 // ── Notification ──────────────────────────────────────────────────────────────
 function showNotification(message, type = "info") {
@@ -25,6 +30,7 @@ function checkPassword() {
     document.getElementById("loginSection").style.display  = "none";
     document.getElementById("adminSection").style.display  = "block";
     showNotification("Admin access granted", "success");
+    loadPendingRequests();
     loadTransactions();
     loadItemsTable();
     loadQrStudentList();
@@ -42,52 +48,84 @@ function logoutAdmin() {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
+  document.getElementById("panelPending").style.display      = tab === "pending"      ? "block" : "none";
   document.getElementById("panelTransactions").style.display = tab === "transactions" ? "block" : "none";
   document.getElementById("panelItems").style.display        = tab === "items"        ? "block" : "none";
-  document.getElementById("tabTransactions").classList.toggle("active", tab === "transactions");
-  document.getElementById("tabItems").classList.toggle("active", tab === "items");
+  document.getElementById("tabPending").classList.toggle("active",       tab === "pending");
+  document.getElementById("tabTransactions").classList.toggle("active",  tab === "transactions");
+  document.getElementById("tabItems").classList.toggle("active",         tab === "items");
+  if (tab === "pending") loadPendingRequests();
 }
 
 // ── Register borrower ─────────────────────────────────────────────────────────
-// Feature 2: Input sanitization — validates ID (numeric only) and name
-// (letters/spaces/hyphens/periods only) before sending to the spreadsheet.
+function setFieldError(fieldId, errorId, message) {
+  const field = document.getElementById(fieldId);
+  const err   = document.getElementById(errorId);
+  if (!field || !err) return;
+  field.classList.add("field-invalid");
+  field.classList.remove("field-valid");
+  err.textContent   = message;
+  err.style.display = "block";
+}
+
+function setFieldValid(fieldId, errorId) {
+  const field = document.getElementById(fieldId);
+  const err   = document.getElementById(errorId);
+  if (!field || !err) return;
+  field.classList.remove("field-invalid");
+  field.classList.add("field-valid");
+  err.style.display = "none";
+}
+
+function clearFieldState(fieldId, errorId) {
+  const field = document.getElementById(fieldId);
+  const err   = document.getElementById(errorId);
+  if (field) { field.classList.remove("field-invalid", "field-valid"); }
+  if (err)   { err.style.display = "none"; }
+}
+
 document.getElementById("adminForm").addEventListener("submit", e => {
   e.preventDefault();
   const studentId = document.getElementById("adminId").value.trim();
   const name      = document.getElementById("adminName").value.trim();
   const email     = document.getElementById("adminEmail").value.trim();
+  let   hasError  = false;
 
-  // Validate Student ID: must be non-empty and numeric only
   if (!studentId) {
-    showNotification("Student ID is required.", "error");
-    return;
-  }
-  if (!/^\d+$/.test(studentId)) {
-    showNotification("Student ID must contain numbers only.", "error");
-    document.getElementById("adminId").focus();
-    return;
-  }
-
-  // Validate Name: must be non-empty and contain only letters, spaces, hyphens, periods
-  if (!name) {
-    showNotification("Name is required.", "error");
-    return;
-  }
-  if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(name)) {
-    showNotification("Name must contain letters only (no numbers or special characters).", "error");
-    document.getElementById("adminName").focus();
-    return;
+    setFieldError("adminId", "adminIdError", "Student ID is required.");
+    hasError = true;
+  } else if (!/^\d+$/.test(studentId)) {
+    setFieldError("adminId", "adminIdError", "Student ID must contain numbers only — no letters or symbols.");
+    hasError = true;
+  } else if (studentId.length < 5 || studentId.length > 12) {
+    setFieldError("adminId", "adminIdError", "Student ID must be between 5 and 12 digits.");
+    hasError = true;
+  } else {
+    setFieldValid("adminId", "adminIdError");
   }
 
-  // Validate Email format if provided (optional field)
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    showNotification("Please enter a valid email address.", "error");
-    document.getElementById("adminEmail").focus();
-    return;
-  }
-
-  // Sanitize: trim and normalize whitespace in name
   const sanitizedName = name.replace(/\s+/g, " ").trim();
+  if (!sanitizedName) {
+    setFieldError("adminName", "adminNameError", "Name is required.");
+    hasError = true;
+  } else if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(sanitizedName)) {
+    setFieldError("adminName", "adminNameError", "Name must contain letters only — no numbers or special characters.");
+    hasError = true;
+  } else if (sanitizedName.length < 2 || sanitizedName.length > 60) {
+    setFieldError("adminName", "adminNameError", "Name must be between 2 and 60 characters.");
+    hasError = true;
+  } else {
+    setFieldValid("adminName", "adminNameError");
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setFieldError("adminEmail", "adminEmailError", "Please enter a valid email address.");
+    hasError = true;
+  } else if (email) {
+    setFieldValid("adminEmail", "adminEmailError");
+  }
+
+  if (hasError) return;
 
   fetch(scriptURL, {
     method: "POST",
@@ -98,6 +136,9 @@ document.getElementById("adminForm").addEventListener("submit", e => {
     if (data.success) {
       showNotification(data.message, "success");
       document.getElementById("adminForm").reset();
+      ["adminId","adminName","adminEmail"].forEach((id, i) =>
+        clearFieldState(id, ["adminIdError","adminNameError","adminEmailError"][i])
+      );
       updateSummaryStats();
       loadQrStudentList();
     } else {
@@ -109,18 +150,22 @@ document.getElementById("adminForm").addEventListener("submit", e => {
 
 // ── Real-time field validation feedback ───────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  const idField   = document.getElementById("adminId");
-  const nameField = document.getElementById("adminName");
+  const idField    = document.getElementById("adminId");
+  const nameField  = document.getElementById("adminName");
+  const emailField = document.getElementById("adminEmail");
 
   if (idField) {
     idField.addEventListener("input", () => {
       const val = idField.value.trim();
-      if (val && !/^\d+$/.test(val)) {
-        idField.style.borderColor = "var(--highlight)";
-        idField.title = "Student ID must be numeric only";
+      if (!val) { clearFieldState("adminId", "adminIdError"); return; }
+      if (!/^\d+$/.test(val)) {
+        setFieldError("adminId", "adminIdError", "Numbers only — no letters or symbols.");
+      } else if (val.length < 5) {
+        setFieldError("adminId", "adminIdError", `${val.length}/5 digits minimum`);
+      } else if (val.length > 12) {
+        setFieldError("adminId", "adminIdError", "Maximum 12 digits.");
       } else {
-        idField.style.borderColor = "";
-        idField.title = "";
+        setFieldValid("adminId", "adminIdError");
       }
     });
   }
@@ -128,16 +173,212 @@ document.addEventListener("DOMContentLoaded", () => {
   if (nameField) {
     nameField.addEventListener("input", () => {
       const val = nameField.value.trim();
-      if (val && !/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(val)) {
-        nameField.style.borderColor = "var(--highlight)";
-        nameField.title = "Name must contain letters only";
+      if (!val) { clearFieldState("adminName", "adminNameError"); return; }
+      if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(val)) {
+        setFieldError("adminName", "adminNameError", "Letters only — no numbers or special characters.");
+      } else if (val.length < 2) {
+        setFieldError("adminName", "adminNameError", "Name is too short.");
+      } else if (val.length > 60) {
+        setFieldError("adminName", "adminNameError", "Name is too long (max 60 characters).");
       } else {
-        nameField.style.borderColor = "";
-        nameField.title = "";
+        setFieldValid("adminName", "adminNameError");
+      }
+    });
+  }
+
+  if (emailField) {
+    emailField.addEventListener("input", () => {
+      const val = emailField.value.trim();
+      if (!val) { clearFieldState("adminEmail", "adminEmailError"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        setFieldError("adminEmail", "adminEmailError", "Enter a valid email (e.g. student@ctu.edu.ph).");
+      } else {
+        setFieldValid("adminEmail", "adminEmailError");
       }
     });
   }
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── PENDING REQUESTS ─────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Loads all transactions with status "Pending" from the spreadsheet and
+ * renders them in the pending queue table. The badge on the tab updates too.
+ */
+function loadPendingRequests() {
+  const tbody = document.getElementById("pendingTableBody");
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:18px;">Loading pending requests…</td></tr>`;
+
+  fetch(scriptURL + "?action=getPendingRequests")
+    .then(res => res.json())
+    .then(data => {
+      allPending = Array.isArray(data) ? data : [];
+      renderPendingTable(allPending);
+      updatePendingBadge(allPending.length);
+      updateSummaryStats();
+    })
+    .catch(() => {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--highlight);">Error loading pending requests.</td></tr>`;
+    });
+}
+
+function renderPendingTable(requests) {
+  const tbody = document.getElementById("pendingTableBody");
+  tbody.innerHTML = "";
+
+  if (!requests || requests.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;padding:32px;">
+          <div style="font-size:28px;margin-bottom:8px;">✅</div>
+          <div style="color:var(--success);font-weight:600;">No pending requests</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">All borrow requests have been handled.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  requests.forEach((req, index) => {
+    const row = document.createElement("tr");
+    row.className = "pending-row";
+    row.innerHTML = `
+      <td><span class="mono-id">${req.studentId}</span></td>
+      <td><strong>${req.studentName || "—"}</strong></td>
+      <td>${req.item}</td>
+      <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
+      <td><span class="date-chip due">${req.dueDate || "—"}</span></td>
+      <td>
+        <div class="pending-action-btns">
+          <button
+            class="handover-btn"
+            onclick="confirmHandover(${index})"
+            title="Mark as handed over — confirms borrow and reduces stock"
+          >✅ Hand Over</button>
+          <button
+            class="reject-btn"
+            onclick="confirmReject(${index})"
+            title="Reject this request — no stock change"
+          >✗ Reject</button>
+        </div>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function updatePendingBadge(count) {
+  const badge = document.getElementById("pendingBadge");
+  const statEl = document.getElementById("totalPending");
+  if (statEl) statEl.innerText = count;
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent  = count;
+    badge.style.display = "inline-flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+/**
+ * Opens the hand-over confirmation modal for a specific pending request.
+ * On confirm, calls the Apps Script with action "confirmBorrow" and the
+ * row identifier so the backend can flip status Pending → Borrowed and
+ * decrement stock.
+ */
+function confirmHandover(index) {
+  const req = allPending[index];
+  if (!req) return;
+
+  document.getElementById("handoverMessage").innerHTML =
+    `Hand over <strong>${req.item}</strong> to <strong>${req.studentName || req.studentId}</strong>?
+     <br><small style="color:var(--text-muted);">Status will change to <em>Borrowed</em> and stock will decrease by 1.</small>`;
+
+  const modal = document.getElementById("handoverModal");
+  modal.style.display = "flex";
+
+  pendingHandoverCallback = () => {
+    modal.style.display = "none";
+    executeHandover(req);
+  };
+  pendingRejectCallback = null;
+
+  document.getElementById("handoverYes").onclick = pendingHandoverCallback;
+  document.getElementById("handoverNo").onclick  = () => { modal.style.display = "none"; };
+}
+
+function executeHandover(req) {
+  showNotification("Processing hand-over…", "info");
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action:    "confirmBorrow",
+      studentId: req.studentId,
+      item:      req.item,
+      rowIndex:  req.rowIndex   // pass spreadsheet row index for targeted update
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`✅ "${req.item}" handed over to ${req.studentName || req.studentId}`, "success");
+      loadPendingRequests();
+      loadTransactions();
+      loadItemsTable();
+    } else {
+      showNotification(data.message || "Hand-over failed. Please try again.", "error");
+    }
+  })
+  .catch(() => showNotification("Network error during hand-over.", "error"));
+}
+
+/**
+ * Opens the reject confirmation modal. On confirm, calls Apps Script with
+ * action "rejectBorrow" to mark the row as Rejected (no stock change).
+ */
+function confirmReject(index) {
+  const req = allPending[index];
+  if (!req) return;
+
+  document.getElementById("rejectMessage").innerHTML =
+    `Reject the request for <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?
+     <br><small style="color:var(--text-muted);">The request will be marked <em>Rejected</em>. No stock change will occur.</small>`;
+
+  const modal = document.getElementById("rejectModal");
+  modal.style.display = "flex";
+
+  document.getElementById("rejectYes").onclick = () => {
+    modal.style.display = "none";
+    executeReject(req);
+  };
+  document.getElementById("rejectNo").onclick = () => { modal.style.display = "none"; };
+}
+
+function executeReject(req) {
+  showNotification("Rejecting request…", "info");
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action:    "rejectBorrow",
+      studentId: req.studentId,
+      item:      req.item,
+      rowIndex:  req.rowIndex
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`Request for "${req.item}" rejected.`, "info");
+      loadPendingRequests();
+      loadTransactions();
+    } else {
+      showNotification(data.message || "Rejection failed. Please try again.", "error");
+    }
+  })
+  .catch(() => showNotification("Network error during rejection.", "error"));
+}
 
 // ── Load transactions ─────────────────────────────────────────────────────────
 function loadTransactions() {
@@ -169,7 +410,12 @@ function renderTransactions(transactions) {
   }
   transactions.forEach(tx => {
     const s   = (tx.status || "").toLowerCase();
-    const cls = s === "returned" ? "status-returned" : s === "borrowed" ? "status-borrowed" : s === "overdue" ? "status-overdue" : "";
+    const cls = s === "returned"  ? "status-returned"
+              : s === "borrowed"  ? "status-borrowed"
+              : s === "overdue"   ? "status-overdue"
+              : s === "pending"   ? "status-pending"
+              : s === "rejected"  ? "status-rejected"
+              : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${tx.studentId}</td>
@@ -186,11 +432,11 @@ function filterTransactions() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     const query    = document.getElementById("searchInput").value.toLowerCase();
-    const filtered = allTransactions.filter(tx => {
-      return String(tx.studentId).toLowerCase().includes(query) ||
-             String(tx.item).toLowerCase().includes(query) ||
-             String(tx.studentName || "").toLowerCase().includes(query);
-    });
+    const filtered = allTransactions.filter(tx =>
+      String(tx.studentId).toLowerCase().includes(query) ||
+      String(tx.item).toLowerCase().includes(query) ||
+      String(tx.studentName || "").toLowerCase().includes(query)
+    );
     renderTransactions(filtered.length > 0 ? filtered : []);
   }, 400);
 }
@@ -242,7 +488,7 @@ function addItem() {
   const name = document.getElementById("newItemName").value.trim();
   const qty  = parseInt(document.getElementById("newItemQty").value);
 
-  if (!name)      { showNotification("Item name is required.", "error"); return; }
+  if (!name)           { showNotification("Item name is required.", "error"); return; }
   if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
 
   fetch(scriptURL, {
@@ -342,12 +588,12 @@ function showQrModal(studentId, studentName) {
   if (qrInstance) { try { qrInstance.clear(); } catch(e) {} }
 
   qrInstance = new QRCode(container, {
-    text:          String(studentId),
-    width:         200,
-    height:        200,
-    colorDark:     "#000000",
-    colorLight:    "#ffffff",
-    correctLevel:  QRCode.CorrectLevel.H
+    text:         String(studentId),
+    width:        200,
+    height:       200,
+    colorDark:    "#000000",
+    colorLight:   "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
   });
 
   showModal("qrPrintModal");
@@ -382,7 +628,7 @@ function printQr() {
 // QR search filter
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("qrStudentSearch").addEventListener("input", e => {
-    const q = e.target.value.toLowerCase();
+    const q        = e.target.value.toLowerCase();
     const filtered = allUsers.filter(u =>
       String(u.name).toLowerCase().includes(q) ||
       String(u.id).toLowerCase().includes(q)
@@ -396,9 +642,9 @@ function showModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
   modal.style.display = "flex";
-  if (modalId === "borrowersModal")    showBorrowersList();
+  if (modalId === "borrowersModal")         showBorrowersList();
   else if (modalId === "transactionsModal") showTransactionsList();
-  else if (modalId === "overdueModal") showOverdueList();
+  else if (modalId === "overdueModal")      showOverdueList();
 }
 
 function closeModal(modalId) {
@@ -449,7 +695,12 @@ function showTransactionsList() {
   const tbody = table.querySelector("tbody");
   allTransactions.forEach(tx => {
     const s   = (tx.status || "").toLowerCase();
-    const cls = s === "returned" ? "status-returned" : s === "borrowed" ? "status-borrowed" : s === "overdue" ? "status-overdue" : "";
+    const cls = s === "returned" ? "status-returned"
+              : s === "borrowed" ? "status-borrowed"
+              : s === "overdue"  ? "status-overdue"
+              : s === "pending"  ? "status-pending"
+              : s === "rejected" ? "status-rejected"
+              : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${tx.studentId}</td><td>${tx.studentName || "-"}</td><td>${tx.item}</td>
@@ -508,5 +759,7 @@ function updateSummaryStats() {
       document.getElementById("totalBorrowers").innerText = Array.isArray(users) ? users.length : 0;
     }).catch(() => {});
   document.getElementById("totalTransactions").innerText = allTransactions.length;
-  document.getElementById("overdueItems").innerText = allTransactions.filter(tx => tx.status === "Overdue").length;
+  document.getElementById("overdueItems").innerText      = allTransactions.filter(tx => tx.status === "Overdue").length;
+  document.getElementById("totalPending").innerText      = allPending.length;
+  updatePendingBadge(allPending.length);
 }

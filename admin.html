@@ -8,8 +8,7 @@
 </head>
 <body class="dark">
   <div class="container">
-    <div class="uni-logo-row" style="padding-top:28px;margin-bottom:8px;">
-    </div>
+    <div class="uni-logo-row" style="padding-top:28px;margin-bottom:8px;"></div>
     <h1>Admin Access</h1>
 
     <!-- Login Section -->
@@ -28,6 +27,10 @@
           <h3 id="totalBorrowers">0</h3>
           <p>Registered Users</p>
         </div>
+        <div class="stat-card pending-stat" onclick="switchTab('pending')">
+          <h3 id="totalPending">0</h3>
+          <p>Pending Requests</p>
+        </div>
         <div class="stat-card" onclick="showModal('transactionsModal')">
           <h3 id="totalTransactions">0</h3>
           <p>Total Transactions</p>
@@ -45,9 +48,12 @@
         <div class="admin-panel-left">
           <h2>Register Borrower</h2>
           <form id="adminForm" aria-label="Register new borrower">
-            <input id="adminId" placeholder="Student ID" required aria-label="Student ID" pattern="[0-9]+" title="Student ID must be numeric">
-            <input id="adminName" placeholder="Name" required aria-label="Full name" pattern="[A-Za-z\s\-\.]+" title="Name must contain letters only">
-            <input id="adminEmail" placeholder="Email" type="email" aria-label="Email address (optional)">
+            <input id="adminId" placeholder="Student ID (numbers only)" required aria-label="Student ID" inputmode="numeric">
+            <p class="field-error-msg" id="adminIdError" style="display:none;"></p>
+            <input id="adminName" placeholder="Full Name (letters only)" required aria-label="Full name">
+            <p class="field-error-msg" id="adminNameError" style="display:none;"></p>
+            <input id="adminEmail" placeholder="Email (optional)" type="email" aria-label="Email address (optional)">
+            <p class="field-error-msg" id="adminEmailError" style="display:none;"></p>
             <button type="submit" aria-label="Register borrower">Register Borrower</button>
           </form>
 
@@ -63,13 +69,40 @@
           </div>
         </div>
 
-        <!-- RIGHT: Transactions + Item Management -->
+        <!-- RIGHT: Pending + Transactions + Item Management -->
         <div class="admin-panel-right">
 
           <!-- Tabs -->
           <div class="admin-tabs">
+            <button class="admin-tab" id="tabPending" onclick="switchTab('pending')">
+              ⏳ Pending
+              <span id="pendingBadge" class="pending-tab-badge" style="display:none;"></span>
+            </button>
             <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">All Transactions</button>
             <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Item Management</button>
+          </div>
+
+          <!-- ── Pending Requests Panel ── -->
+          <div id="panelPending" style="display:none;">
+            <div class="pending-panel-header">
+              <p class="pending-panel-desc">Students have submitted these borrow requests. Review each one and click <strong>✅ Mark as Handed Over</strong> once you physically give the item to the student. Only then will stock decrease and the status become <em>Borrowed</em>.</p>
+              <button onclick="loadPendingRequests()" class="refresh-btn" title="Refresh pending list">↻ Refresh</button>
+            </div>
+            <div class="table-scroll">
+              <table id="pendingTable">
+                <thead>
+                  <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Item</th>
+                    <th>Requested</th>
+                    <th>Due Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingTableBody"></tbody>
+              </table>
+            </div>
           </div>
 
           <!-- Transactions Panel -->
@@ -173,11 +206,36 @@
       </div>
     </div>
 
+    <!-- Confirm Hand-Over Modal -->
+    <div id="handoverModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
+      <div class="confirm-box">
+        <div class="confirm-icon">✅</div>
+        <h3 id="handoverTitle">Confirm Hand-Over</h3>
+        <p id="handoverMessage">Are you sure you want to mark this item as handed over? Stock will decrease and status will change to <strong>Borrowed</strong>.</p>
+        <div class="confirm-actions">
+          <button id="handoverYes">Yes, Hand Over</button>
+          <button class="back" id="handoverNo">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Reject Modal -->
+    <div id="rejectModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+      <div class="confirm-box">
+        <div class="confirm-icon">❌</div>
+        <h3 id="rejectTitle">Reject Request</h3>
+        <p id="rejectMessage">Are you sure you want to reject this borrow request? The item will not be issued and stock remains unchanged.</p>
+        <div class="confirm-actions">
+          <button id="rejectYes" class="reject-confirm-btn">Yes, Reject</button>
+          <button class="back" id="rejectNo">Cancel</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div id="notification"></div>
 
-  <!-- QRCode.js for generating QR images -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="admin.js"></script>
 </body>

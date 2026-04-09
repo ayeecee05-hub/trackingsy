@@ -115,6 +115,10 @@
           <h3 id="statCurrent">0</h3>
           <p>Currently Out</p>
         </div>
+        <div class="stat-card pending-stat">
+          <h3 id="statPending">0</h3>
+          <p>Pending</p>
+        </div>
         <div class="stat-card due-soon-stat">
           <h3 id="statDueSoon">0</h3>
           <p>Due Soon</p>
@@ -128,25 +132,54 @@
       <h2>Currently Borrowed Items</h2>
       <ul id="borrowedList"></ul>
 
+      <!-- Pending requests sub-section -->
+      <div id="pendingSection" style="display:none;">
+        <h2>⏳ Pending Requests</h2>
+        <p class="pending-user-note">Your request has been submitted. Please proceed to the equipment cabinet — the admin will hand over the item and confirm it.</p>
+        <ul id="pendingList" class="pending-user-list"></ul>
+      </div>
+
       <div class="actions">
-        <button onclick="showPage('borrowPage')">＋ Borrow Item</button>
+        <button onclick="showPage('borrowPage')">＋ Request Item</button>
         <button onclick="showPage('returnPage')">↩ Return Item</button>
         <button class="back" onclick="showPage('dashboardPage')">⬅ Back</button>
       </div>
     </section>
 
-    <!-- Borrow Page -->
+    <!-- Borrow / Request Page -->
     <section id="borrowPage" style="display:none;">
-      <h1>Borrow Item</h1>
-      <h2>Items are due 3 days after today</h2>
+      <h1>Request to Borrow Item</h1>
+      <h2>Your request goes to the admin for hand-over confirmation</h2>
+
+      <!-- How it works info box -->
+      <div class="how-it-works-box">
+        <div class="how-it-works-steps">
+          <div class="how-step active-step">
+            <span class="how-step-num">1</span>
+            <span class="how-step-label">Submit Request</span>
+          </div>
+          <div class="how-step-arrow">→</div>
+          <div class="how-step">
+            <span class="how-step-num">2</span>
+            <span class="how-step-label">Admin Hands Over</span>
+          </div>
+          <div class="how-step-arrow">→</div>
+          <div class="how-step">
+            <span class="how-step-num">3</span>
+            <span class="how-step-label">Status: Borrowed</span>
+          </div>
+        </div>
+      </div>
+
       <form id="borrowForm" aria-label="Borrow item form">
         <label for="borrowItem">Select Item</label>
         <select id="borrowItem" required aria-label="Select item to borrow"></select>
-        <label for="borrowDate">Borrow Date</label>
+        <label for="borrowDate">Request Date</label>
         <input type="date" id="borrowDate" required readonly aria-label="Borrow date (set automatically to today)">
-        <p class="field-note">📅 Borrow date is set to today automatically</p>
+        <p class="field-note">📅 Request date is set to today automatically</p>
+        <p class="field-note" style="color:var(--warning);margin-top:6px;">⏳ Status will be <strong>Pending</strong> until the admin confirms hand-over</p>
         <div class="actions" style="margin-top:20px;">
-          <button type="submit">Confirm Borrow</button>
+          <button type="submit">📋 Submit Request</button>
           <button type="button" class="back" onclick="showPage('userDashboardPage')">⬅ Back</button>
         </div>
       </form>
@@ -185,14 +218,13 @@
     </div>
   </div>
 
-  <!-- PIN Authentication Modal — Feature 1 -->
-  <!-- Replaces the browser prompt() with a styled inline modal for PIN entry. -->
-  <!-- QR scan bypasses this modal as it is the trusted hardware login path.   -->
+  <!-- PIN Authentication Modal -->
   <div id="pinModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
     <div class="confirm-box pin-box">
       <div class="confirm-icon">🔒</div>
-      <h3 id="pinModalTitle" id="pinModalName" class="pin-modal-name"></h3>
-      <p class="pin-modal-hint" id="pinModalHint">Enter your 4-digit PIN</p>
+      <h3 id="pinModalTitle" class="pin-modal-name"></h3>
+      <p class="pin-modal-hint">Enter your 4-digit PIN</p>
+      <p class="pin-modal-sub" id="pinModalHint">Last 4 digits of your Student ID</p>
       <input
         type="password"
         id="pinInput"
@@ -211,6 +243,7 @@
       </div>
     </div>
   </div>
+
   <!-- PWA Install Banner -->
   <div id="installBanner" class="install-banner" style="display:none;">
     <span>📲 Install this app on your device</span>
