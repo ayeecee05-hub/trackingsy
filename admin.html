@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Register & Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+  <div class="container">
+    <div class="uni-logo-row" style="padding-top:28px;margin-bottom:8px;">
+    </div>
+    <h1>Admin Access</h1>
+
+    <!-- Login Section -->
+    <div id="loginSection" role="form" aria-label="Admin login">
+      <p>Enter Admin Password:</p>
+      <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password" aria-label="Admin password">
+      <button id="adminLoginBtn" onclick="checkPassword()" aria-label="Login as admin">Login</button>
+    </div>
+
+    <!-- Admin Section -->
+    <div id="adminSection" style="display:none;">
+
+      <!-- Summary Stats -->
+      <div id="summaryStats">
+        <div class="stat-card" onclick="showModal('borrowersModal')">
+          <h3 id="totalBorrowers">0</h3>
+          <p>Registered Users</p>
+        </div>
+        <div class="stat-card" onclick="showModal('transactionsModal')">
+          <h3 id="totalTransactions">0</h3>
+          <p>Total Transactions</p>
+        </div>
+        <div class="stat-card" onclick="showModal('overdueModal')">
+          <h3 id="overdueItems">0</h3>
+          <p>Overdue Items</p>
+        </div>
+      </div>
+
+      <!-- Three-Column Layout -->
+      <div class="admin-main-grid">
+
+        <!-- LEFT: Register Borrower -->
+        <div class="admin-panel-left">
+          <h2>Register Borrower</h2>
+          <form id="adminForm" aria-label="Register new borrower">
+            <input id="adminId" placeholder="Student ID" required aria-label="Student ID" pattern="[0-9]+" title="Student ID must be numeric">
+            <input id="adminName" placeholder="Name" required aria-label="Full name" pattern="[A-Za-z\s\-\.]+" title="Name must contain letters only">
+            <input id="adminEmail" placeholder="Email" type="email" aria-label="Email address (optional)">
+            <button type="submit" aria-label="Register borrower">Register Borrower</button>
+          </form>
+
+          <div class="admin-panel-divider"></div>
+
+          <h2>Print Student QR</h2>
+          <p class="admin-panel-note">Select a student to generate and print their QR code.</p>
+          <div class="admin-search-bar" style="margin-bottom:8px;">
+            <input type="text" id="qrStudentSearch" placeholder="Search student…">
+          </div>
+          <div id="qrStudentList" class="qr-student-list">
+            <p class="empty-state">Loading students…</p>
+          </div>
+        </div>
+
+        <!-- RIGHT: Transactions + Item Management -->
+        <div class="admin-panel-right">
+
+          <!-- Tabs -->
+          <div class="admin-tabs">
+            <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">All Transactions</button>
+            <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Item Management</button>
+          </div>
+
+          <!-- Transactions Panel -->
+          <div id="panelTransactions">
+            <div class="admin-search-bar">
+              <input type="text" id="searchInput" placeholder="Filter by Student ID or Item">
+              <button onclick="resetFilter()">Reset</button>
+            </div>
+            <div class="table-scroll">
+              <table id="transactionsTable">
+                <thead>
+                  <tr>
+                    <th>Student ID</th>
+                    <th>Item</th>
+                    <th>Borrow Date</th>
+                    <th>Due Date</th>
+                    <th>Return Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Item Management Panel -->
+          <div id="panelItems" style="display:none;">
+            <div class="item-mgmt-add">
+              <input type="text" id="newItemName" placeholder="Item name (e.g. Projector)">
+              <input type="number" id="newItemQty" placeholder="Qty" min="0" style="width:80px;">
+              <button onclick="addItem()">＋ Add</button>
+            </div>
+            <div class="table-scroll">
+              <table id="itemsTable">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="itemsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="admin-footer">
+        <button class="back" onclick="logoutAdmin()">Logout</button>
+      </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="borrowersModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Registered Users</h2>
+          <button class="modal-close" onclick="closeModal('borrowersModal')">✕</button>
+        </div>
+        <div id="borrowersListContent" class="modal-body">Loading...</div>
+      </div>
+    </div>
+
+    <div id="transactionsModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>All Transactions</h2>
+          <button class="modal-close" onclick="closeModal('transactionsModal')">✕</button>
+        </div>
+        <div id="transactionsListContent" class="modal-body">Loading...</div>
+      </div>
+    </div>
+
+    <div id="overdueModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Overdue Items</h2>
+          <button class="modal-close" onclick="closeModal('overdueModal')">✕</button>
+        </div>
+        <div id="overdueListContent" class="modal-body">Loading...</div>
+      </div>
+    </div>
+
+    <!-- QR Print Modal -->
+    <div id="qrPrintModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:380px;">
+        <div class="modal-header">
+          <h2>Student QR Code</h2>
+          <button class="modal-close" onclick="closeModal('qrPrintModal')">✕</button>
+        </div>
+        <div class="modal-body" style="text-align:center;">
+          <div id="qrPrintName" style="font-size:16px;font-weight:700;margin-bottom:4px;"></div>
+          <div id="qrPrintId" style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-family:var(--mono);"></div>
+          <div id="qrPrintCode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Student scans this with the borrowing system to log in instantly.</p>
+          <button onclick="printQr()">🖨️ Print QR</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="notification"></div>
+
+  <!-- QRCode.js for generating QR images -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
