@@ -147,9 +147,7 @@ function renderBorrowers(list) {
 
 function openPinModal(user) {
   pendingLoginUser = user;
-  document.getElementById("pinModalName").innerText = `Hello, ${user.name}!`;
-  document.getElementById("pinModalHint").innerText =
-    `Enter your 4-digit PIN\n(Default: last 4 digits of your Student ID)`;
+  document.getElementById("pinModalTitle").innerText = `Hello, ${user.name}! 👋`;
   document.getElementById("pinInput").value = "";
   document.getElementById("pinError").style.display = "none";
   document.getElementById("pinModal").style.display = "flex";
