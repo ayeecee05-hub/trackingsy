@@ -412,6 +412,49 @@ button:active { transform: scale(0.97); }
 .stock-tag.amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); border-color: var(--tag-amber-border); }
 .stock-tag.red   { background: var(--tag-red-bg);   color: var(--tag-red-text);   border-color: var(--tag-red-border);   }
 
+/* ── Stock pagination controls ───────────────────────────── */
+.stock-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 6px 2px 0;
+  border-top: 1px solid var(--border);
+  gap: 8px;
+}
+.stock-page-btn {
+  background: var(--input-bg) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--accent-primary) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 14px !important;
+  border-radius: 20px !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.stock-page-btn:hover:not(:disabled) {
+  background: var(--accent-glow) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px) !important;
+}
+.stock-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.stock-page-info {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex: 1;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
 /* ── Overdue Alert ───────────────────────────────────────── */
 #overdueAlert { margin-bottom: 16px; animation: fadeUp 0.4s ease; }
 .overdue-alert-inner { display: flex; align-items: flex-start; gap: 12px; background: rgba(255,107,107,0.12); border: 1.5px solid rgba(255,107,107,0.4); border-radius: 12px; padding: 14px 16px; }

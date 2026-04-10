@@ -7,6 +7,7 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
 // Two-step borrow flow:
@@ -442,36 +443,78 @@ function showConfirmModal(icon, title, message, onConfirm) {
   };
 }
 
-// ── Stock panel ───────────────────────────────────────────────────────────────
+// ── Stock panel with pagination ───────────────────────────────────────────────
+const STOCK_PER_PAGE = 4;
+let stockAllItems  = [];
+let stockPage      = 0;
+
 function loadStockPanel() {
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      const list = document.getElementById("stockList");
-      list.innerHTML = "";
-      if (!items || items.length === 0) {
-        list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
-        return;
-      }
-      items.forEach(it => {
-        const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
-        const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
-        const div = document.createElement("div");
-        div.className = "stock-item";
-        div.innerHTML = `
-          <span class="stock-icon">📦</span>
-          <span class="stock-name">
-            ${it.name}
-            <small>${it.quantity} available</small>
-          </span>
-          <span class="stock-tag ${statusClass}">${label}</span>`;
-        list.appendChild(div);
-      });
+      stockAllItems = items || [];
+      stockPage     = 0;
+      renderStockPage();
     })
     .catch(() => {
       document.getElementById("stockList").innerHTML =
         `<div class="empty-state">Could not load stock info.</div>`;
     });
+}
+
+function renderStockPage() {
+  const list = document.getElementById("stockList");
+  list.innerHTML = "";
+
+  if (!stockAllItems || stockAllItems.length === 0) {
+    list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
+    return;
+  }
+
+  const totalPages = Math.ceil(stockAllItems.length / STOCK_PER_PAGE);
+  const start      = stockPage * STOCK_PER_PAGE;
+  const pageItems  = stockAllItems.slice(start, start + STOCK_PER_PAGE);
+
+  // Item rows
+  const iconMap = {
+    "Projector":"📽️","Laptop":"💻","Camera":"📷","Multimeter":"📐",
+    "Microscope":"🔬","Tablet":"📱","Router":"📡","Headset":"🎧",
+    "Soldering Iron":"🛠️","Cable":"🔌"
+  };
+
+  pageItems.forEach(it => {
+    const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
+    const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
+    const icon        = iconMap[it.name] || "📦";
+    const div         = document.createElement("div");
+    div.className     = "stock-item";
+    div.innerHTML     = `
+      <span class="stock-icon">${icon}</span>
+      <span class="stock-name">
+        ${it.name}
+        <small>${it.quantity} available</small>
+      </span>
+      <span class="stock-tag ${statusClass}">${label}</span>`;
+    list.appendChild(div);
+  });
+
+  // Pagination controls — only show if more than one page
+  if (totalPages > 1) {
+    const nav = document.createElement("div");
+    nav.className = "stock-pagination";
+    nav.innerHTML = `
+      <button class="stock-page-btn" id="stockPrev" ${stockPage === 0 ? "disabled" : ""}>‹ Prev</button>
+      <span class="stock-page-info">Page ${stockPage + 1} of ${totalPages}</span>
+      <button class="stock-page-btn" id="stockNext" ${stockPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
+    list.appendChild(nav);
+
+    nav.querySelector("#stockPrev").addEventListener("click", () => {
+      if (stockPage > 0) { stockPage--; renderStockPage(); }
+    });
+    nav.querySelector("#stockNext").addEventListener("click", () => {
+      if (stockPage < totalPages - 1) { stockPage++; renderStockPage(); }
+    });
+  }
 }
 
 // ── PWA install banner ────────────────────────────────────────────────────────
