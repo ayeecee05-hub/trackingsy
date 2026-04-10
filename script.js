@@ -5,13 +5,6 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4
 //   Student submits → status = "Pending"
 //   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CTU Danao Equipment Borrowing System — script.js
-// Two-step borrow flow:
-//   Student submits → status = "Pending"
-//   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
-// ─────────────────────────────────────────────────────────────────────────────
 let currentUser    = null;   // { id, name }
 let allBorrowers   = [];
 let html5QrScanner = null;
@@ -61,48 +54,29 @@ function showPage(pageId) {
 }
 
 // ── Load borrowers ────────────────────────────────────────────────────────────
-const BORROWERS_PER_PAGE = 10;
-let borrowerPage         = 0;
-let currentBorrowerList  = []; // the list currently being displayed (full or filtered)
-
 function loadBorrowers() {
   fetch(scriptURL + "?action=getUsers")
     .then(res => res.json())
     .then(users => {
-      allBorrowers        = users;
-      currentBorrowerList = users;
-      borrowerPage        = 0;
-      renderBorrowerCards();
+      allBorrowers = users;
+      renderBorrowerCards(users);
     })
     .catch(() => showNotification("Error loading users.", "error"));
 }
 
-function renderBorrowerCards() {
-  const container  = document.getElementById("usersContainer");
+function renderBorrowerCards(users) {
+  const container = document.getElementById("usersContainer");
   container.innerHTML = "";
-
-  const users = currentBorrowerList;
-
   if (!users || users.length === 0) {
     container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-icon">👤</div>
-        <p>No borrowers found.</p>
-        <small>Try a different search or ask an admin to register you.</small>
+        <p>No borrowers registered yet.</p>
+        <small>Ask an admin to register you.</small>
       </div>`;
     return;
   }
-
-  const totalPages = Math.ceil(users.length / BORROWERS_PER_PAGE);
-  // Clamp page in case filtered list is shorter
-  if (borrowerPage >= totalPages) borrowerPage = totalPages - 1;
-  if (borrowerPage < 0)           borrowerPage = 0;
-
-  const start    = borrowerPage * BORROWERS_PER_PAGE;
-  const pageUsers = users.slice(start, start + BORROWERS_PER_PAGE);
-
-  // Render cards for this page
-  pageUsers.forEach(user => {
+  users.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
     const card = document.createElement("div");
     card.className = "borrower-card";
@@ -117,44 +91,15 @@ function renderBorrowerCards() {
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);
   });
-
-  // Pagination bar — only show when more than one page
-  if (totalPages > 1) {
-    const nav = document.createElement("div");
-    nav.className = "borrower-pagination";
-    nav.innerHTML = `
-      <button class="borrower-page-btn" id="borrowerPrev" ${borrowerPage === 0 ? "disabled" : ""}>‹ Prev</button>
-      <span class="borrower-page-info">Page ${borrowerPage + 1} of ${totalPages} · ${users.length} users</span>
-      <button class="borrower-page-btn" id="borrowerNext" ${borrowerPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
-    container.appendChild(nav);
-
-    nav.querySelector("#borrowerPrev").addEventListener("click", () => {
-      if (borrowerPage > 0) {
-        borrowerPage--;
-        renderBorrowerCards();
-        // Scroll to top of the card grid
-        document.getElementById("usersContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    });
-    nav.querySelector("#borrowerNext").addEventListener("click", () => {
-      if (borrowerPage < totalPages - 1) {
-        borrowerPage++;
-        renderBorrowerCards();
-        document.getElementById("usersContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    });
-  }
 }
 
 // ── Borrower search ───────────────────────────────────────────────────────────
 document.getElementById("borrowerSearch").addEventListener("input", e => {
-  const q = e.target.value.toLowerCase();
-  currentBorrowerList = q
-    ? allBorrowers.filter(u =>
-        u.name.toLowerCase().includes(q) || String(u.id).includes(q))
-    : allBorrowers;
-  borrowerPage = 0; // always reset to page 1 on new search
-  renderBorrowerCards();
+  const q  = e.target.value.toLowerCase();
+  const filtered = allBorrowers.filter(u =>
+    u.name.toLowerCase().includes(q) || String(u.id).includes(q)
+  );
+  renderBorrowerCards(filtered);
 });
 
 // ── PIN modal ─────────────────────────────────────────────────────────────────
@@ -489,36 +434,97 @@ function showConfirmModal(icon, title, message, onConfirm) {
   };
 }
 
-// ── Stock panel ───────────────────────────────────────────────────────────────
+// ── Stock panel with pagination (5 items per page) ───────────────────────────
+let allStockItems  = [];
+let stockPage      = 1;
+const STOCK_PER_PAGE = 5;
+
+const STOCK_ICONS = {
+  "Projector": "📽️", "Laptop": "💻", "Camera": "📷",
+  "Multimeter": "📐", "Microscope": "🔬", "Tablet": "📱",
+  "Router": "📡", "Headset": "🎧", "Soldering Iron": "🛠️",
+  "Cable": "🔌", "Keyboard": "⌨️", "Mouse": "🖱️",
+  "Speaker": "🔊", "Monitor": "🖥️", "Printer": "🖨️",
+  "default": "📦"
+};
+
 function loadStockPanel() {
+  const list = document.getElementById("stockList");
+  list.innerHTML = `
+    <div class="skeleton-row"></div>
+    <div class="skeleton-row"></div>
+    <div class="skeleton-row"></div>`;
+
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      const list = document.getElementById("stockList");
-      list.innerHTML = "";
-      if (!items || items.length === 0) {
-        list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
-        return;
-      }
-      items.forEach(it => {
-        const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
-        const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
-        const div = document.createElement("div");
-        div.className = "stock-item";
-        div.innerHTML = `
-          <span class="stock-icon">📦</span>
-          <span class="stock-name">
-            ${it.name}
-            <small>${it.quantity} available</small>
-          </span>
-          <span class="stock-tag ${statusClass}">${label}</span>`;
-        list.appendChild(div);
-      });
+      allStockItems = items || [];
+      stockPage = 1;
+      renderStockPage();
     })
     .catch(() => {
       document.getElementById("stockList").innerHTML =
         `<div class="empty-state">Could not load stock info.</div>`;
     });
+}
+
+function renderStockPage() {
+  const list       = document.getElementById("stockList");
+  const pagination = document.getElementById("stockPagination");
+  const pageInfo   = document.getElementById("stockPageInfo");
+  const pageLabel  = document.getElementById("stockPageLabel");
+  const prevBtn    = document.getElementById("stockPrevBtn");
+  const nextBtn    = document.getElementById("stockNextBtn");
+
+  list.innerHTML = "";
+
+  if (!allStockItems || allStockItems.length === 0) {
+    list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
+    if (pagination) pagination.style.display = "none";
+    if (pageInfo)   pageInfo.style.display   = "none";
+    return;
+  }
+
+  const totalPages = Math.ceil(allStockItems.length / STOCK_PER_PAGE);
+  const start      = (stockPage - 1) * STOCK_PER_PAGE;
+  const pageItems  = allStockItems.slice(start, start + STOCK_PER_PAGE);
+
+  pageItems.forEach(it => {
+    const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
+    const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
+    const icon        = STOCK_ICONS[it.name] || STOCK_ICONS["default"];
+    const div = document.createElement("div");
+    div.className = "stock-item";
+    div.innerHTML = `
+      <span class="stock-icon">${icon}</span>
+      <span class="stock-name">
+        ${it.name}
+        <small>${it.quantity} available</small>
+      </span>
+      <span class="stock-tag ${statusClass}">${label}</span>`;
+    list.appendChild(div);
+  });
+
+  // Show/hide pagination
+  if (totalPages > 1) {
+    pagination.style.display = "flex";
+    pageInfo.style.display   = "flex";
+    pageLabel.textContent    = `Page ${stockPage} of ${totalPages}`;
+    pageInfo.textContent     = `${allStockItems.length} items total`;
+    prevBtn.disabled         = stockPage === 1;
+    nextBtn.disabled         = stockPage === totalPages;
+  } else {
+    pagination.style.display = "none";
+    pageInfo.style.display   = "none";
+  }
+}
+
+function changeStockPage(delta) {
+  const totalPages = Math.ceil(allStockItems.length / STOCK_PER_PAGE);
+  const newPage    = stockPage + delta;
+  if (newPage < 1 || newPage > totalPages) return;
+  stockPage = newPage;
+  renderStockPage();
 }
 
 // ── PWA install banner ────────────────────────────────────────────────────────
