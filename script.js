@@ -6,8 +6,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
 // Two-step borrow flow:
@@ -16,7 +14,8 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag
 // ─────────────────────────────────────────────────────────────────────────────
 let currentUser    = null;   // { id, name }
 let allBorrowers   = [];
-let html5QrScanner = null;
+let html5QrScanner = null;   // holds the Html5Qrcode instance
+let qrRunning      = false;  // tracks whether the scanner is actively running
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -121,19 +120,21 @@ function openPinModal(user) {
   setTimeout(() => document.getElementById("pinInput").focus(), 50);
 
   document.getElementById("pinSubmitBtn").onclick = () => verifyPin(user);
-  document.getElementById("pinCancelBtn").onclick = () => {
-    document.getElementById("pinModal").style.display = "none";
-  };
+  document.getElementById("pinCancelBtn").onclick = closePinModal;
   document.getElementById("pinInput").onkeydown = e => {
     if (e.key === "Enter") verifyPin(user);
   };
 }
 
+function closePinModal() {
+  document.getElementById("pinModal").style.display = "none";
+}
+
 function verifyPin(user) {
-  const entered = document.getElementById("pinInput").value.trim();
+  const entered  = document.getElementById("pinInput").value.trim();
   const expected = String(user.id).slice(-4);
   if (entered === expected) {
-    document.getElementById("pinModal").style.display = "none";
+    closePinModal();
     currentUser = user;
     showPage("userDashboardPage");
   } else {
@@ -144,6 +145,10 @@ function verifyPin(user) {
 }
 
 // ── QR scanner ────────────────────────────────────────────────────────────────
+// FIX: The previous version had a guard `if (html5QrScanner) return;` that
+// prevented restarting after a stop. Now we always fully tear down the old
+// instance before starting a new one, and we track running state separately.
+
 document.getElementById("qrScanBtn").addEventListener("click", () => {
   document.getElementById("qrScannerBox").style.display = "block";
   startQrScanner();
@@ -151,31 +156,123 @@ document.getElementById("qrScanBtn").addEventListener("click", () => {
 document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
 
 function startQrScanner() {
-  if (html5QrScanner) return;
-  html5QrScanner = new Html5Qrcode("qr-reader");
+  // Tear down any existing instance first
+  if (html5QrScanner) {
+    const old = html5QrScanner;
+    html5QrScanner = null;
+    qrRunning = false;
+    old.stop()
+      .catch(() => {})
+      .finally(() => {
+        old.clear().catch(() => {});
+        _doStartScanner();
+      });
+  } else {
+    _doStartScanner();
+  }
+}
+
+function _doStartScanner() {
+  // Make sure the reader div is visible and exists before instantiating
+  const readerEl = document.getElementById("qr-reader");
+  if (!readerEl) {
+    showNotification("QR reader element not found.", "error");
+    return;
+  }
+
+  // Clear any leftover HTML inside the reader div
+  readerEl.innerHTML = "";
+
+  try {
+    html5QrScanner = new Html5Qrcode("qr-reader");
+  } catch (e) {
+    showNotification("Could not initialise QR scanner.", "error");
+    console.error("QR init error:", e);
+    return;
+  }
+
+  const config = {
+    fps: 10,
+    qrbox: { width: 220, height: 220 },
+    aspectRatio: 1.0,
+    disableFlip: false,
+  };
+
   html5QrScanner.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: 220 },
-    qrCodeMessage => {
+    config,
+    (decodedText) => {
+      // Success callback — called once when a QR code is decoded
+      const scannedId = String(decodedText).trim();
       stopQrScanner();
-      const scannedId = qrCodeMessage.trim();
+
       const user = allBorrowers.find(u => String(u.id) === scannedId);
       if (user) {
+        showNotification(`Welcome, ${user.name}! 👋`, "success");
         currentUser = user;
         showPage("userDashboardPage");
       } else {
-        showNotification("QR code not found. Please register first.", "error");
+        showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
       }
+    },
+    () => {
+      // Error callback — called on each frame that has no QR code; safe to ignore
     }
-  ).catch(() => showNotification("Camera access denied.", "error"));
+  )
+  .then(() => {
+    qrRunning = true;
+  })
+  .catch(err => {
+    qrRunning = false;
+    html5QrScanner = null;
+    document.getElementById("qrScannerBox").style.display = "none";
+
+    let msg = "Camera access denied or unavailable.";
+    if (err && err.message) {
+      if (err.message.toLowerCase().includes("permission"))   msg = "Camera permission denied. Please allow camera access and try again.";
+      if (err.message.toLowerCase().includes("notfound"))     msg = "No camera found on this device.";
+      if (err.message.toLowerCase().includes("notreadable"))  msg = "Camera is in use by another app.";
+    }
+    showNotification(msg, "error");
+    console.error("QR scanner start error:", err);
+  });
 }
 
 function stopQrScanner() {
-  if (html5QrScanner) {
-    html5QrScanner.stop().catch(() => {});
-    html5QrScanner = null;
-  }
   document.getElementById("qrScannerBox").style.display = "none";
+
+  if (!html5QrScanner) return;
+
+  const scanner = html5QrScanner;
+  html5QrScanner = null;
+  qrRunning = false;
+
+  (qrRunning
+    ? scanner.stop()
+    : Promise.resolve()
+  )
+  .catch(() => {})
+  .finally(() => {
+    scanner.stop().catch(() => {}).finally(() => {
+      scanner.clear().catch(() => {});
+    });
+  });
+}
+
+// Simplified stop that always tries both stop + clear
+function stopQrScanner() {
+  document.getElementById("qrScannerBox").style.display = "none";
+  if (!html5QrScanner) return;
+
+  const scanner  = html5QrScanner;
+  html5QrScanner = null;
+  qrRunning      = false;
+
+  scanner.stop()
+    .catch(() => {})
+    .finally(() => {
+      scanner.clear().catch(() => {});
+    });
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -192,7 +289,6 @@ function loadUserDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Classify transactions
       const borrowed  = history.filter(tx => tx.status === "Borrowed");
       const pending   = history.filter(tx => tx.status === "Pending");
       const returned  = history.filter(tx => tx.status === "Returned");
@@ -221,7 +317,7 @@ function loadUserDashboard() {
       // Profile stats
       const totalBorrows = history.filter(tx => tx.status !== "Pending" && tx.status !== "Rejected").length;
       document.getElementById("profileTotal").textContent = totalBorrows;
-      const lateCount = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
+      const lateCount  = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
       const onTimeRate = totalBorrows > 0
         ? Math.round(((totalBorrows - lateCount) / totalBorrows) * 100) + "%"
         : "—";
@@ -285,22 +381,21 @@ function loadUserDashboard() {
 
 function getDueBadge(daysLeft) {
   if (daysLeft === null) return { badgeClass: "due-ok", badgeText: "—", barClass: "due-ok", barWidth: 50 };
-  if (daysLeft < 0)  return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
-  if (daysLeft === 0) return { badgeClass: "due-today",  badgeText: "Due today", barClass: "due-today", barWidth: 95 };
-  if (daysLeft <= 2)  return { badgeClass: "due-soon",   badgeText: `${daysLeft}d left`, barClass: "due-soon", barWidth: 70 };
+  if (daysLeft < 0)     return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
+  if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",               barClass: "due-today",   barWidth: 95 };
+  if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,        barClass: "due-soon",    barWidth: 70 };
   return { badgeClass: "due-ok", badgeText: `${daysLeft}d left`, barClass: "due-ok", barWidth: Math.min(60, daysLeft * 8) };
 }
 
 // ── Populate selects ──────────────────────────────────────────────────────────
 function populateBorrowSelect() {
   const today = new Date();
-  document.getElementById("borrowDate").value =
-    today.toISOString().split("T")[0];
+  document.getElementById("borrowDate").value = today.toISOString().split("T")[0];
 
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      const select = document.getElementById("borrowItem");
+      const select    = document.getElementById("borrowItem");
       select.innerHTML = "";
       const available = items.filter(it => it.quantity > 0);
       if (available.length === 0) {
@@ -319,17 +414,14 @@ function populateBorrowSelect() {
 
 function populateReturnSelect() {
   const today = new Date();
-  document.getElementById("returnDate").value =
-    today.toISOString().split("T")[0];
-
+  document.getElementById("returnDate").value = today.toISOString().split("T")[0];
   if (!currentUser) return;
 
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      // Only show actually borrowed items (not pending, not returned)
-      const borrowed = history.filter(tx => tx.status === "Borrowed");
-      const select   = document.getElementById("returnItem");
+      const borrowed  = history.filter(tx => tx.status === "Borrowed");
+      const select    = document.getElementById("returnItem");
       select.innerHTML = "";
       if (borrowed.length === 0) {
         select.innerHTML = `<option disabled selected>No items to return</option>`;
@@ -353,7 +445,6 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   const item       = document.getElementById("borrowItem").value;
   const borrowDate = document.getElementById("borrowDate").value;
 
-  // Due date = borrow date + 3 days
   const dueDateObj = new Date(borrowDate);
   dueDateObj.setDate(dueDateObj.getDate() + 3);
   const dueDate = dueDateObj.toISOString().split("T")[0];
@@ -370,8 +461,8 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
       fetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
-          action:     "requestBorrow",   // ← NEW action name (Pending)
-          studentId:  currentUser.id,
+          action:    "requestBorrow",
+          studentId: currentUser.id,
           item,
           borrowDate,
           dueDate
@@ -407,8 +498,8 @@ document.getElementById("returnForm").addEventListener("submit", e => {
       fetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
-          action:     "returnItem",
-          studentId:  currentUser.id,
+          action:    "returnItem",
+          studentId: currentUser.id,
           item,
           returnDate
         })
@@ -475,7 +566,6 @@ function renderStockPage() {
   const start      = stockPage * STOCK_PER_PAGE;
   const pageItems  = stockAllItems.slice(start, start + STOCK_PER_PAGE);
 
-  // Item rows
   const iconMap = {
     "Projector":"📽️","Laptop":"💻","Camera":"📷","Multimeter":"📐",
     "Microscope":"🔬","Tablet":"📱","Router":"📡","Headset":"🎧",
@@ -498,7 +588,6 @@ function renderStockPage() {
     list.appendChild(div);
   });
 
-  // Pagination controls — only show if more than one page
   if (totalPages > 1) {
     const nav = document.createElement("div");
     nav.className = "stock-pagination";
@@ -527,6 +616,7 @@ window.addEventListener("beforeinstallprompt", e => {
     banner.style.display = "flex";
   }
 });
+
 const installBtn = document.getElementById("installBtn");
 if (installBtn) {
   installBtn.addEventListener("click", () => {
@@ -534,6 +624,7 @@ if (installBtn) {
     document.getElementById("installBanner").style.display = "none";
   });
 }
+
 const installDismiss = document.getElementById("installDismiss");
 if (installDismiss) {
   installDismiss.addEventListener("click", () => {
