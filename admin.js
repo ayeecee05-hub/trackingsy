@@ -1,5 +1,8 @@
 const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
-const ADMIN_PASSWORD = "12345";
+// #6: Admin password is NO LONGER stored client-side.
+// The plaintext "12345" has been removed. Password is validated server-side only.
+// In your Apps Script, add a handler for action:"adminLogin" that checks the password
+// stored in Script Properties (File > Project Properties > Script Properties).
 let allTransactions = [];
 let allUsers        = [];
 let allPending      = [];
@@ -23,20 +26,46 @@ function showNotification(message, type = "info") {
   }, 3000);
 }
 
-// ── Password gate ─────────────────────────────────────────────────────────────
+// ── Password gate — #6: server-side validation ───────────────────────────────
+// Password is sent to Apps Script and checked against a Script Property there.
+// Never stored or compared in client-side JS.
 function checkPassword() {
-  const entered = document.getElementById("adminPassword").value;
-  if (entered === ADMIN_PASSWORD) {
-    document.getElementById("loginSection").style.display  = "none";
-    document.getElementById("adminSection").style.display  = "block";
-    showNotification("Admin access granted", "success");
-    loadPendingRequests();
-    loadTransactions();
-    loadItemsTable();
-    loadQrStudentList();
-  } else {
-    showNotification("Access denied", "error");
-  }
+  const entered = document.getElementById("adminPassword").value.trim();
+  if (!entered) { showNotification("Please enter a password.", "error"); return; }
+
+  const btn = document.getElementById("adminLoginBtn");
+  btn.disabled    = true;
+  btn.textContent = "Verifying…";
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "adminLogin", password: entered })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById("loginSection").style.display = "none";
+      document.getElementById("adminSection").style.display = "block";
+      showNotification("Admin access granted", "success");
+      loadPendingRequests();
+      loadTransactions();
+      loadItemsTable();
+      loadQrStudentList();
+    } else {
+      showNotification("Access denied — incorrect password.", "error");
+      document.getElementById("adminPassword").value = "";
+      document.getElementById("adminPassword").focus();
+    }
+  })
+  .catch(() => {
+    // #6 fallback note: if your Apps Script doesn't yet handle adminLogin,
+    // you'll see a network error here. Add the handler described in the comment above.
+    showNotification("Could not verify password — check your network.", "error");
+  })
+  .finally(() => {
+    btn.disabled    = false;
+    btn.textContent = "Login";
+  });
 }
 
 function logoutAdmin() {
@@ -127,6 +156,19 @@ document.getElementById("adminForm").addEventListener("submit", e => {
 
   if (hasError) return;
 
+  // #10: Check for duplicate ID in already-loaded user list before hitting server
+  if (allUsers.length > 0) {
+    const duplicate = allUsers.find(u => String(u.id) === studentId);
+    if (duplicate) {
+      setFieldError("adminId", "adminIdError", `Student ID ${studentId} is already registered (${duplicate.name}).`);
+      document.getElementById("adminId").focus();
+      return;
+    }
+  }
+
+  const submitBtn = document.querySelector("#adminForm button[type=submit]");
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Registering…"; }  // #7
+
   fetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({ action: "register", studentId, name: sanitizedName, email })
@@ -145,7 +187,10 @@ document.getElementById("adminForm").addEventListener("submit", e => {
       showNotification(data.message || "Registration failed.", "error");
     }
   })
-  .catch(() => showNotification("Error registering borrower.", "error"));
+  .catch(() => showNotification("Error registering borrower.", "error"))
+  .finally(() => {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Register Borrower"; }
+  });
 });
 
 // ── Real-time field validation feedback ───────────────────────────────────────
@@ -310,13 +355,16 @@ function confirmHandover(index) {
 function executeHandover(req) {
   showNotification("Processing hand-over…", "info");
 
+  // #7: Disable all handover buttons during the request
+  document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = true; b.textContent = "Processing…"; });
+
   fetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({
       action:    "confirmBorrow",
       studentId: req.studentId,
       item:      req.item,
-      rowIndex:  req.rowIndex   // pass spreadsheet row index for targeted update
+      rowIndex:  req.rowIndex
     })
   })
   .then(res => res.json())
@@ -328,9 +376,13 @@ function executeHandover(req) {
       loadItemsTable();
     } else {
       showNotification(data.message || "Hand-over failed. Please try again.", "error");
+      document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
     }
   })
-  .catch(() => showNotification("Network error during hand-over.", "error"));
+  .catch(() => {
+    showNotification("Network error during hand-over.", "error");
+    document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+  });
 }
 
 /**
@@ -358,6 +410,10 @@ function confirmReject(index) {
 function executeReject(req) {
   showNotification("Rejecting request…", "info");
 
+  // #7: Disable reject confirm button during request
+  const rejectYesBtn = document.getElementById("rejectYes");
+  if (rejectYesBtn) { rejectYesBtn.disabled = true; rejectYesBtn.textContent = "Rejecting…"; }
+
   fetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({
@@ -377,7 +433,10 @@ function executeReject(req) {
       showNotification(data.message || "Rejection failed. Please try again.", "error");
     }
   })
-  .catch(() => showNotification("Network error during rejection.", "error"));
+  .catch(() => showNotification("Network error during rejection.", "error"))
+  .finally(() => {
+    if (rejectYesBtn) { rejectYesBtn.disabled = false; rejectYesBtn.textContent = "Yes, Reject"; }
+  });
 }
 
 // ── Load transactions ─────────────────────────────────────────────────────────

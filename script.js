@@ -1,4 +1,3 @@
-
 const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
@@ -14,8 +13,58 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag
 // ─────────────────────────────────────────────────────────────────────────────
 let currentUser    = null;   // { id, name }
 let allBorrowers   = [];
-let html5QrScanner = null;   // holds the Html5Qrcode instance
-let qrRunning      = false;  // tracks whether the scanner is actively running
+let html5QrScanner = null;
+let qrRunning      = false;
+
+// ── #8: Borrower card pagination ─────────────────────────────────────────────
+const CARDS_PER_PAGE  = 12;
+let borrowerPage      = 0;
+let filteredBorrowers = [];
+
+// ── #1: Idle session timeout (5 min) ─────────────────────────────────────────
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+let idleTimer = null;
+
+function resetIdleTimer() {
+  if (!currentUser) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (!currentUser) return;
+    currentUser = null;
+    stopIdleTimer();
+    showNotification("Session timed out. Please log in again.", "info");
+    showPage("dashboardPage");
+  }, IDLE_TIMEOUT_MS);
+}
+
+function startIdleTimer() {
+  ["click","keydown","touchstart","mousemove"].forEach(evt =>
+    document.addEventListener(evt, resetIdleTimer, { passive: true })
+  );
+  resetIdleTimer();
+}
+
+function stopIdleTimer() {
+  clearTimeout(idleTimer);
+  idleTimer = null;
+}
+
+// ── #9: QR scanner auto-close (60 s) ─────────────────────────────────────────
+const QR_TIMEOUT_MS = 60 * 1000;
+let qrTimeoutHandle = null;
+
+function startQrTimeout() {
+  clearTimeout(qrTimeoutHandle);
+  qrTimeoutHandle = setTimeout(() => {
+    stopQrScanner();
+    showNotification("Scanner closed — no QR detected after 60 seconds.", "info");
+  }, QR_TIMEOUT_MS);
+}
+
+function clearQrTimeout() {
+  clearTimeout(qrTimeoutHandle);
+  qrTimeoutHandle = null;
+}
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -55,6 +104,10 @@ function showPage(pageId) {
     const el = document.getElementById(id);
     if (el) el.style.display = id === pageId ? "block" : "none";
   });
+  if (pageId === "dashboardPage") {
+    currentUser = null;      // #1 clear user when returning to dashboard
+    stopIdleTimer();
+  }
   if (pageId === "userDashboardPage") loadUserDashboard();
   if (pageId === "borrowPage")        populateBorrowSelect();
   if (pageId === "returnPage")        populateReturnSelect();
@@ -73,9 +126,17 @@ function loadBorrowers() {
 }
 
 function renderBorrowerCards(users) {
+  filteredBorrowers = users || [];
+  borrowerPage = 0;
+  renderBorrowerPage();
+}
+
+// #8: Paginated card rendering
+function renderBorrowerPage() {
   const container = document.getElementById("usersContainer");
   container.innerHTML = "";
-  if (!users || users.length === 0) {
+
+  if (!filteredBorrowers || filteredBorrowers.length === 0) {
     container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-icon">👤</div>
@@ -84,7 +145,15 @@ function renderBorrowerCards(users) {
       </div>`;
     return;
   }
-  users.forEach(user => {
+
+  const totalPages = Math.ceil(filteredBorrowers.length / CARDS_PER_PAGE);
+  const start      = borrowerPage * CARDS_PER_PAGE;
+  const pageUsers  = filteredBorrowers.slice(start, start + CARDS_PER_PAGE);
+
+  const grid = document.createElement("div");
+  grid.className = "borrower-card-grid";
+
+  pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
     const card = document.createElement("div");
     card.className = "borrower-card";
@@ -97,8 +166,27 @@ function renderBorrowerCards(users) {
       <p>${user.id}</p>`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
-    container.appendChild(card);
+    grid.appendChild(card);
   });
+
+  container.appendChild(grid);
+
+  if (totalPages > 1) {
+    const nav = document.createElement("div");
+    nav.className = "borrower-pagination";
+    nav.innerHTML = `
+      <button class="borrower-page-btn" id="bPrev" ${borrowerPage === 0 ? "disabled" : ""}>‹ Prev</button>
+      <span class="borrower-page-info">${borrowerPage + 1} / ${totalPages}</span>
+      <button class="borrower-page-btn" id="bNext" ${borrowerPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
+    container.appendChild(nav);
+
+    nav.querySelector("#bPrev").addEventListener("click", () => {
+      if (borrowerPage > 0) { borrowerPage--; renderBorrowerPage(); }
+    });
+    nav.querySelector("#bNext").addEventListener("click", () => {
+      if (borrowerPage < totalPages - 1) { borrowerPage++; renderBorrowerPage(); }
+    });
+  }
 }
 
 // ── Borrower search ───────────────────────────────────────────────────────────
@@ -136,6 +224,7 @@ function verifyPin(user) {
   if (entered === expected) {
     closePinModal();
     currentUser = user;
+    startIdleTimer();        // #1 start idle timeout on login
     showPage("userDashboardPage");
   } else {
     document.getElementById("pinError").style.display = "block";
@@ -145,14 +234,22 @@ function verifyPin(user) {
 }
 
 // ── QR scanner ────────────────────────────────────────────────────────────────
+// FIX: The previous version had a guard `if (html5QrScanner) return;` that
+// prevented restarting after a stop. Now we always fully tear down the old
+// instance before starting a new one, and we track running state separately.
+
 document.getElementById("qrScanBtn").addEventListener("click", () => {
   document.getElementById("qrScannerBox").style.display = "block";
   startQrScanner();
+  startQrTimeout();   // #9 auto-close after 60s
 });
-document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
+document.getElementById("qrCloseBtn").addEventListener("click", () => {
+  clearQrTimeout();   // #9
+  stopQrScanner();
+});
 
 function startQrScanner() {
-  // Tear down any existing instance before starting fresh
+  // Tear down any existing instance first
   if (html5QrScanner) {
     const old = html5QrScanner;
     html5QrScanner = null;
@@ -169,11 +266,14 @@ function startQrScanner() {
 }
 
 function _doStartScanner() {
+  // Make sure the reader div is visible and exists before instantiating
   const readerEl = document.getElementById("qr-reader");
   if (!readerEl) {
     showNotification("QR reader element not found.", "error");
     return;
   }
+
+  // Clear any leftover HTML inside the reader div
   readerEl.innerHTML = "";
 
   try {
@@ -184,62 +284,90 @@ function _doStartScanner() {
     return;
   }
 
-  const config = { fps: 10, qrbox: { width: 220, height: 220 }, disableFlip: false };
+  const config = {
+    fps: 10,
+    qrbox: { width: 220, height: 220 },
+    aspectRatio: 1.0,
+    disableFlip: false,
+  };
 
-  html5QrScanner
-    .start(
-      { facingMode: "environment" },
-      config,
-      (decodedText) => {
-        // Grab the scanner instance before stopQrScanner nulls it
-        const scannerToStop = html5QrScanner;
-        html5QrScanner = null;
-        qrRunning = false;
-        document.getElementById("qrScannerBox").style.display = "none";
+  html5QrScanner.start(
+    { facingMode: "environment" },
+    config,
+    (decodedText) => {
+      // Success callback — called once when a QR code is decoded
+      const scannedId = String(decodedText).trim();
+      clearQrTimeout();        // #9 cancel auto-close on success
+      stopQrScanner();
 
-        // Stop camera then process result
-        (scannerToStop
-          ? scannerToStop.stop().catch(() => {}).finally(() => scannerToStop.clear().catch(() => {}))
-          : Promise.resolve()
-        ).then(() => {
-          const scannedId = String(decodedText).trim();
-          const user = allBorrowers.find(u => String(u.id) === scannedId);
-          if (user) {
-            showNotification(`Welcome, ${user.name}! 👋`, "success");
-            currentUser = user;
-            showPage("userDashboardPage");
-          } else {
-            showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
-          }
-        });
-      },
-      () => { /* per-frame error — safe to ignore */ }
-    )
-    .then(() => { qrRunning = true; })
-    .catch(err => {
-      qrRunning = false;
-      html5QrScanner = null;
-      document.getElementById("qrScannerBox").style.display = "none";
-      let msg = "Camera access denied or unavailable.";
-      if (err && err.message) {
-        if (err.message.toLowerCase().includes("permission"))  msg = "Camera permission denied. Please allow camera access and try again.";
-        if (err.message.toLowerCase().includes("notfound"))    msg = "No camera found on this device.";
-        if (err.message.toLowerCase().includes("notreadable")) msg = "Camera is in use by another app.";
+      const user = allBorrowers.find(u => String(u.id) === scannedId);
+      if (user) {
+        showNotification(`Welcome, ${user.name}! 👋`, "success");
+        currentUser = user;
+        startIdleTimer();        // #1 start idle timer on QR login
+        showPage("userDashboardPage");
+      } else {
+        showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
       }
-      showNotification(msg, "error");
-      console.error("QR scanner start error:", err);
-    });
+    },
+    () => {
+      // Error callback — called on each frame that has no QR code; safe to ignore
+    }
+  )
+  .then(() => {
+    qrRunning = true;
+  })
+  .catch(err => {
+    qrRunning = false;
+    html5QrScanner = null;
+    document.getElementById("qrScannerBox").style.display = "none";
+
+    let msg = "Camera access denied or unavailable.";
+    if (err && err.message) {
+      if (err.message.toLowerCase().includes("permission"))   msg = "Camera permission denied. Please allow camera access and try again.";
+      if (err.message.toLowerCase().includes("notfound"))     msg = "No camera found on this device.";
+      if (err.message.toLowerCase().includes("notreadable"))  msg = "Camera is in use by another app.";
+    }
+    showNotification(msg, "error");
+    console.error("QR scanner start error:", err);
+  });
 }
 
 function stopQrScanner() {
   document.getElementById("qrScannerBox").style.display = "none";
+
   if (!html5QrScanner) return;
+
+  const scanner = html5QrScanner;
+  html5QrScanner = null;
+  qrRunning = false;
+
+  (qrRunning
+    ? scanner.stop()
+    : Promise.resolve()
+  )
+  .catch(() => {})
+  .finally(() => {
+    scanner.stop().catch(() => {}).finally(() => {
+      scanner.clear().catch(() => {});
+    });
+  });
+}
+
+// Simplified stop that always tries both stop + clear
+function stopQrScanner() {
+  document.getElementById("qrScannerBox").style.display = "none";
+  if (!html5QrScanner) return;
+
   const scanner  = html5QrScanner;
   html5QrScanner = null;
   qrRunning      = false;
+
   scanner.stop()
     .catch(() => {})
-    .finally(() => { scanner.clear().catch(() => {}); });
+    .finally(() => {
+      scanner.clear().catch(() => {});
+    });
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -416,37 +544,57 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   dueDateObj.setDate(dueDateObj.getDate() + 3);
   const dueDate = dueDateObj.toISOString().split("T")[0];
 
-  showConfirmModal(
-    "📋",
-    "Submit Borrow Request",
-    `Request <strong>${item}</strong>?<br>
-     <small style="color:var(--text-muted);">
-       Borrow date: ${borrowDate} · Due: ${dueDate}<br>
-       Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
-     </small>`,
-    () => {
-      fetch(scriptURL, {
-        method: "POST",
-        body: JSON.stringify({
-          action:    "requestBorrow",
-          studentId: currentUser.id,
-          item,
-          borrowDate,
-          dueDate
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          showNotification("Request submitted! Proceed to the admin for hand-over. ⏳", "success");
-          showPage("userDashboardPage");
-        } else {
-          showNotification(data.message || "Request failed.", "error");
+  // #2: Block if the student already has an active or pending borrow for this item
+  fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
+    .then(res => res.json())
+    .then(history => {
+      const hasDuplicate = history.some(tx =>
+        tx.item === item && (tx.status === "Pending" || tx.status === "Borrowed")
+      );
+      if (hasDuplicate) {
+        showNotification(`You already have an active or pending borrow for "${item}".`, "error");
+        return;
+      }
+      showConfirmModal(
+        "📋",
+        "Submit Borrow Request",
+        `Request <strong>${item}</strong>?<br>
+         <small style="color:var(--text-muted);">
+           Borrow date: ${borrowDate} · Due: ${dueDate}<br>
+           Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
+         </small>`,
+        () => {
+          const submitBtn = document.getElementById("borrowForm").querySelector("button[type=submit]");
+          // #7: disable button to prevent double-submit
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
+
+          fetch(scriptURL, {
+            method: "POST",
+            body: JSON.stringify({
+              action:    "requestBorrow",
+              studentId: currentUser.id,
+              item,
+              borrowDate,
+              dueDate
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              showNotification("Request submitted! Proceed to the admin for hand-over. ⏳", "success");
+              showPage("userDashboardPage");
+            } else {
+              showNotification(data.message || "Request failed.", "error");
+            }
+          })
+          .catch(() => showNotification("Network error. Please try again.", "error"))
+          .finally(() => {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Request"; }
+          });
         }
-      })
-      .catch(() => showNotification("Network error. Please try again.", "error"));
-    }
-  );
+      );
+    })
+    .catch(() => showNotification("Could not verify existing borrows. Please try again.", "error"));
 });
 
 // ── Return form ───────────────────────────────────────────────────────────────
@@ -462,6 +610,10 @@ document.getElementById("returnForm").addEventListener("submit", e => {
     "Confirm Return",
     `Return <strong>${item}</strong> on <strong>${returnDate}</strong>?`,
     () => {
+      const returnBtn = document.getElementById("returnForm").querySelector("button[type=submit]");
+      // #7: disable button to prevent double-submit
+      if (returnBtn) { returnBtn.disabled = true; returnBtn.textContent = "Returning…"; }
+
       fetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
@@ -480,7 +632,10 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           showNotification(data.message || "Return failed.", "error");
         }
       })
-      .catch(() => showNotification("Network error. Please try again.", "error"));
+      .catch(() => showNotification("Network error. Please try again.", "error"))
+      .finally(() => {
+        if (returnBtn) { returnBtn.disabled = false; returnBtn.textContent = "Confirm Return"; }
+      });
     }
   );
 });
@@ -507,17 +662,29 @@ let stockAllItems  = [];
 let stockPage      = 0;
 
 function loadStockPanel() {
-  fetch(scriptURL + "?action=getItems")
-    .then(res => res.json())
-    .then(items => {
-      stockAllItems = items || [];
-      stockPage     = 0;
-      renderStockPage();
-    })
-    .catch(() => {
-      document.getElementById("stockList").innerHTML =
-        `<div class="empty-state">Could not load stock info.</div>`;
+  // #5: Fetch both items and pending requests to show accurate availability
+  Promise.all([
+    fetch(scriptURL + "?action=getItems").then(r => r.json()),
+    fetch(scriptURL + "?action=getPendingRequests").then(r => r.json()).catch(() => [])
+  ])
+  .then(([items, pending]) => {
+    // Build a map of item -> pending count
+    const pendingMap = {};
+    (Array.isArray(pending) ? pending : []).forEach(req => {
+      pendingMap[req.item] = (pendingMap[req.item] || 0) + 1;
     });
+    // Attach pendingCount to each item
+    stockAllItems = (items || []).map(it => ({
+      ...it,
+      pendingCount: pendingMap[it.name] || 0
+    }));
+    stockPage = 0;
+    renderStockPage();
+  })
+  .catch(() => {
+    document.getElementById("stockList").innerHTML =
+      `<div class="empty-state">Could not load stock info.</div>`;
+  });
 }
 
 function renderStockPage() {
@@ -545,11 +712,14 @@ function renderStockPage() {
     const icon        = iconMap[it.name] || "📦";
     const div         = document.createElement("div");
     div.className     = "stock-item";
+    const pendingNote = it.pendingCount > 0
+      ? `<small class="stock-pending-note">· ${it.pendingCount} pending</small>`
+      : "";
     div.innerHTML     = `
       <span class="stock-icon">${icon}</span>
       <span class="stock-name">
         ${it.name}
-        <small>${it.quantity} available</small>
+        <small>${it.quantity} available ${pendingNote}</small>
       </span>
       <span class="stock-tag ${statusClass}">${label}</span>`;
     list.appendChild(div);
