@@ -1,11 +1,11 @@
+
+const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
 // Two-step borrow flow:
 //   Student submits → status = "Pending"
 //   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
 // ─────────────────────────────────────────────────────────────────────────────
-
-const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
 // Two-step borrow flow:
@@ -145,10 +145,6 @@ function verifyPin(user) {
 }
 
 // ── QR scanner ────────────────────────────────────────────────────────────────
-// FIX: The previous version had a guard `if (html5QrScanner) return;` that
-// prevented restarting after a stop. Now we always fully tear down the old
-// instance before starting a new one, and we track running state separately.
-
 document.getElementById("qrScanBtn").addEventListener("click", () => {
   document.getElementById("qrScannerBox").style.display = "block";
   startQrScanner();
@@ -156,7 +152,7 @@ document.getElementById("qrScanBtn").addEventListener("click", () => {
 document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
 
 function startQrScanner() {
-  // Tear down any existing instance first
+  // Tear down any existing instance before starting fresh
   if (html5QrScanner) {
     const old = html5QrScanner;
     html5QrScanner = null;
@@ -173,14 +169,11 @@ function startQrScanner() {
 }
 
 function _doStartScanner() {
-  // Make sure the reader div is visible and exists before instantiating
   const readerEl = document.getElementById("qr-reader");
   if (!readerEl) {
     showNotification("QR reader element not found.", "error");
     return;
   }
-
-  // Clear any leftover HTML inside the reader div
   readerEl.innerHTML = "";
 
   try {
@@ -191,88 +184,62 @@ function _doStartScanner() {
     return;
   }
 
-  const config = {
-    fps: 10,
-    qrbox: { width: 220, height: 220 },
-    aspectRatio: 1.0,
-    disableFlip: false,
-  };
+  const config = { fps: 10, qrbox: { width: 220, height: 220 }, disableFlip: false };
 
-  html5QrScanner.start(
-    { facingMode: "environment" },
-    config,
-    (decodedText) => {
-      // Success callback — called once when a QR code is decoded
-      const scannedId = String(decodedText).trim();
-      stopQrScanner();
+  html5QrScanner
+    .start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => {
+        // Grab the scanner instance before stopQrScanner nulls it
+        const scannerToStop = html5QrScanner;
+        html5QrScanner = null;
+        qrRunning = false;
+        document.getElementById("qrScannerBox").style.display = "none";
 
-      const user = allBorrowers.find(u => String(u.id) === scannedId);
-      if (user) {
-        showNotification(`Welcome, ${user.name}! 👋`, "success");
-        currentUser = user;
-        showPage("userDashboardPage");
-      } else {
-        showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
+        // Stop camera then process result
+        (scannerToStop
+          ? scannerToStop.stop().catch(() => {}).finally(() => scannerToStop.clear().catch(() => {}))
+          : Promise.resolve()
+        ).then(() => {
+          const scannedId = String(decodedText).trim();
+          const user = allBorrowers.find(u => String(u.id) === scannedId);
+          if (user) {
+            showNotification(`Welcome, ${user.name}! 👋`, "success");
+            currentUser = user;
+            showPage("userDashboardPage");
+          } else {
+            showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
+          }
+        });
+      },
+      () => { /* per-frame error — safe to ignore */ }
+    )
+    .then(() => { qrRunning = true; })
+    .catch(err => {
+      qrRunning = false;
+      html5QrScanner = null;
+      document.getElementById("qrScannerBox").style.display = "none";
+      let msg = "Camera access denied or unavailable.";
+      if (err && err.message) {
+        if (err.message.toLowerCase().includes("permission"))  msg = "Camera permission denied. Please allow camera access and try again.";
+        if (err.message.toLowerCase().includes("notfound"))    msg = "No camera found on this device.";
+        if (err.message.toLowerCase().includes("notreadable")) msg = "Camera is in use by another app.";
       }
-    },
-    () => {
-      // Error callback — called on each frame that has no QR code; safe to ignore
-    }
-  )
-  .then(() => {
-    qrRunning = true;
-  })
-  .catch(err => {
-    qrRunning = false;
-    html5QrScanner = null;
-    document.getElementById("qrScannerBox").style.display = "none";
-
-    let msg = "Camera access denied or unavailable.";
-    if (err && err.message) {
-      if (err.message.toLowerCase().includes("permission"))   msg = "Camera permission denied. Please allow camera access and try again.";
-      if (err.message.toLowerCase().includes("notfound"))     msg = "No camera found on this device.";
-      if (err.message.toLowerCase().includes("notreadable"))  msg = "Camera is in use by another app.";
-    }
-    showNotification(msg, "error");
-    console.error("QR scanner start error:", err);
-  });
-}
-
-function stopQrScanner() {
-  document.getElementById("qrScannerBox").style.display = "none";
-
-  if (!html5QrScanner) return;
-
-  const scanner = html5QrScanner;
-  html5QrScanner = null;
-  qrRunning = false;
-
-  (qrRunning
-    ? scanner.stop()
-    : Promise.resolve()
-  )
-  .catch(() => {})
-  .finally(() => {
-    scanner.stop().catch(() => {}).finally(() => {
-      scanner.clear().catch(() => {});
+      showNotification(msg, "error");
+      console.error("QR scanner start error:", err);
     });
-  });
 }
 
-// Simplified stop that always tries both stop + clear
 function stopQrScanner() {
   document.getElementById("qrScannerBox").style.display = "none";
   if (!html5QrScanner) return;
-
   const scanner  = html5QrScanner;
   html5QrScanner = null;
   qrRunning      = false;
-
   scanner.stop()
     .catch(() => {})
-    .finally(() => {
-      scanner.clear().catch(() => {});
-    });
+    .finally(() => { scanner.clear().catch(() => {}); });
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
