@@ -5,6 +5,7 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4
 //   Student submits → status = "Pending"
 //   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
 // ─────────────────────────────────────────────────────────────────────────────
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Equipment Borrowing System — script.js
 // Two-step borrow flow:
@@ -14,57 +15,6 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4
 let currentUser    = null;   // { id, name }
 let allBorrowers   = [];
 let html5QrScanner = null;
-let qrRunning      = false;
-
-// ── #8: Borrower card pagination ─────────────────────────────────────────────
-const CARDS_PER_PAGE  = 12;
-let borrowerPage      = 0;
-let filteredBorrowers = [];
-
-// ── #1: Idle session timeout (5 min) ─────────────────────────────────────────
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-let idleTimer = null;
-
-function resetIdleTimer() {
-  if (!currentUser) return;
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    if (!currentUser) return;
-    currentUser = null;
-    stopIdleTimer();
-    showNotification("Session timed out. Please log in again.", "info");
-    showPage("dashboardPage");
-  }, IDLE_TIMEOUT_MS);
-}
-
-function startIdleTimer() {
-  ["click","keydown","touchstart","mousemove"].forEach(evt =>
-    document.addEventListener(evt, resetIdleTimer, { passive: true })
-  );
-  resetIdleTimer();
-}
-
-function stopIdleTimer() {
-  clearTimeout(idleTimer);
-  idleTimer = null;
-}
-
-// ── #9: QR scanner auto-close (60 s) ─────────────────────────────────────────
-const QR_TIMEOUT_MS = 60 * 1000;
-let qrTimeoutHandle = null;
-
-function startQrTimeout() {
-  clearTimeout(qrTimeoutHandle);
-  qrTimeoutHandle = setTimeout(() => {
-    stopQrScanner();
-    showNotification("Scanner closed — no QR detected after 60 seconds.", "info");
-  }, QR_TIMEOUT_MS);
-}
-
-function clearQrTimeout() {
-  clearTimeout(qrTimeoutHandle);
-  qrTimeoutHandle = null;
-}
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -104,10 +54,6 @@ function showPage(pageId) {
     const el = document.getElementById(id);
     if (el) el.style.display = id === pageId ? "block" : "none";
   });
-  if (pageId === "dashboardPage") {
-    currentUser = null;      // #1 clear user when returning to dashboard
-    stopIdleTimer();
-  }
   if (pageId === "userDashboardPage") loadUserDashboard();
   if (pageId === "borrowPage")        populateBorrowSelect();
   if (pageId === "returnPage")        populateReturnSelect();
@@ -115,44 +61,47 @@ function showPage(pageId) {
 }
 
 // ── Load borrowers ────────────────────────────────────────────────────────────
+const BORROWERS_PER_PAGE = 10;
+let borrowerPage         = 0;
+let currentBorrowerList  = []; // the list currently being displayed (full or filtered)
+
 function loadBorrowers() {
   fetch(scriptURL + "?action=getUsers")
     .then(res => res.json())
     .then(users => {
-      allBorrowers = users;
-      renderBorrowerCards(users);
+      allBorrowers        = users;
+      currentBorrowerList = users;
+      borrowerPage        = 0;
+      renderBorrowerCards();
     })
     .catch(() => showNotification("Error loading users.", "error"));
 }
 
-function renderBorrowerCards(users) {
-  filteredBorrowers = users || [];
-  borrowerPage = 0;
-  renderBorrowerPage();
-}
-
-// #8: Paginated card rendering
-function renderBorrowerPage() {
-  const container = document.getElementById("usersContainer");
+function renderBorrowerCards() {
+  const container  = document.getElementById("usersContainer");
   container.innerHTML = "";
 
-  if (!filteredBorrowers || filteredBorrowers.length === 0) {
+  const users = currentBorrowerList;
+
+  if (!users || users.length === 0) {
     container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-icon">👤</div>
-        <p>No borrowers registered yet.</p>
-        <small>Ask an admin to register you.</small>
+        <p>No borrowers found.</p>
+        <small>Try a different search or ask an admin to register you.</small>
       </div>`;
     return;
   }
 
-  const totalPages = Math.ceil(filteredBorrowers.length / CARDS_PER_PAGE);
-  const start      = borrowerPage * CARDS_PER_PAGE;
-  const pageUsers  = filteredBorrowers.slice(start, start + CARDS_PER_PAGE);
+  const totalPages = Math.ceil(users.length / BORROWERS_PER_PAGE);
+  // Clamp page in case filtered list is shorter
+  if (borrowerPage >= totalPages) borrowerPage = totalPages - 1;
+  if (borrowerPage < 0)           borrowerPage = 0;
 
-  const grid = document.createElement("div");
-  grid.className = "borrower-card-grid";
+  const start    = borrowerPage * BORROWERS_PER_PAGE;
+  const pageUsers = users.slice(start, start + BORROWERS_PER_PAGE);
 
+  // Render cards for this page
   pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
     const card = document.createElement("div");
@@ -166,36 +115,46 @@ function renderBorrowerPage() {
       <p>${user.id}</p>`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
-    grid.appendChild(card);
+    container.appendChild(card);
   });
 
-  container.appendChild(grid);
-
+  // Pagination bar — only show when more than one page
   if (totalPages > 1) {
     const nav = document.createElement("div");
     nav.className = "borrower-pagination";
     nav.innerHTML = `
-      <button class="borrower-page-btn" id="bPrev" ${borrowerPage === 0 ? "disabled" : ""}>‹ Prev</button>
-      <span class="borrower-page-info">${borrowerPage + 1} / ${totalPages}</span>
-      <button class="borrower-page-btn" id="bNext" ${borrowerPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
+      <button class="borrower-page-btn" id="borrowerPrev" ${borrowerPage === 0 ? "disabled" : ""}>‹ Prev</button>
+      <span class="borrower-page-info">Page ${borrowerPage + 1} of ${totalPages} · ${users.length} users</span>
+      <button class="borrower-page-btn" id="borrowerNext" ${borrowerPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
     container.appendChild(nav);
 
-    nav.querySelector("#bPrev").addEventListener("click", () => {
-      if (borrowerPage > 0) { borrowerPage--; renderBorrowerPage(); }
+    nav.querySelector("#borrowerPrev").addEventListener("click", () => {
+      if (borrowerPage > 0) {
+        borrowerPage--;
+        renderBorrowerCards();
+        // Scroll to top of the card grid
+        document.getElementById("usersContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     });
-    nav.querySelector("#bNext").addEventListener("click", () => {
-      if (borrowerPage < totalPages - 1) { borrowerPage++; renderBorrowerPage(); }
+    nav.querySelector("#borrowerNext").addEventListener("click", () => {
+      if (borrowerPage < totalPages - 1) {
+        borrowerPage++;
+        renderBorrowerCards();
+        document.getElementById("usersContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     });
   }
 }
 
 // ── Borrower search ───────────────────────────────────────────────────────────
 document.getElementById("borrowerSearch").addEventListener("input", e => {
-  const q  = e.target.value.toLowerCase();
-  const filtered = allBorrowers.filter(u =>
-    u.name.toLowerCase().includes(q) || String(u.id).includes(q)
-  );
-  renderBorrowerCards(filtered);
+  const q = e.target.value.toLowerCase();
+  currentBorrowerList = q
+    ? allBorrowers.filter(u =>
+        u.name.toLowerCase().includes(q) || String(u.id).includes(q))
+    : allBorrowers;
+  borrowerPage = 0; // always reset to page 1 on new search
+  renderBorrowerCards();
 });
 
 // ── PIN modal ─────────────────────────────────────────────────────────────────
@@ -208,23 +167,20 @@ function openPinModal(user) {
   setTimeout(() => document.getElementById("pinInput").focus(), 50);
 
   document.getElementById("pinSubmitBtn").onclick = () => verifyPin(user);
-  document.getElementById("pinCancelBtn").onclick = closePinModal;
+  document.getElementById("pinCancelBtn").onclick = () => {
+    document.getElementById("pinModal").style.display = "none";
+  };
   document.getElementById("pinInput").onkeydown = e => {
     if (e.key === "Enter") verifyPin(user);
   };
 }
 
-function closePinModal() {
-  document.getElementById("pinModal").style.display = "none";
-}
-
 function verifyPin(user) {
-  const entered  = document.getElementById("pinInput").value.trim();
+  const entered = document.getElementById("pinInput").value.trim();
   const expected = String(user.id).slice(-4);
   if (entered === expected) {
-    closePinModal();
+    document.getElementById("pinModal").style.display = "none";
     currentUser = user;
-    startIdleTimer();        // #1 start idle timeout on login
     showPage("userDashboardPage");
   } else {
     document.getElementById("pinError").style.display = "block";
@@ -234,140 +190,38 @@ function verifyPin(user) {
 }
 
 // ── QR scanner ────────────────────────────────────────────────────────────────
-// FIX: The previous version had a guard `if (html5QrScanner) return;` that
-// prevented restarting after a stop. Now we always fully tear down the old
-// instance before starting a new one, and we track running state separately.
-
 document.getElementById("qrScanBtn").addEventListener("click", () => {
   document.getElementById("qrScannerBox").style.display = "block";
   startQrScanner();
-  startQrTimeout();   // #9 auto-close after 60s
 });
-document.getElementById("qrCloseBtn").addEventListener("click", () => {
-  clearQrTimeout();   // #9
-  stopQrScanner();
-});
+document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
 
 function startQrScanner() {
-  // Tear down any existing instance first
-  if (html5QrScanner) {
-    const old = html5QrScanner;
-    html5QrScanner = null;
-    qrRunning = false;
-    old.stop()
-      .catch(() => {})
-      .finally(() => {
-        old.clear().catch(() => {});
-        _doStartScanner();
-      });
-  } else {
-    _doStartScanner();
-  }
-}
-
-function _doStartScanner() {
-  // Make sure the reader div is visible and exists before instantiating
-  const readerEl = document.getElementById("qr-reader");
-  if (!readerEl) {
-    showNotification("QR reader element not found.", "error");
-    return;
-  }
-
-  // Clear any leftover HTML inside the reader div
-  readerEl.innerHTML = "";
-
-  try {
-    html5QrScanner = new Html5Qrcode("qr-reader");
-  } catch (e) {
-    showNotification("Could not initialise QR scanner.", "error");
-    console.error("QR init error:", e);
-    return;
-  }
-
-  const config = {
-    fps: 10,
-    qrbox: { width: 220, height: 220 },
-    aspectRatio: 1.0,
-    disableFlip: false,
-  };
-
+  if (html5QrScanner) return;
+  html5QrScanner = new Html5Qrcode("qr-reader");
   html5QrScanner.start(
     { facingMode: "environment" },
-    config,
-    (decodedText) => {
-      // Success callback — called once when a QR code is decoded
-      const scannedId = String(decodedText).trim();
-      clearQrTimeout();        // #9 cancel auto-close on success
+    { fps: 10, qrbox: 220 },
+    qrCodeMessage => {
       stopQrScanner();
-
+      const scannedId = qrCodeMessage.trim();
       const user = allBorrowers.find(u => String(u.id) === scannedId);
       if (user) {
-        showNotification(`Welcome, ${user.name}! 👋`, "success");
         currentUser = user;
-        startIdleTimer();        // #1 start idle timer on QR login
         showPage("userDashboardPage");
       } else {
-        showNotification(`ID "${scannedId}" is not registered. Please ask an admin.`, "error");
+        showNotification("QR code not found. Please register first.", "error");
       }
-    },
-    () => {
-      // Error callback — called on each frame that has no QR code; safe to ignore
     }
-  )
-  .then(() => {
-    qrRunning = true;
-  })
-  .catch(err => {
-    qrRunning = false;
+  ).catch(() => showNotification("Camera access denied.", "error"));
+}
+
+function stopQrScanner() {
+  if (html5QrScanner) {
+    html5QrScanner.stop().catch(() => {});
     html5QrScanner = null;
-    document.getElementById("qrScannerBox").style.display = "none";
-
-    let msg = "Camera access denied or unavailable.";
-    if (err && err.message) {
-      if (err.message.toLowerCase().includes("permission"))   msg = "Camera permission denied. Please allow camera access and try again.";
-      if (err.message.toLowerCase().includes("notfound"))     msg = "No camera found on this device.";
-      if (err.message.toLowerCase().includes("notreadable"))  msg = "Camera is in use by another app.";
-    }
-    showNotification(msg, "error");
-    console.error("QR scanner start error:", err);
-  });
-}
-
-function stopQrScanner() {
+  }
   document.getElementById("qrScannerBox").style.display = "none";
-
-  if (!html5QrScanner) return;
-
-  const scanner = html5QrScanner;
-  html5QrScanner = null;
-  qrRunning = false;
-
-  (qrRunning
-    ? scanner.stop()
-    : Promise.resolve()
-  )
-  .catch(() => {})
-  .finally(() => {
-    scanner.stop().catch(() => {}).finally(() => {
-      scanner.clear().catch(() => {});
-    });
-  });
-}
-
-// Simplified stop that always tries both stop + clear
-function stopQrScanner() {
-  document.getElementById("qrScannerBox").style.display = "none";
-  if (!html5QrScanner) return;
-
-  const scanner  = html5QrScanner;
-  html5QrScanner = null;
-  qrRunning      = false;
-
-  scanner.stop()
-    .catch(() => {})
-    .finally(() => {
-      scanner.clear().catch(() => {});
-    });
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -384,6 +238,7 @@ function loadUserDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Classify transactions
       const borrowed  = history.filter(tx => tx.status === "Borrowed");
       const pending   = history.filter(tx => tx.status === "Pending");
       const returned  = history.filter(tx => tx.status === "Returned");
@@ -412,7 +267,7 @@ function loadUserDashboard() {
       // Profile stats
       const totalBorrows = history.filter(tx => tx.status !== "Pending" && tx.status !== "Rejected").length;
       document.getElementById("profileTotal").textContent = totalBorrows;
-      const lateCount  = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
+      const lateCount = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
       const onTimeRate = totalBorrows > 0
         ? Math.round(((totalBorrows - lateCount) / totalBorrows) * 100) + "%"
         : "—";
@@ -476,21 +331,22 @@ function loadUserDashboard() {
 
 function getDueBadge(daysLeft) {
   if (daysLeft === null) return { badgeClass: "due-ok", badgeText: "—", barClass: "due-ok", barWidth: 50 };
-  if (daysLeft < 0)     return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
-  if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",               barClass: "due-today",   barWidth: 95 };
-  if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,        barClass: "due-soon",    barWidth: 70 };
+  if (daysLeft < 0)  return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
+  if (daysLeft === 0) return { badgeClass: "due-today",  badgeText: "Due today", barClass: "due-today", barWidth: 95 };
+  if (daysLeft <= 2)  return { badgeClass: "due-soon",   badgeText: `${daysLeft}d left`, barClass: "due-soon", barWidth: 70 };
   return { badgeClass: "due-ok", badgeText: `${daysLeft}d left`, barClass: "due-ok", barWidth: Math.min(60, daysLeft * 8) };
 }
 
 // ── Populate selects ──────────────────────────────────────────────────────────
 function populateBorrowSelect() {
   const today = new Date();
-  document.getElementById("borrowDate").value = today.toISOString().split("T")[0];
+  document.getElementById("borrowDate").value =
+    today.toISOString().split("T")[0];
 
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      const select    = document.getElementById("borrowItem");
+      const select = document.getElementById("borrowItem");
       select.innerHTML = "";
       const available = items.filter(it => it.quantity > 0);
       if (available.length === 0) {
@@ -509,14 +365,17 @@ function populateBorrowSelect() {
 
 function populateReturnSelect() {
   const today = new Date();
-  document.getElementById("returnDate").value = today.toISOString().split("T")[0];
+  document.getElementById("returnDate").value =
+    today.toISOString().split("T")[0];
+
   if (!currentUser) return;
 
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      const borrowed  = history.filter(tx => tx.status === "Borrowed");
-      const select    = document.getElementById("returnItem");
+      // Only show actually borrowed items (not pending, not returned)
+      const borrowed = history.filter(tx => tx.status === "Borrowed");
+      const select   = document.getElementById("returnItem");
       select.innerHTML = "";
       if (borrowed.length === 0) {
         select.innerHTML = `<option disabled selected>No items to return</option>`;
@@ -540,61 +399,42 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   const item       = document.getElementById("borrowItem").value;
   const borrowDate = document.getElementById("borrowDate").value;
 
+  // Due date = borrow date + 3 days
   const dueDateObj = new Date(borrowDate);
   dueDateObj.setDate(dueDateObj.getDate() + 3);
   const dueDate = dueDateObj.toISOString().split("T")[0];
 
-  // #2: Block if the student already has an active or pending borrow for this item
-  fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
-    .then(res => res.json())
-    .then(history => {
-      const hasDuplicate = history.some(tx =>
-        tx.item === item && (tx.status === "Pending" || tx.status === "Borrowed")
-      );
-      if (hasDuplicate) {
-        showNotification(`You already have an active or pending borrow for "${item}".`, "error");
-        return;
-      }
-      showConfirmModal(
-        "📋",
-        "Submit Borrow Request",
-        `Request <strong>${item}</strong>?<br>
-         <small style="color:var(--text-muted);">
-           Borrow date: ${borrowDate} · Due: ${dueDate}<br>
-           Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
-         </small>`,
-        () => {
-          const submitBtn = document.getElementById("borrowForm").querySelector("button[type=submit]");
-          // #7: disable button to prevent double-submit
-          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
-
-          fetch(scriptURL, {
-            method: "POST",
-            body: JSON.stringify({
-              action:    "requestBorrow",
-              studentId: currentUser.id,
-              item,
-              borrowDate,
-              dueDate
-            })
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              showNotification("Request submitted! Proceed to the admin for hand-over. ⏳", "success");
-              showPage("userDashboardPage");
-            } else {
-              showNotification(data.message || "Request failed.", "error");
-            }
-          })
-          .catch(() => showNotification("Network error. Please try again.", "error"))
-          .finally(() => {
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Request"; }
-          });
+  showConfirmModal(
+    "📋",
+    "Submit Borrow Request",
+    `Request <strong>${item}</strong>?<br>
+     <small style="color:var(--text-muted);">
+       Borrow date: ${borrowDate} · Due: ${dueDate}<br>
+       Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
+     </small>`,
+    () => {
+      fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({
+          action:     "requestBorrow",   // ← NEW action name (Pending)
+          studentId:  currentUser.id,
+          item,
+          borrowDate,
+          dueDate
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showNotification("Request submitted! Proceed to the admin for hand-over. ⏳", "success");
+          showPage("userDashboardPage");
+        } else {
+          showNotification(data.message || "Request failed.", "error");
         }
-      );
-    })
-    .catch(() => showNotification("Could not verify existing borrows. Please try again.", "error"));
+      })
+      .catch(() => showNotification("Network error. Please try again.", "error"));
+    }
+  );
 });
 
 // ── Return form ───────────────────────────────────────────────────────────────
@@ -610,15 +450,11 @@ document.getElementById("returnForm").addEventListener("submit", e => {
     "Confirm Return",
     `Return <strong>${item}</strong> on <strong>${returnDate}</strong>?`,
     () => {
-      const returnBtn = document.getElementById("returnForm").querySelector("button[type=submit]");
-      // #7: disable button to prevent double-submit
-      if (returnBtn) { returnBtn.disabled = true; returnBtn.textContent = "Returning…"; }
-
       fetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
-          action:    "returnItem",
-          studentId: currentUser.id,
+          action:     "returnItem",
+          studentId:  currentUser.id,
           item,
           returnDate
         })
@@ -632,10 +468,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           showNotification(data.message || "Return failed.", "error");
         }
       })
-      .catch(() => showNotification("Network error. Please try again.", "error"))
-      .finally(() => {
-        if (returnBtn) { returnBtn.disabled = false; returnBtn.textContent = "Confirm Return"; }
-      });
+      .catch(() => showNotification("Network error. Please try again.", "error"));
     }
   );
 });
@@ -656,91 +489,36 @@ function showConfirmModal(icon, title, message, onConfirm) {
   };
 }
 
-// ── Stock panel with pagination ───────────────────────────────────────────────
-const STOCK_PER_PAGE = 4;
-let stockAllItems  = [];
-let stockPage      = 0;
-
+// ── Stock panel ───────────────────────────────────────────────────────────────
 function loadStockPanel() {
-  // #5: Fetch both items and pending requests to show accurate availability
-  Promise.all([
-    fetch(scriptURL + "?action=getItems").then(r => r.json()),
-    fetch(scriptURL + "?action=getPendingRequests").then(r => r.json()).catch(() => [])
-  ])
-  .then(([items, pending]) => {
-    // Build a map of item -> pending count
-    const pendingMap = {};
-    (Array.isArray(pending) ? pending : []).forEach(req => {
-      pendingMap[req.item] = (pendingMap[req.item] || 0) + 1;
+  fetch(scriptURL + "?action=getItems")
+    .then(res => res.json())
+    .then(items => {
+      const list = document.getElementById("stockList");
+      list.innerHTML = "";
+      if (!items || items.length === 0) {
+        list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
+        return;
+      }
+      items.forEach(it => {
+        const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
+        const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
+        const div = document.createElement("div");
+        div.className = "stock-item";
+        div.innerHTML = `
+          <span class="stock-icon">📦</span>
+          <span class="stock-name">
+            ${it.name}
+            <small>${it.quantity} available</small>
+          </span>
+          <span class="stock-tag ${statusClass}">${label}</span>`;
+        list.appendChild(div);
+      });
+    })
+    .catch(() => {
+      document.getElementById("stockList").innerHTML =
+        `<div class="empty-state">Could not load stock info.</div>`;
     });
-    // Attach pendingCount to each item
-    stockAllItems = (items || []).map(it => ({
-      ...it,
-      pendingCount: pendingMap[it.name] || 0
-    }));
-    stockPage = 0;
-    renderStockPage();
-  })
-  .catch(() => {
-    document.getElementById("stockList").innerHTML =
-      `<div class="empty-state">Could not load stock info.</div>`;
-  });
-}
-
-function renderStockPage() {
-  const list = document.getElementById("stockList");
-  list.innerHTML = "";
-
-  if (!stockAllItems || stockAllItems.length === 0) {
-    list.innerHTML = `<div class="empty-state">No items configured yet.</div>`;
-    return;
-  }
-
-  const totalPages = Math.ceil(stockAllItems.length / STOCK_PER_PAGE);
-  const start      = stockPage * STOCK_PER_PAGE;
-  const pageItems  = stockAllItems.slice(start, start + STOCK_PER_PAGE);
-
-  const iconMap = {
-    "Projector":"📽️","Laptop":"💻","Camera":"📷","Multimeter":"📐",
-    "Microscope":"🔬","Tablet":"📱","Router":"📡","Headset":"🎧",
-    "Soldering Iron":"🛠️","Cable":"🔌"
-  };
-
-  pageItems.forEach(it => {
-    const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
-    const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
-    const icon        = iconMap[it.name] || "📦";
-    const div         = document.createElement("div");
-    div.className     = "stock-item";
-    const pendingNote = it.pendingCount > 0
-      ? `<small class="stock-pending-note">· ${it.pendingCount} pending</small>`
-      : "";
-    div.innerHTML     = `
-      <span class="stock-icon">${icon}</span>
-      <span class="stock-name">
-        ${it.name}
-        <small>${it.quantity} available ${pendingNote}</small>
-      </span>
-      <span class="stock-tag ${statusClass}">${label}</span>`;
-    list.appendChild(div);
-  });
-
-  if (totalPages > 1) {
-    const nav = document.createElement("div");
-    nav.className = "stock-pagination";
-    nav.innerHTML = `
-      <button class="stock-page-btn" id="stockPrev" ${stockPage === 0 ? "disabled" : ""}>‹ Prev</button>
-      <span class="stock-page-info">Page ${stockPage + 1} of ${totalPages}</span>
-      <button class="stock-page-btn" id="stockNext" ${stockPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>`;
-    list.appendChild(nav);
-
-    nav.querySelector("#stockPrev").addEventListener("click", () => {
-      if (stockPage > 0) { stockPage--; renderStockPage(); }
-    });
-    nav.querySelector("#stockNext").addEventListener("click", () => {
-      if (stockPage < totalPages - 1) { stockPage++; renderStockPage(); }
-    });
-  }
 }
 
 // ── PWA install banner ────────────────────────────────────────────────────────
@@ -753,7 +531,6 @@ window.addEventListener("beforeinstallprompt", e => {
     banner.style.display = "flex";
   }
 });
-
 const installBtn = document.getElementById("installBtn");
 if (installBtn) {
   installBtn.addEventListener("click", () => {
@@ -761,7 +538,6 @@ if (installBtn) {
     document.getElementById("installBanner").style.display = "none";
   });
 }
-
 const installDismiss = document.getElementById("installDismiss");
 if (installDismiss) {
   installDismiss.addEventListener("click", () => {

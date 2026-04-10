@@ -226,35 +226,56 @@ section {
 .search-bar input::placeholder { color: var(--text-muted); }
 .search-bar input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-glow); }
 
-/* ── Card grid (pagination wrapper) ─────────────────────── */
+/* ── Card grid ───────────────────────────────────────────── */
 .card-grid {
-  display: flex; flex-direction: column; gap: 12px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
   padding: 4px 2px 8px;
 }
 
-/* Inner grid of cards */
-.borrower-card-grid {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
-}
-
-/* Pagination controls */
+/* ── Borrower pagination ─────────────────────────────────── */
 .borrower-pagination {
-  display: flex; align-items: center; justify-content: center;
-  gap: 12px; padding: 10px 0 2px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 10px 4px 2px;
+  border-top: 1px solid var(--border);
+  gap: 8px;
 }
 .borrower-page-btn {
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  color: var(--accent-primary);
-  font-family: var(--font); font-size: 13px; font-weight: 600;
-  padding: 7px 18px; border-radius: 20px; cursor: pointer;
-  transition: all 0.2s ease;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--accent-primary) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 16px !important;
+  border-radius: 20px !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .borrower-page-btn:hover:not(:disabled) {
-  background: var(--accent-glow); border-color: var(--accent-primary);
+  background: var(--accent-glow) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px) !important;
 }
-.borrower-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.borrower-page-info { font-size: 12px; color: var(--text-muted); font-weight: 600; min-width: 48px; text-align: center; }
+.borrower-page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.borrower-page-info {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  flex: 1;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
 
 /* ── Borrower card ───────────────────────────────────────── */
 .borrower-card {
@@ -431,49 +452,6 @@ button:active { transform: scale(0.97); }
 .stock-tag.green { background: var(--tag-green-bg); color: var(--tag-green-text); border-color: var(--tag-green-border); }
 .stock-tag.amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); border-color: var(--tag-amber-border); }
 .stock-tag.red   { background: var(--tag-red-bg);   color: var(--tag-red-text);   border-color: var(--tag-red-border);   }
-
-/* ── Stock pagination controls ───────────────────────────── */
-.stock-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-  padding: 6px 2px 0;
-  border-top: 1px solid var(--border);
-  gap: 8px;
-}
-.stock-page-btn {
-  background: var(--input-bg) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--accent-primary) !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  padding: 5px 14px !important;
-  border-radius: 20px !important;
-  cursor: pointer;
-  box-shadow: none !important;
-  transition: all 0.18s ease;
-  white-space: nowrap;
-}
-.stock-page-btn:hover:not(:disabled) {
-  background: var(--accent-glow) !important;
-  border-color: var(--accent-primary) !important;
-  transform: translateY(-1px) !important;
-}
-.stock-page-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  transform: none !important;
-}
-.stock-page-info {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex: 1;
-  text-align: center;
-  letter-spacing: 0.3px;
-}
 
 /* ── Overdue Alert ───────────────────────────────────────── */
 #overdueAlert { margin-bottom: 16px; animation: fadeUp 0.4s ease; }
@@ -825,30 +803,4 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .stat-card h3 { font-size: 17px; }
   .theme-toggle button { font-size: 10px; padding: 6px 10px; }
   .profile-stat-value { font-size: 15px; }
-}
-/* ── #5: Stock pending note ──────────────────────────────── */
-.stock-pending-note {
-  color: var(--warning);
-  font-style: normal;
-  font-weight: 600;
-  margin-left: 2px;
-}
-
-/* ── #1: Session timeout indicator ──────────────────────── */
-.session-timer-bar {
-  position: fixed;
-  bottom: 0; left: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-  transition: width 1s linear;
-  z-index: 300;
-  pointer-events: none;
-}
-
-/* ── #7: Disabled submit button state ────────────────────── */
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
 }
