@@ -1,13 +1,8 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4g-kt4ZGHF-oUrhaLSQWWz1n48eAEypyAKeYGFZqv740Z0Osg/exec"; // Replace with your Apps Script Web App URL
-// ─────────────────────────────────────────────────────────────────────────────
-// CTU Danao Equipment Borrowing System — script.js
-// Two-step borrow flow:
-//   Student submits → status = "Pending"
-//   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
-// ─────────────────────────────────────────────────────────────────────────────
-let currentUser    = null;   // { id, name }
-let allBorrowers   = [];
-let html5QrScanner = null;
+const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4g-kt4ZGHF-oUrhaLSQWWz1n48eAEypyAKeYGFZqv740Z0Osg/exec";
+
+let currentUser      = null;
+let allBorrowers     = [];
+let html5QrScanner   = null;
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -30,10 +25,10 @@ document.getElementById("toggleTheme").addEventListener("click", () => {
 // ── Notification ──────────────────────────────────────────────────────────────
 function showNotification(message, type = "info") {
   const banner = document.getElementById("notification");
-  banner.innerText  = message;
-  banner.className  = type;
+  banner.innerText     = message;
+  banner.className     = type;
   banner.style.display = "block";
-  banner.style.top  = "20px";
+  banner.style.top     = "20px";
   setTimeout(() => {
     banner.style.top = "-100px";
     setTimeout(() => (banner.style.display = "none"), 500);
@@ -42,8 +37,7 @@ function showNotification(message, type = "info") {
 
 // ── Page navigation ───────────────────────────────────────────────────────────
 function showPage(pageId) {
-  const pages = ["dashboardPage", "userDashboardPage", "borrowPage", "returnPage"];
-  pages.forEach(id => {
+  ["dashboardPage", "userDashboardPage", "borrowPage", "returnPage"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = id === pageId ? "block" : "none";
   });
@@ -53,30 +47,52 @@ function showPage(pageId) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ── Load borrowers ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// BORROWER CARDS — pagination (10 per page)
+// ══════════════════════════════════════════════════════════════════════════════
+const USERS_PER_PAGE    = 10;
+let   usersPage         = 1;
+let   filteredBorrowers = [];  // the subset currently shown (after search filter)
+
 function loadBorrowers() {
   fetch(scriptURL + "?action=getUsers")
     .then(res => res.json())
     .then(users => {
-      allBorrowers = users;
-      renderBorrowerCards(users);
+      allBorrowers      = users;
+      filteredBorrowers = users;
+      usersPage         = 1;
+      renderBorrowerPage();
     })
     .catch(() => showNotification("Error loading users.", "error"));
 }
 
-function renderBorrowerCards(users) {
-  const container = document.getElementById("usersContainer");
+function renderBorrowerPage() {
+  const container  = document.getElementById("usersContainer");
+  const pagination = document.getElementById("usersPagination");
+  const pageLabel  = document.getElementById("usersPageLabel");
+  const prevBtn    = document.getElementById("usersPrevBtn");
+  const nextBtn    = document.getElementById("usersNextBtn");
+
   container.innerHTML = "";
-  if (!users || users.length === 0) {
+
+  if (!filteredBorrowers || filteredBorrowers.length === 0) {
     container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-icon">👤</div>
-        <p>No borrowers registered yet.</p>
-        <small>Ask an admin to register you.</small>
+        <p>No borrowers found.</p>
+        <small>Try a different name or ID, or ask an admin to register you.</small>
       </div>`;
+    if (pagination) pagination.style.display = "none";
     return;
   }
-  users.forEach(user => {
+
+  const totalPages = Math.ceil(filteredBorrowers.length / USERS_PER_PAGE);
+  if (usersPage > totalPages) usersPage = totalPages;
+
+  const start     = (usersPage - 1) * USERS_PER_PAGE;
+  const pageUsers = filteredBorrowers.slice(start, start + USERS_PER_PAGE);
+
+  pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
     const card = document.createElement("div");
     card.className = "borrower-card";
@@ -91,15 +107,36 @@ function renderBorrowerCards(users) {
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);
   });
+
+  if (pagination) {
+    if (totalPages > 1) {
+      pagination.style.display = "flex";
+      if (pageLabel) pageLabel.textContent = `Page ${usersPage} of ${totalPages}  (${filteredBorrowers.length} users)`;
+      if (prevBtn)   prevBtn.disabled = usersPage === 1;
+      if (nextBtn)   nextBtn.disabled = usersPage === totalPages;
+    } else {
+      pagination.style.display = "none";
+    }
+  }
 }
 
-// ── Borrower search ───────────────────────────────────────────────────────────
+// Called by Prev / Next buttons in the HTML
+function changeUsersPage(delta) {
+  const totalPages = Math.ceil(filteredBorrowers.length / USERS_PER_PAGE);
+  const next = usersPage + delta;
+  if (next < 1 || next > totalPages) return;
+  usersPage = next;
+  renderBorrowerPage();
+}
+
+// ── Borrower search — resets to page 1 ───────────────────────────────────────
 document.getElementById("borrowerSearch").addEventListener("input", e => {
-  const q  = e.target.value.toLowerCase();
-  const filtered = allBorrowers.filter(u =>
+  const q = e.target.value.toLowerCase();
+  filteredBorrowers = allBorrowers.filter(u =>
     u.name.toLowerCase().includes(q) || String(u.id).includes(q)
   );
-  renderBorrowerCards(filtered);
+  usersPage = 1;
+  renderBorrowerPage();
 });
 
 // ── PIN modal ─────────────────────────────────────────────────────────────────
@@ -121,7 +158,7 @@ function openPinModal(user) {
 }
 
 function verifyPin(user) {
-  const entered = document.getElementById("pinInput").value.trim();
+  const entered  = document.getElementById("pinInput").value.trim();
   const expected = String(user.id).slice(-4);
   if (entered === expected) {
     document.getElementById("pinModal").style.display = "none";
@@ -142,31 +179,61 @@ document.getElementById("qrScanBtn").addEventListener("click", () => {
 document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
 
 function startQrScanner() {
-  if (html5QrScanner) return;
-  html5QrScanner = new Html5Qrcode("qr-reader");
+  if (html5QrScanner) {
+    const old = html5QrScanner;
+    html5QrScanner = null;
+    old.stop().catch(() => {}).finally(() => {
+      old.clear().catch(() => {});
+      _doStartScanner();
+    });
+  } else {
+    _doStartScanner();
+  }
+}
+
+function _doStartScanner() {
+  const readerEl = document.getElementById("qr-reader");
+  if (!readerEl) { showNotification("QR reader not found.", "error"); return; }
+  readerEl.innerHTML = "";
+
+  try { html5QrScanner = new Html5Qrcode("qr-reader"); }
+  catch (e) { showNotification("Could not initialise QR scanner.", "error"); return; }
+
   html5QrScanner.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: 220 },
-    qrCodeMessage => {
+    { fps: 10, qrbox: { width: 220, height: 220 } },
+    decodedText => {
+      const scannedId = String(decodedText).trim();
       stopQrScanner();
-      const scannedId = qrCodeMessage.trim();
       const user = allBorrowers.find(u => String(u.id) === scannedId);
       if (user) {
+        showNotification(`Welcome, ${user.name}! 👋`, "success");
         currentUser = user;
         showPage("userDashboardPage");
       } else {
-        showNotification("QR code not found. Please register first.", "error");
+        showNotification(`ID "${scannedId}" not registered. Ask an admin.`, "error");
       }
+    },
+    () => {}
+  ).catch(err => {
+    html5QrScanner = null;
+    document.getElementById("qrScannerBox").style.display = "none";
+    let msg = "Camera access denied or unavailable.";
+    if (err && err.message) {
+      if (err.message.toLowerCase().includes("permission"))  msg = "Camera permission denied. Allow access and try again.";
+      if (err.message.toLowerCase().includes("notfound"))    msg = "No camera found on this device.";
+      if (err.message.toLowerCase().includes("notreadable")) msg = "Camera is in use by another app.";
     }
-  ).catch(() => showNotification("Camera access denied.", "error"));
+    showNotification(msg, "error");
+  });
 }
 
 function stopQrScanner() {
-  if (html5QrScanner) {
-    html5QrScanner.stop().catch(() => {});
-    html5QrScanner = null;
-  }
   document.getElementById("qrScannerBox").style.display = "none";
+  if (!html5QrScanner) return;
+  const scanner  = html5QrScanner;
+  html5QrScanner = null;
+  scanner.stop().catch(() => {}).finally(() => scanner.clear().catch(() => {}));
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -183,64 +250,56 @@ function loadUserDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Classify transactions
-      const borrowed  = history.filter(tx => tx.status === "Borrowed");
-      const pending   = history.filter(tx => tx.status === "Pending");
-      const returned  = history.filter(tx => tx.status === "Returned");
+      const borrowed = history.filter(tx => tx.status === "Borrowed");
+      const pending  = history.filter(tx => tx.status === "Pending");
 
       const overdue = borrowed.filter(tx => {
         if (!tx.dueDate) return false;
-        const parts   = tx.dueDate.split("-");
-        const dueDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return dueDate < today;
+        const p = tx.dueDate.split("-");
+        return new Date(+p[0], +p[1] - 1, +p[2]) < today;
       });
 
       const dueSoon = borrowed.filter(tx => {
         if (!tx.dueDate) return false;
-        const parts   = tx.dueDate.split("-");
-        const dueDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        const diff    = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        const p    = tx.dueDate.split("-");
+        const diff = Math.ceil((new Date(+p[0], +p[1] - 1, +p[2]) - today) / 86400000);
         return diff >= 0 && diff <= 2;
       });
 
-      // Stats
       document.getElementById("statCurrent").textContent = borrowed.length;
       document.getElementById("statPending").textContent = pending.length;
       document.getElementById("statDueSoon").textContent = dueSoon.length;
       document.getElementById("statOverdue").textContent = overdue.length;
 
-      // Profile stats
       const totalBorrows = history.filter(tx => tx.status !== "Pending" && tx.status !== "Rejected").length;
       document.getElementById("profileTotal").textContent = totalBorrows;
-      const lateCount = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
+      const lateCount  = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
       const onTimeRate = totalBorrows > 0
         ? Math.round(((totalBorrows - lateCount) / totalBorrows) * 100) + "%"
         : "—";
-      document.getElementById("profileOnTime").textContent = onTimeRate;
+      document.getElementById("profileOnTime").textContent  = onTimeRate;
       document.getElementById("profileOverdue").textContent = overdue.length;
-      document.getElementById("profileOverdue").className =
+      document.getElementById("profileOverdue").className   =
         "profile-stat-value" + (overdue.length > 0 ? " profile-stat-overdue-active" : " profile-stat-overdue");
 
-      // Overdue alert
+      const alertBox = document.getElementById("overdueAlert");
       if (overdue.length > 0) {
-        document.getElementById("overdueAlert").style.display = "block";
-        const list = document.getElementById("overdueAlertList");
-        list.innerHTML = overdue.map(tx => `
-          <div class="overdue-alert-item">📦 ${tx.item} — due ${tx.dueDate}</div>`).join("");
+        alertBox.style.display = "block";
+        document.getElementById("overdueAlertList").innerHTML =
+          overdue.map(tx => `<div class="overdue-alert-item">📦 ${tx.item} — due ${tx.dueDate}</div>`).join("");
       } else {
-        document.getElementById("overdueAlert").style.display = "none";
+        alertBox.style.display = "none";
       }
 
-      // Borrowed items list
       const borrowedList = document.getElementById("borrowedList");
       borrowedList.innerHTML = "";
       if (borrowed.length === 0) {
         borrowedList.innerHTML = `<li style="text-align:center;color:var(--text-muted);border-left:none;background:none;">No items currently borrowed.</li>`;
       } else {
         borrowed.forEach(tx => {
-          const parts   = (tx.dueDate || "").split("-");
-          const dueDate = parts.length === 3 ? new Date(+parts[0], +parts[1]-1, +parts[2]) : null;
-          const diff    = dueDate ? Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24)) : null;
+          const p       = (tx.dueDate || "").split("-");
+          const dueDate = p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null;
+          const diff    = dueDate ? Math.ceil((dueDate - today) / 86400000) : null;
           const { badgeClass, badgeText, barClass, barWidth } = getDueBadge(diff);
           const li = document.createElement("li");
           li.className = diff !== null && diff < 0 ? "overdue" : "";
@@ -257,12 +316,10 @@ function loadUserDashboard() {
         });
       }
 
-      // Pending section
       const pendingSection = document.getElementById("pendingSection");
-      const pendingList    = document.getElementById("pendingList");
       if (pending.length > 0) {
         pendingSection.style.display = "block";
-        pendingList.innerHTML = pending.map(tx => `
+        document.getElementById("pendingList").innerHTML = pending.map(tx => `
           <li>
             <span>⏳ <strong>${tx.item}</strong></span>
             <span class="pending-pill">Pending</span>
@@ -275,23 +332,20 @@ function loadUserDashboard() {
 }
 
 function getDueBadge(daysLeft) {
-  if (daysLeft === null) return { badgeClass: "due-ok", badgeText: "—", barClass: "due-ok", barWidth: 50 };
-  if (daysLeft < 0)  return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
-  if (daysLeft === 0) return { badgeClass: "due-today",  badgeText: "Due today", barClass: "due-today", barWidth: 95 };
-  if (daysLeft <= 2)  return { badgeClass: "due-soon",   badgeText: `${daysLeft}d left`, barClass: "due-soon", barWidth: 70 };
+  if (daysLeft === null) return { badgeClass: "due-ok",     badgeText: "—",                          barClass: "due-ok",      barWidth: 50  };
+  if (daysLeft < 0)     return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
+  if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",                  barClass: "due-today",   barWidth: 95  };
+  if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,           barClass: "due-soon",    barWidth: 70  };
   return { badgeClass: "due-ok", badgeText: `${daysLeft}d left`, barClass: "due-ok", barWidth: Math.min(60, daysLeft * 8) };
 }
 
 // ── Populate selects ──────────────────────────────────────────────────────────
 function populateBorrowSelect() {
-  const today = new Date();
-  document.getElementById("borrowDate").value =
-    today.toISOString().split("T")[0];
-
+  document.getElementById("borrowDate").value = new Date().toISOString().split("T")[0];
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      const select = document.getElementById("borrowItem");
+      const select    = document.getElementById("borrowItem");
       select.innerHTML = "";
       const available = items.filter(it => it.quantity > 0);
       if (available.length === 0) {
@@ -309,18 +363,13 @@ function populateBorrowSelect() {
 }
 
 function populateReturnSelect() {
-  const today = new Date();
-  document.getElementById("returnDate").value =
-    today.toISOString().split("T")[0];
-
+  document.getElementById("returnDate").value = new Date().toISOString().split("T")[0];
   if (!currentUser) return;
-
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      // Only show actually borrowed items (not pending, not returned)
-      const borrowed = history.filter(tx => tx.status === "Borrowed");
-      const select   = document.getElementById("returnItem");
+      const borrowed  = history.filter(tx => tx.status === "Borrowed");
+      const select    = document.getElementById("returnItem");
       select.innerHTML = "";
       if (borrowed.length === 0) {
         select.innerHTML = `<option disabled selected>No items to return</option>`;
@@ -336,22 +385,18 @@ function populateReturnSelect() {
     .catch(() => showNotification("Error loading items.", "error"));
 }
 
-// ── Borrow form — submits a PENDING request ───────────────────────────────────
+// ── Borrow form ───────────────────────────────────────────────────────────────
 document.getElementById("borrowForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
 
   const item       = document.getElementById("borrowItem").value;
   const borrowDate = document.getElementById("borrowDate").value;
-
-  // Due date = borrow date + 3 days
   const dueDateObj = new Date(borrowDate);
   dueDateObj.setDate(dueDateObj.getDate() + 3);
   const dueDate = dueDateObj.toISOString().split("T")[0];
 
-  showConfirmModal(
-    "📋",
-    "Submit Borrow Request",
+  showConfirmModal("📋", "Submit Borrow Request",
     `Request <strong>${item}</strong>?<br>
      <small style="color:var(--text-muted);">
        Borrow date: ${borrowDate} · Due: ${dueDate}<br>
@@ -360,13 +405,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
     () => {
       fetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({
-          action:     "requestBorrow",   // ← NEW action name (Pending)
-          studentId:  currentUser.id,
-          item,
-          borrowDate,
-          dueDate
-        })
+        body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
       })
       .then(res => res.json())
       .then(data => {
@@ -390,19 +429,12 @@ document.getElementById("returnForm").addEventListener("submit", e => {
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
 
-  showConfirmModal(
-    "↩",
-    "Confirm Return",
+  showConfirmModal("↩", "Confirm Return",
     `Return <strong>${item}</strong> on <strong>${returnDate}</strong>?`,
     () => {
       fetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({
-          action:     "returnItem",
-          studentId:  currentUser.id,
-          item,
-          returnDate
-        })
+        body: JSON.stringify({ action: "returnItem", studentId: currentUser.id, item, returnDate })
       })
       .then(res => res.json())
       .then(data => {
@@ -418,13 +450,12 @@ document.getElementById("returnForm").addEventListener("submit", e => {
   );
 });
 
-// ── Confirm modal helper ──────────────────────────────────────────────────────
+// ── Confirm modal ─────────────────────────────────────────────────────────────
 function showConfirmModal(icon, title, message, onConfirm) {
   document.getElementById("confirmIcon").textContent    = icon;
   document.getElementById("confirmTitle").textContent   = title;
   document.getElementById("confirmMessage").innerHTML   = message;
   document.getElementById("confirmModal").style.display = "flex";
-
   document.getElementById("confirmYes").onclick = () => {
     document.getElementById("confirmModal").style.display = "none";
     onConfirm();
@@ -434,18 +465,18 @@ function showConfirmModal(icon, title, message, onConfirm) {
   };
 }
 
-// ── Stock panel with pagination (5 items per page) ───────────────────────────
-let allStockItems  = [];
-let stockPage      = 1;
+// ══════════════════════════════════════════════════════════════════════════════
+// STOCK PANEL — pagination (5 items per page)
+// ══════════════════════════════════════════════════════════════════════════════
 const STOCK_PER_PAGE = 5;
+let   allStockItems  = [];
+let   stockPage      = 1;
 
 const STOCK_ICONS = {
-  "Projector": "📽️", "Laptop": "💻", "Camera": "📷",
-  "Multimeter": "📐", "Microscope": "🔬", "Tablet": "📱",
-  "Router": "📡", "Headset": "🎧", "Soldering Iron": "🛠️",
-  "Cable": "🔌", "Keyboard": "⌨️", "Mouse": "🖱️",
-  "Speaker": "🔊", "Monitor": "🖥️", "Printer": "🖨️",
-  "default": "📦"
+  "Projector":"📽️","Laptop":"💻","Camera":"📷","Multimeter":"📐",
+  "Microscope":"🔬","Tablet":"📱","Router":"📡","Headset":"🎧",
+  "Soldering Iron":"🛠️","Cable":"🔌","Keyboard":"⌨️","Mouse":"🖱️",
+  "Speaker":"🔊","Monitor":"🖥️","Printer":"🖨️","default":"📦"
 };
 
 function loadStockPanel() {
@@ -459,7 +490,7 @@ function loadStockPanel() {
     .then(res => res.json())
     .then(items => {
       allStockItems = items || [];
-      stockPage = 1;
+      stockPage     = 1;
       renderStockPage();
     })
     .catch(() => {
@@ -471,8 +502,8 @@ function loadStockPanel() {
 function renderStockPage() {
   const list       = document.getElementById("stockList");
   const pagination = document.getElementById("stockPagination");
-  const pageInfo   = document.getElementById("stockPageInfo");
   const pageLabel  = document.getElementById("stockPageLabel");
+  const pageInfo   = document.getElementById("stockPageInfo");
   const prevBtn    = document.getElementById("stockPrevBtn");
   const nextBtn    = document.getElementById("stockNextBtn");
 
@@ -486,16 +517,18 @@ function renderStockPage() {
   }
 
   const totalPages = Math.ceil(allStockItems.length / STOCK_PER_PAGE);
-  const start      = (stockPage - 1) * STOCK_PER_PAGE;
-  const pageItems  = allStockItems.slice(start, start + STOCK_PER_PAGE);
+  if (stockPage > totalPages) stockPage = totalPages;
+
+  const start     = (stockPage - 1) * STOCK_PER_PAGE;
+  const pageItems = allStockItems.slice(start, start + STOCK_PER_PAGE);
 
   pageItems.forEach(it => {
     const statusClass = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
     const label       = statusClass === "green" ? "In Stock" : statusClass === "amber" ? "Low Stock" : "Out of Stock";
     const icon        = STOCK_ICONS[it.name] || STOCK_ICONS["default"];
-    const div = document.createElement("div");
-    div.className = "stock-item";
-    div.innerHTML = `
+    const div         = document.createElement("div");
+    div.className     = "stock-item";
+    div.innerHTML     = `
       <span class="stock-icon">${icon}</span>
       <span class="stock-name">
         ${it.name}
@@ -505,25 +538,28 @@ function renderStockPage() {
     list.appendChild(div);
   });
 
-  // Show/hide pagination
   if (totalPages > 1) {
-    pagination.style.display = "flex";
-    pageInfo.style.display   = "flex";
-    pageLabel.textContent    = `Page ${stockPage} of ${totalPages}`;
-    pageInfo.textContent     = `${allStockItems.length} items total`;
-    prevBtn.disabled         = stockPage === 1;
-    nextBtn.disabled         = stockPage === totalPages;
+    if (pagination) {
+      pagination.style.display = "flex";
+      if (prevBtn)   prevBtn.disabled      = stockPage === 1;
+      if (nextBtn)   nextBtn.disabled      = stockPage === totalPages;
+      if (pageLabel) pageLabel.textContent = `Page ${stockPage} of ${totalPages}`;
+    }
+    if (pageInfo) {
+      pageInfo.style.display = "flex";
+      pageInfo.textContent   = `${allStockItems.length} items total`;
+    }
   } else {
-    pagination.style.display = "none";
-    pageInfo.style.display   = "none";
+    if (pagination) pagination.style.display = "none";
+    if (pageInfo)   pageInfo.style.display   = "none";
   }
 }
 
 function changeStockPage(delta) {
   const totalPages = Math.ceil(allStockItems.length / STOCK_PER_PAGE);
-  const newPage    = stockPage + delta;
-  if (newPage < 1 || newPage > totalPages) return;
-  stockPage = newPage;
+  const next = stockPage + delta;
+  if (next < 1 || next > totalPages) return;
+  stockPage = next;
   renderStockPage();
 }
 
@@ -533,10 +569,9 @@ window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
   deferredPrompt = e;
   const banner = document.getElementById("installBanner");
-  if (banner && !sessionStorage.getItem("installDismissed")) {
-    banner.style.display = "flex";
-  }
+  if (banner && !sessionStorage.getItem("installDismissed")) banner.style.display = "flex";
 });
+
 const installBtn = document.getElementById("installBtn");
 if (installBtn) {
   installBtn.addEventListener("click", () => {
@@ -552,11 +587,9 @@ if (installDismiss) {
   });
 }
 
-// ── Service Worker registration ───────────────────────────────────────────────
+// ── Service Worker ────────────────────────────────────────────────────────────
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

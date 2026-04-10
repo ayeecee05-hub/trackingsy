@@ -35,6 +35,7 @@
       <h1>Borrower Dashboard</h1>
       <h2>Select your name or scan your QR code</h2>
 
+      <!-- ── Stock Availability Panel ──────────────────────────────────── -->
       <section id="stockPanel" class="stock-panel">
         <div class="stock-panel-header">
           <div>
@@ -48,6 +49,7 @@
           <div class="skeleton-row"></div>
           <div class="skeleton-row"></div>
         </div>
+        <!-- Stock pagination — shown only when > 5 items -->
         <div id="stockPagination" class="stock-pagination" style="display:none;">
           <button id="stockPrevBtn" class="stock-page-btn" onclick="changeStockPage(-1)" aria-label="Previous items page">&#8249; Prev</button>
           <span id="stockPageLabel" class="stock-page-label"></span>
@@ -55,6 +57,7 @@
         </div>
       </section>
 
+      <!-- ── QR Scanner ──────────────────────────────────────────────── -->
       <div class="qr-scan-bar">
         <button id="qrScanBtn" class="qr-btn" aria-label="Scan QR code to log in">
           <span>📷</span> Scan QR to Login
@@ -72,15 +75,26 @@
         </div>
       </div>
 
+      <!-- ── Borrower List ────────────────────────────────────────────── -->
       <div class="search-bar">
         <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
       </div>
+
+      <!-- Cards grid — filled by JS -->
       <div id="usersContainer" class="card-grid">
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
       </div>
+
+      <!-- Users pagination — shown only when > 10 borrowers -->
+      <div id="usersPagination" class="users-pagination" style="display:none;">
+        <button id="usersPrevBtn" class="users-page-btn" onclick="changeUsersPage(-1)" aria-label="Previous users page">&#8249; Prev</button>
+        <span id="usersPageLabel" class="users-page-label"></span>
+        <button id="usersNextBtn" class="users-page-btn" onclick="changeUsersPage(1)" aria-label="Next users page">Next &#8250;</button>
+      </div>
+
     </section>
 
     <!-- User Dashboard -->
@@ -161,7 +175,6 @@
       <h1>Request to Borrow Item</h1>
       <h2>Your request goes to the admin for hand-over confirmation</h2>
 
-      <!-- How it works info box -->
       <div class="how-it-works-box">
         <div class="how-it-works-steps">
           <div class="how-step active-step">
