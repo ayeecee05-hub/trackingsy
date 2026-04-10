@@ -3,19 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Register & Dashboard</title>
+  <title>Admin — CTU Danao Borrowing System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark">
+
+  <div class="top-accent-bar"></div>
+
   <div class="container">
-    <div class="uni-logo-row" style="padding-top:28px;margin-bottom:8px;"></div>
-    <h1>Admin Access</h1>
+
+    <!-- Admin Header -->
+    <div class="uni-header" style="padding-top:36px;padding-bottom:16px;">
+      <div class="uni-logo-row">
+        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo">
+      </div>
+      <div class="badge">Administration Panel</div>
+      <h1>Cebu Technological University<br><span>Danao Campus</span></h1>
+      <p>Equipment &amp; Device Borrowing System</p>
+    </div>
 
     <!-- Login Section -->
     <div id="loginSection" role="form" aria-label="Admin login">
-      <p>Enter Admin Password:</p>
-      <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password" aria-label="Admin password">
-      <button id="adminLoginBtn" onclick="checkPassword()" aria-label="Login as admin">Login</button>
+      <div class="admin-login-card">
+        <div class="admin-login-icon">🔐</div>
+        <h2 class="admin-login-title">Admin Access</h2>
+        <p class="admin-login-sub">Enter your password to continue</p>
+        <div class="admin-login-fields">
+          <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password" aria-label="Admin password">
+          <button id="adminLoginBtn" onclick="checkPassword()" aria-label="Login as admin">Login</button>
+        </div>
+      </div>
     </div>
 
     <!-- Admin Section -->
@@ -24,27 +41,31 @@
       <!-- Summary Stats -->
       <div id="summaryStats">
         <div class="stat-card" onclick="showModal('borrowersModal')">
+          <div class="stat-icon">👥</div>
           <h3 id="totalBorrowers">0</h3>
           <p>Registered Users</p>
         </div>
         <div class="stat-card pending-stat" onclick="switchTab('pending')">
+          <div class="stat-icon">⏳</div>
           <h3 id="totalPending">0</h3>
           <p>Pending Requests</p>
         </div>
         <div class="stat-card" onclick="showModal('transactionsModal')">
+          <div class="stat-icon">📋</div>
           <h3 id="totalTransactions">0</h3>
           <p>Total Transactions</p>
         </div>
         <div class="stat-card" onclick="showModal('overdueModal')">
+          <div class="stat-icon">⚠️</div>
           <h3 id="overdueItems">0</h3>
           <p>Overdue Items</p>
         </div>
       </div>
 
-      <!-- Three-Column Layout -->
+      <!-- Main Grid -->
       <div class="admin-main-grid">
 
-        <!-- LEFT: Register Borrower -->
+        <!-- LEFT: Register + QR -->
         <div class="admin-panel-left">
           <h2>Register Borrower</h2>
           <form id="adminForm" aria-label="Register new borrower">
@@ -60,7 +81,7 @@
           <div class="admin-panel-divider"></div>
 
           <h2>Print Student QR</h2>
-          <p class="admin-panel-note">Select a student to generate and print their QR code.</p>
+          <p class="admin-panel-note">Select a student to generate and print their QR login code.</p>
           <div class="admin-search-bar" style="margin-bottom:8px;">
             <input type="text" id="qrStudentSearch" placeholder="Search student…">
           </div>
@@ -69,24 +90,22 @@
           </div>
         </div>
 
-        <!-- RIGHT: Pending + Transactions + Item Management -->
+        <!-- RIGHT: Tabs + Panels -->
         <div class="admin-panel-right">
-
-          <!-- Tabs -->
           <div class="admin-tabs">
             <button class="admin-tab" id="tabPending" onclick="switchTab('pending')">
               ⏳ Pending
               <span id="pendingBadge" class="pending-tab-badge" style="display:none;"></span>
             </button>
-            <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">All Transactions</button>
-            <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Item Management</button>
+            <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">Transactions</button>
+            <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Items</button>
           </div>
 
-          <!-- ── Pending Requests Panel ── -->
+          <!-- Pending Panel -->
           <div id="panelPending" style="display:none;">
             <div class="pending-panel-header">
-              <p class="pending-panel-desc">Students have submitted these borrow requests. Review each one and click <strong>✅ Mark as Handed Over</strong> once you physically give the item to the student. Only then will stock decrease and the status become <em>Borrowed</em>.</p>
-              <button onclick="loadPendingRequests()" class="refresh-btn" title="Refresh pending list">↻ Refresh</button>
+              <p class="pending-panel-desc">Students have submitted these borrow requests. Click <strong>Hand Over</strong> once you physically give the item — stock decreases and status becomes <em>Borrowed</em>.</p>
+              <button onclick="loadPendingRequests()" class="refresh-btn" title="Refresh">↻ Refresh</button>
             </div>
             <div class="table-scroll">
               <table id="pendingTable">
@@ -154,7 +173,7 @@
       </div>
 
       <div class="admin-footer">
-        <button class="back" onclick="logoutAdmin()">Logout</button>
+        <button class="btn-neutral" onclick="logoutAdmin()">Logout</button>
       </div>
     </div>
 
@@ -197,42 +216,50 @@
           <button class="modal-close" onclick="closeModal('qrPrintModal')">✕</button>
         </div>
         <div class="modal-body" style="text-align:center;">
-          <div id="qrPrintName" style="font-size:16px;font-weight:700;margin-bottom:4px;"></div>
+          <div id="qrPrintName" style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text-primary);"></div>
           <div id="qrPrintId" style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-family:var(--mono);"></div>
           <div id="qrPrintCode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
-          <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Student scans this with the borrowing system to log in instantly.</p>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Student scans this to log in instantly — no scrolling needed.</p>
           <button onclick="printQr()">🖨️ Print QR</button>
         </div>
       </div>
     </div>
 
-    <!-- Confirm Hand-Over Modal -->
+    <!-- Hand-Over Confirm Modal -->
     <div id="handoverModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
       <div class="confirm-box">
         <div class="confirm-icon">✅</div>
         <h3 id="handoverTitle">Confirm Hand-Over</h3>
-        <p id="handoverMessage">Are you sure you want to mark this item as handed over? Stock will decrease and status will change to <strong>Borrowed</strong>.</p>
+        <p id="handoverMessage">Are you sure you want to mark this item as handed over?</p>
         <div class="confirm-actions">
           <button id="handoverYes">Yes, Hand Over</button>
-          <button class="back" id="handoverNo">Cancel</button>
+          <button class="btn-neutral" id="handoverNo">Cancel</button>
         </div>
       </div>
     </div>
 
-    <!-- Confirm Reject Modal -->
+    <!-- Reject Confirm Modal -->
     <div id="rejectModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
       <div class="confirm-box">
         <div class="confirm-icon">❌</div>
         <h3 id="rejectTitle">Reject Request</h3>
-        <p id="rejectMessage">Are you sure you want to reject this borrow request? The item will not be issued and stock remains unchanged.</p>
+        <p id="rejectMessage">Are you sure you want to reject this borrow request?</p>
         <div class="confirm-actions">
           <button id="rejectYes" class="reject-confirm-btn">Yes, Reject</button>
-          <button class="back" id="rejectNo">Cancel</button>
+          <button class="btn-neutral" id="rejectNo">Cancel</button>
         </div>
       </div>
     </div>
 
   </div>
+
+  <footer class="site-footer">
+    <span>Cebu Technological University — Danao Campus</span>
+    <span class="footer-sep">·</span>
+    <span>Equipment Borrowing System</span>
+    <span class="footer-sep">·</span>
+    <span>AY 2025–2026</span>
+  </footer>
 
   <div id="notification"></div>
 

@@ -7,6 +7,12 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CTU Danao Equipment Borrowing System — script.js
+// Two-step borrow flow:
+//   Student submits → status = "Pending"
+//   Admin confirms  → status = "Borrowed"  (stock decremented only at this step)
+// ─────────────────────────────────────────────────────────────────────────────
 let currentUser    = null;   // { id, name }
 let allBorrowers   = [];
 let html5QrScanner = null;
