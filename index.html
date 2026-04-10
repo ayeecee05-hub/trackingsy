@@ -15,15 +15,17 @@
 </head>
 <body>
 
+  <div class="top-accent-bar"></div>
+
   <div class="theme-toggle">
-    <button id="toggleTheme" aria-label="Toggle dark or light mode">🌙 Switch to Light</button>
+    <button id="toggleTheme" aria-label="Toggle dark or light mode">☀️ Switch to Light</button>
   </div>
 
   <div class="container">
 
     <div class="uni-header">
-      <div class="uni-logo-row" style="justify-content:center;">
-        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo" aria-label="CTU Danao Campus Logo">
+      <div class="uni-logo-row">
+        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo">
       </div>
       <div class="badge">College of Technology</div>
       <h1>Cebu Technological University<br><span>Danao Campus</span></h1>
@@ -33,31 +35,18 @@
     <!-- Borrower Dashboard -->
     <section id="dashboardPage">
       <h1>Borrower Dashboard</h1>
-      <h2>Select your name or scan your QR code</h2>
+      <h2>Select your name or scan your QR code to continue</h2>
 
-      <!-- ── Stock Availability Panel ──────────────────────────────────── -->
       <section id="stockPanel" class="stock-panel">
-        <div class="stock-panel-header">
-          <div>
-            <h3>Item Availability</h3>
-            <p class="stock-subtitle">Check stock before heading in — green/amber/red status.</p>
-          </div>
-          <div id="stockPageInfo" class="stock-page-info" style="display:none;"></div>
-        </div>
+        <h3>📦 Item Availability</h3>
+        <p class="stock-subtitle">Check stock before heading in — green / amber / red status.</p>
         <div id="stockList" class="stock-list">
           <div class="skeleton-row"></div>
           <div class="skeleton-row"></div>
           <div class="skeleton-row"></div>
         </div>
-        <!-- Stock pagination — shown only when > 5 items -->
-        <div id="stockPagination" class="stock-pagination" style="display:none;">
-          <button id="stockPrevBtn" class="stock-page-btn" onclick="changeStockPage(-1)" aria-label="Previous items page">&#8249; Prev</button>
-          <span id="stockPageLabel" class="stock-page-label"></span>
-          <button id="stockNextBtn" class="stock-page-btn" onclick="changeStockPage(1)" aria-label="Next items page">Next &#8250;</button>
-        </div>
       </section>
 
-      <!-- ── QR Scanner ──────────────────────────────────────────────── -->
       <div class="qr-scan-bar">
         <button id="qrScanBtn" class="qr-btn" aria-label="Scan QR code to log in">
           <span>📷</span> Scan QR to Login
@@ -68,33 +57,23 @@
         <div class="qr-scanner-inner">
           <div class="qr-scanner-header">
             <span>Point camera at your QR code</span>
-            <button class="qr-close-btn" id="qrCloseBtn">✕</button>
+            <button class="qr-close-btn" id="qrCloseBtn" aria-label="Close scanner">✕</button>
           </div>
           <div id="qr-reader"></div>
           <p class="qr-hint">Make sure your QR code is well-lit and centered</p>
         </div>
       </div>
 
-      <!-- ── Borrower List ────────────────────────────────────────────── -->
+      <div class="borrower-list-label">Or select your name from the list</div>
       <div class="search-bar">
-        <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
+        <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers">
       </div>
-
-      <!-- Cards grid — filled by JS -->
       <div id="usersContainer" class="card-grid">
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
       </div>
-
-      <!-- Users pagination — shown only when > 10 borrowers -->
-      <div id="usersPagination" class="users-pagination" style="display:none;">
-        <button id="usersPrevBtn" class="users-page-btn" onclick="changeUsersPage(-1)" aria-label="Previous users page">&#8249; Prev</button>
-        <span id="usersPageLabel" class="users-page-label"></span>
-        <button id="usersNextBtn" class="users-page-btn" onclick="changeUsersPage(1)" aria-label="Next users page">Next &#8250;</button>
-      </div>
-
     </section>
 
     <!-- User Dashboard -->
@@ -136,18 +115,22 @@
 
       <div id="summaryStats">
         <div class="stat-card">
+          <div class="stat-icon">📤</div>
           <h3 id="statCurrent">0</h3>
           <p>Currently Out</p>
         </div>
         <div class="stat-card pending-stat">
+          <div class="stat-icon">⏳</div>
           <h3 id="statPending">0</h3>
           <p>Pending</p>
         </div>
         <div class="stat-card due-soon-stat">
+          <div class="stat-icon">🔔</div>
           <h3 id="statDueSoon">0</h3>
           <p>Due Soon</p>
         </div>
         <div class="stat-card overdue-stat">
+          <div class="stat-icon">⚠️</div>
           <h3 id="statOverdue">0</h3>
           <p>Overdue</p>
         </div>
@@ -156,7 +139,6 @@
       <h2>Currently Borrowed Items</h2>
       <ul id="borrowedList"></ul>
 
-      <!-- Pending requests sub-section -->
       <div id="pendingSection" style="display:none;">
         <h2>⏳ Pending Requests</h2>
         <p class="pending-user-note">Your request has been submitted. Please proceed to the equipment cabinet — the admin will hand over the item and confirm it.</p>
@@ -164,17 +146,16 @@
       </div>
 
       <div class="actions">
-        <button onclick="showPage('borrowPage')">＋ Request Item</button>
-        <button onclick="showPage('returnPage')">↩ Return Item</button>
-        <button class="back" onclick="showPage('dashboardPage')">⬅ Back</button>
+        <button onclick="showPage('borrowPage')">Request Item</button>
+        <button onclick="showPage('returnPage')">Return Item</button>
+        <button class="btn-neutral" onclick="showPage('dashboardPage')">← Back</button>
       </div>
     </section>
 
-    <!-- Borrow / Request Page -->
+    <!-- Borrow Page -->
     <section id="borrowPage" style="display:none;">
       <h1>Request to Borrow Item</h1>
       <h2>Your request goes to the admin for hand-over confirmation</h2>
-
       <div class="how-it-works-box">
         <div class="how-it-works-steps">
           <div class="how-step active-step">
@@ -193,17 +174,16 @@
           </div>
         </div>
       </div>
-
       <form id="borrowForm" aria-label="Borrow item form">
         <label for="borrowItem">Select Item</label>
-        <select id="borrowItem" required aria-label="Select item to borrow"></select>
+        <select id="borrowItem" required></select>
         <label for="borrowDate">Request Date</label>
-        <input type="date" id="borrowDate" required readonly aria-label="Borrow date (set automatically to today)">
+        <input type="date" id="borrowDate" required readonly>
         <p class="field-note">📅 Request date is set to today automatically</p>
         <p class="field-note" style="color:var(--warning);margin-top:6px;">⏳ Status will be <strong>Pending</strong> until the admin confirms hand-over</p>
         <div class="actions" style="margin-top:20px;">
-          <button type="submit">📋 Submit Request</button>
-          <button type="button" class="back" onclick="showPage('userDashboardPage')">⬅ Back</button>
+          <button type="submit">Submit Request</button>
+          <button type="button" class="btn-neutral" onclick="showPage('userDashboardPage')">← Back</button>
         </div>
       </form>
     </section>
@@ -214,18 +194,26 @@
       <h2>Select the item you are returning</h2>
       <form id="returnForm" aria-label="Return item form">
         <label for="returnItem">Item to Return</label>
-        <select id="returnItem" required aria-label="Select item to return"></select>
+        <select id="returnItem" required></select>
         <label for="returnDate">Return Date</label>
-        <input type="date" id="returnDate" required readonly aria-label="Return date (set automatically to today)">
+        <input type="date" id="returnDate" required readonly>
         <p class="field-note">📅 Return date is set to today automatically</p>
         <div class="actions" style="margin-top:20px;">
           <button type="submit">Confirm Return</button>
-          <button type="button" class="back" onclick="showPage('userDashboardPage')">⬅ Back</button>
+          <button type="button" class="btn-neutral" onclick="showPage('userDashboardPage')">← Back</button>
         </div>
       </form>
     </section>
 
   </div>
+
+  <footer class="site-footer">
+    <span>Cebu Technological University — Danao Campus</span>
+    <span class="footer-sep">·</span>
+    <span>Equipment Borrowing System</span>
+    <span class="footer-sep">·</span>
+    <span>AY 2025–2026</span>
+  </footer>
 
   <div id="notification"></div>
 
@@ -236,42 +224,32 @@
       <p id="confirmMessage">Are you sure?</p>
       <div class="confirm-actions">
         <button id="confirmYes">Yes, confirm</button>
-        <button class="back" id="confirmNo">Cancel</button>
+        <button class="btn-neutral" id="confirmNo">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- PIN Authentication Modal -->
   <div id="pinModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
     <div class="confirm-box pin-box">
       <div class="confirm-icon">🔒</div>
       <h3 id="pinModalTitle" class="pin-modal-name"></h3>
       <p class="pin-modal-hint">Enter your 4-digit PIN</p>
       <p class="pin-modal-sub" id="pinModalHint">Last 4 digits of your Student ID</p>
-      <input
-        type="password"
-        id="pinInput"
-        class="pin-input"
-        maxlength="4"
-        inputmode="numeric"
-        pattern="[0-9]*"
-        placeholder="• • • •"
-        autocomplete="one-time-code"
-        aria-label="Enter your 4-digit PIN"
-      >
-      <p id="pinError" class="pin-error" style="display:none;">❌ Incorrect PIN. Please try again.</p>
+      <input type="password" id="pinInput" class="pin-input" maxlength="4"
+        inputmode="numeric" pattern="[0-9]*" placeholder="• • • •"
+        autocomplete="one-time-code" aria-label="Enter your 4-digit PIN">
+      <p id="pinError" class="pin-error" style="display:none;">Incorrect PIN. Please try again.</p>
       <div class="confirm-actions">
         <button id="pinSubmitBtn">Confirm</button>
-        <button class="back" id="pinCancelBtn">Cancel</button>
+        <button class="btn-neutral" id="pinCancelBtn">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- PWA Install Banner -->
   <div id="installBanner" class="install-banner" style="display:none;">
     <span>📲 Install this app on your device</span>
     <button id="installBtn">Install</button>
-    <button class="install-dismiss" id="installDismiss">✕</button>
+    <button class="install-dismiss" id="installDismiss" aria-label="Dismiss">✕</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
