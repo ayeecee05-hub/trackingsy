@@ -1,8 +1,5 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbzXK9F0QiNQxxaH_Qtzag0Bu1qCz6rYjLOlAGKa-Swks8-O6_hiUM9Jeoi6fDRxM6SpgQ/exec"; // Replace with your Apps Script Web App URL
-// #6: Admin password is NO LONGER stored client-side.
-// The plaintext "12345" has been removed. Password is validated server-side only.
-// In your Apps Script, add a handler for action:"adminLogin" that checks the password
-// stored in Script Properties (File > Project Properties > Script Properties).
+const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4g-kt4ZGHF-oUrhaLSQWWz1n48eAEypyAKeYGFZqv740Z0Osg/exec";
+const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
 let allPending      = [];
@@ -26,46 +23,22 @@ function showNotification(message, type = "info") {
   }, 3000);
 }
 
-// ── Password gate — #6: server-side validation ───────────────────────────────
-// Password is sent to Apps Script and checked against a Script Property there.
-// Never stored or compared in client-side JS.
+// ── Password gate ─────────────────────────────────────────────────────────────
 function checkPassword() {
-  const entered = document.getElementById("adminPassword").value.trim();
-  if (!entered) { showNotification("Please enter a password.", "error"); return; }
-
-  const btn = document.getElementById("adminLoginBtn");
-  btn.disabled    = true;
-  btn.textContent = "Verifying…";
-
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "adminLogin", password: entered })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      document.getElementById("loginSection").style.display = "none";
-      document.getElementById("adminSection").style.display = "block";
-      showNotification("Admin access granted", "success");
-      loadPendingRequests();
-      loadTransactions();
-      loadItemsTable();
-      loadQrStudentList();
-    } else {
-      showNotification("Access denied — incorrect password.", "error");
-      document.getElementById("adminPassword").value = "";
-      document.getElementById("adminPassword").focus();
-    }
-  })
-  .catch(() => {
-    // #6 fallback note: if your Apps Script doesn't yet handle adminLogin,
-    // you'll see a network error here. Add the handler described in the comment above.
-    showNotification("Could not verify password — check your network.", "error");
-  })
-  .finally(() => {
-    btn.disabled    = false;
-    btn.textContent = "Login";
-  });
+  const entered = document.getElementById("adminPassword").value;
+  if (entered === ADMIN_PASSWORD) {
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("adminSection").style.display = "block";
+    showNotification("Admin access granted", "success");
+    loadPendingRequests();
+    loadTransactions();
+    loadItemsTable();
+    loadQrStudentList();
+  } else {
+    showNotification("Access denied", "error");
+    document.getElementById("adminPassword").value = "";
+    document.getElementById("adminPassword").focus();
+  }
 }
 
 function logoutAdmin() {
