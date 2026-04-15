@@ -31,6 +31,7 @@ function checkPassword() {
     document.getElementById("adminSection").style.display = "block";
     showNotification("Admin access granted", "success");
     loadPendingRequests();
+    loadReturnRequests();
     loadTransactions();
     loadItemsTable();
     loadQrStudentList();
@@ -52,11 +53,14 @@ function logoutAdmin() {
 function switchTab(tab) {
   document.getElementById("panelPending").style.display      = tab === "pending"      ? "block" : "none";
   document.getElementById("panelTransactions").style.display = tab === "transactions" ? "block" : "none";
+  document.getElementById("panelReturns").style.display      = tab === "returns"      ? "block" : "none";
   document.getElementById("panelItems").style.display        = tab === "items"        ? "block" : "none";
   document.getElementById("tabPending").classList.toggle("active",       tab === "pending");
   document.getElementById("tabTransactions").classList.toggle("active",  tab === "transactions");
+  document.getElementById("tabReturns").classList.toggle("active",       tab === "returns");
   document.getElementById("tabItems").classList.toggle("active",         tab === "items");
   if (tab === "pending") loadPendingRequests();
+  if (tab === "returns") loadReturnRequests();
 }
 
 // ── Register borrower ─────────────────────────────────────────────────────────
@@ -412,6 +416,137 @@ function executeReject(req) {
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// ── RETURN REQUESTS ──────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+let allReturnRequests = [];
+let pendingReturnConfirmCallback = null;
+
+function loadReturnRequests() {
+  const tbody = document.getElementById("returnsTableBody");
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:18px;">Loading return requests…</td></tr>`;
+
+  fetch(scriptURL + "?action=getReturnRequests")
+    .then(res => res.json())
+    .then(data => {
+      allReturnRequests = Array.isArray(data) ? data : [];
+      renderReturnsTable(allReturnRequests);
+      updateReturnsBadge(allReturnRequests.length);
+    })
+    .catch(() => {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--highlight);">Error loading return requests.</td></tr>`;
+    });
+}
+
+function renderReturnsTable(requests) {
+  const tbody = document.getElementById("returnsTableBody");
+  tbody.innerHTML = "";
+
+  if (!requests || requests.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;padding:32px;">
+          <div style="font-size:28px;margin-bottom:8px;">✅</div>
+          <div style="color:var(--success);font-weight:600;">No pending return requests</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">All returns have been confirmed.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  requests.forEach((req, index) => {
+    const row = document.createElement("tr");
+    row.className = "pending-row";
+    row.innerHTML = `
+      <td><span class="mono-id">${req.studentId}</span></td>
+      <td><strong>${req.studentName || "—"}</strong></td>
+      <td>${req.item}</td>
+      <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
+      <td><span class="date-chip due">${req.dueDate || "—"}</span></td>
+      <td>
+        <button
+          class="handover-btn"
+          onclick="confirmReturnRequest(${index})"
+          title="Confirm the item has been physically returned"
+        >✅ Confirm Return</button>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function updateReturnsBadge(count) {
+  const badge = document.getElementById("returnsBadge");
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent   = count;
+    badge.style.display = "inline-flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function confirmReturnRequest(index) {
+  const req = allReturnRequests[index];
+  if (!req) return;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  document.getElementById("adminReturnMessage").innerHTML =
+    `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?
+     <br><small style="color:var(--text-muted);">Return date: <strong>${today}</strong> · Stock will increase by 1.</small>`;
+
+  const modal = document.getElementById("adminReturnModal");
+  modal.style.display = "flex";
+
+  document.getElementById("adminReturnYes").onclick = () => {
+    modal.style.display = "none";
+    executeConfirmReturn(req, today);
+  };
+  document.getElementById("adminReturnNo").onclick = () => {
+    modal.style.display = "none";
+  };
+}
+
+function executeConfirmReturn(req, returnDate) {
+  showNotification("Confirming return…", "info");
+
+  document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
+    b.disabled = true; b.textContent = "Processing…";
+  });
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action:     "confirmReturn",
+      studentId:  req.studentId,
+      item:       req.item,
+      returnDate: returnDate,
+      rowIndex:   req.rowIndex
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`✅ "${req.item}" return confirmed for ${req.studentName || req.studentId}`, "success");
+      loadReturnRequests();
+      loadTransactions();
+      loadItemsTable();
+    } else {
+      showNotification(data.message || "Confirmation failed. Please try again.", "error");
+      document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
+        b.disabled = false; b.textContent = "✅ Confirm Return";
+      });
+    }
+  })
+  .catch(() => {
+    showNotification("Network error during return confirmation.", "error");
+    document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
+      b.disabled = false; b.textContent = "✅ Confirm Return";
+    });
+  });
+}
+
 // ── Load transactions ─────────────────────────────────────────────────────────
 function loadTransactions() {
   fetch(scriptURL + "?action=getAllHistory")
@@ -448,10 +583,10 @@ function renderTransactions(transactions) {
               : s === "pending"   ? "status-pending"
               : s === "rejected"  ? "status-rejected"
               : "";
-    // Show Return button only for Borrowed and Overdue rows
+    // Show Return button only for rows with no pending return yet (admin manual override kept)
     const canReturn = s === "borrowed" || s === "overdue";
     const returnBtn = canReturn
-      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Mark as returned">↩ Return</button>`
+      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Mark as returned (manual override)">↩ Return</button>`
       : "";
     const row = document.createElement("tr");
     row.innerHTML = `

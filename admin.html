@@ -98,6 +98,10 @@
               <span id="pendingBadge" class="pending-tab-badge" style="display:none;"></span>
             </button>
             <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">Transactions</button>
+            <button class="admin-tab" id="tabReturns" onclick="switchTab('returns')">
+              ↩ Returns
+              <span id="returnsBadge" class="pending-tab-badge" style="display:none;"></span>
+            </button>
             <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Items</button>
           </div>
 
@@ -145,6 +149,29 @@
                   </tr>
                 </thead>
                 <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Returns Confirmation Panel -->
+          <div id="panelReturns" style="display:none;">
+            <div class="pending-panel-header">
+              <p class="pending-panel-desc">Students have submitted return requests. Click <strong>Confirm Return</strong> once you physically receive the item — stock increases and status becomes <em>Returned</em>.</p>
+              <button onclick="loadReturnRequests()" class="refresh-btn" title="Refresh">↻ Refresh</button>
+            </div>
+            <div class="table-scroll">
+              <table id="returnsTable">
+                <thead>
+                  <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Item</th>
+                    <th>Borrow Date</th>
+                    <th>Due Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="returnsTableBody"></tbody>
               </table>
             </div>
           </div>

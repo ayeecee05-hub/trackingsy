@@ -249,8 +249,9 @@ function loadUserDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const borrowed = history.filter(tx => tx.status === "Borrowed");
-      const pending  = history.filter(tx => tx.status === "Pending");
+      const borrowed      = history.filter(tx => tx.status === "Borrowed");
+      const pending       = history.filter(tx => tx.status === "Pending");
+      const returnPending = history.filter(tx => tx.status === "Return Pending");
 
       const overdue = borrowed.filter(tx => {
         if (!tx.dueDate) return false;
@@ -325,6 +326,29 @@ function loadUserDashboard() {
           </li>`).join("");
       } else {
         pendingSection.style.display = "none";
+      }
+
+      // Return Pending section
+      let returnPendingSection = document.getElementById("returnPendingSection");
+      if (!returnPendingSection) {
+        returnPendingSection = document.createElement("div");
+        returnPendingSection.id = "returnPendingSection";
+        returnPendingSection.style.display = "none";
+        returnPendingSection.innerHTML = `
+          <h2>↩ Awaiting Return Confirmation</h2>
+          <p class="pending-user-note">You've submitted a return — please hand the item to the admin. They will confirm receipt and mark it as returned.</p>
+          <ul id="returnPendingList" class="pending-user-list"></ul>`;
+        pendingSection.parentNode.insertBefore(returnPendingSection, pendingSection.nextSibling);
+      }
+      if (returnPending.length > 0) {
+        returnPendingSection.style.display = "block";
+        document.getElementById("returnPendingList").innerHTML = returnPending.map(tx => `
+          <li>
+            <span>📦 <strong>${tx.item}</strong></span>
+            <span class="pending-pill" style="background:var(--info,#4fc3f7);color:#000;">Return Pending</span>
+          </li>`).join("");
+      } else {
+        returnPendingSection.style.display = "none";
       }
     })
     .catch(() => showNotification("Error loading your data.", "error"));
@@ -428,20 +452,24 @@ document.getElementById("returnForm").addEventListener("submit", e => {
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
 
-  showConfirmModal("↩", "Confirm Return",
-    `Return <strong>${item}</strong> on <strong>${returnDate}</strong>?`,
+  showConfirmModal("↩", "Submit Return Request",
+    `Submit a return request for <strong>${item}</strong>?<br>
+     <small style="color:var(--text-muted);">
+       The admin will verify and confirm the return.
+       Status will update to <strong>Returned</strong> once confirmed.
+     </small>`,
     () => {
       fetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({ action: "returnItem", studentId: currentUser.id, item, returnDate })
+        body: JSON.stringify({ action: "requestReturn", studentId: currentUser.id, item, returnDate })
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          showNotification(`${item} returned successfully! ✅`, "success");
+          showNotification(`Return request submitted! Hand the item to the admin. ⏳`, "success");
           showPage("userDashboardPage");
         } else {
-          showNotification(data.message || "Return failed.", "error");
+          showNotification(data.message || "Return request failed.", "error");
         }
       })
       .catch(() => showNotification("Network error. Please try again.", "error"));
