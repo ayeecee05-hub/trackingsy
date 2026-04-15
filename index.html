@@ -163,6 +163,13 @@
         <ul id="pendingList" class="pending-user-list"></ul>
       </div>
 
+      <!-- Return Pending sub-section — shown when student has submitted a return -->
+      <div id="returnPendingSection" style="display:none;">
+        <h2>↩ Awaiting Return Confirmation</h2>
+        <p class="pending-user-note" style="border-color:rgba(79,195,247,0.3);background:rgba(79,195,247,0.07);">You have submitted a return request. Please hand the item to the admin — they will confirm receipt and mark it as returned.</p>
+        <ul id="returnPendingList" class="pending-user-list"></ul>
+      </div>
+
       <div class="actions">
         <button onclick="showPage('borrowPage')">＋ Request Item</button>
         <button onclick="showPage('returnPage')">↩ Return Item</button>
@@ -211,15 +218,36 @@
     <!-- Return Page -->
     <section id="returnPage" style="display:none;">
       <h1>Return Item</h1>
-      <h2>Select the item you are returning</h2>
+      <h2>Submit a return request — the admin will confirm receipt</h2>
+
+      <div class="how-it-works-box">
+        <div class="how-it-works-steps">
+          <div class="how-step active-step">
+            <span class="how-step-num">1</span>
+            <span class="how-step-label">Submit Return</span>
+          </div>
+          <div class="how-step-arrow">→</div>
+          <div class="how-step">
+            <span class="how-step-num">2</span>
+            <span class="how-step-label">Hand to Admin</span>
+          </div>
+          <div class="how-step-arrow">→</div>
+          <div class="how-step">
+            <span class="how-step-num">3</span>
+            <span class="how-step-label">Status: Returned</span>
+          </div>
+        </div>
+      </div>
+
       <form id="returnForm" aria-label="Return item form">
         <label for="returnItem">Item to Return</label>
         <select id="returnItem" required aria-label="Select item to return"></select>
         <label for="returnDate">Return Date</label>
         <input type="date" id="returnDate" required readonly aria-label="Return date (set automatically to today)">
         <p class="field-note">📅 Return date is set to today automatically</p>
+        <p class="field-note" style="color:var(--accent-primary);margin-top:6px;">ℹ️ Status will be <strong>Return Pending</strong> until the admin confirms receipt</p>
         <div class="actions" style="margin-top:20px;">
-          <button type="submit">Confirm Return</button>
+          <button type="submit">↩ Submit Return</button>
           <button type="button" class="back" onclick="showPage('userDashboardPage')">⬅ Back</button>
         </div>
       </form>

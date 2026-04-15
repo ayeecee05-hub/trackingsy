@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4g-kt4ZGHF-oUrhaLSQWWz1n48eAEypyAKeYGFZqv740Z0Osg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyrMvjjPdShjn8_FceVFS6SNuv4UPirjLGCqr7-wQ-wdrPg-c3NI9_8_4Br_14mUMGshQ/exec";
 const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
@@ -577,16 +577,18 @@ function renderTransactions(transactions) {
   }
   transactions.forEach((tx, index) => {
     const s   = (tx.status || "").toLowerCase();
-    const cls = s === "returned"  ? "status-returned"
-              : s === "borrowed"  ? "status-borrowed"
-              : s === "overdue"   ? "status-overdue"
-              : s === "pending"   ? "status-pending"
-              : s === "rejected"  ? "status-rejected"
+    const cls = s === "returned"       ? "status-returned"
+              : s === "borrowed"       ? "status-borrowed"
+              : s === "overdue"        ? "status-overdue"
+              : s === "pending"        ? "status-pending"
+              : s === "return pending" ? "status-return-pending"
+              : s === "rejected"       ? "status-rejected"
               : "";
-    // Show Return button only for rows with no pending return yet (admin manual override kept)
-    const canReturn = s === "borrowed" || s === "overdue";
-    const returnBtn = canReturn
-      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Mark as returned (manual override)">↩ Return</button>`
+    // Show Return button ONLY when the student has submitted a return request
+    // (status = "Return Pending"). It must NOT appear for plain Borrowed/Overdue rows
+    // — those only move to the Returns tab once the student clicks "↩ Return Item".
+    const returnBtn = s === "return pending"
+      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Student submitted a return — confirm receipt">✅ Confirm Return</button>`
       : "";
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -655,7 +657,7 @@ function executeAdminReturn(tx, returnDate) {
   fetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({
-      action:     "returnItem",
+      action:     "confirmReturn",
       studentId:  tx.studentId,
       item:       tx.item,
       returnDate: returnDate

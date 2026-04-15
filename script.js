@@ -1,4 +1,15 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbyaX1dv8JmGUPnRXnKGf4g-kt4ZGHF-oUrhaLSQWWz1n48eAEypyAKeYGFZqv740Z0Osg/exec";
+// ─────────────────────────────────────────────────────────────────────────────
+// CTU Danao Equipment Borrowing System — script.js
+//
+// Three-step flow:
+//   BORROW:  Student "Request Item"     → status = "Pending"
+//            Admin clicks "Hand Over"   → status = "Borrowed"
+//
+//   RETURN:  Student clicks "↩ Return Item" → status = "Return Pending"
+//            Admin clicks "Confirm Return"  → status = "Returned"
+// ─────────────────────────────────────────────────────────────────────────────
+
+const scriptURL = "https://script.google.com/macros/s/AKfycbyrMvjjPdShjn8_FceVFS6SNuv4UPirjLGCqr7-wQ-wdrPg-c3NI9_8_4Br_14mUMGshQ/exec";
 
 let currentUser      = null;
 let allBorrowers     = [];
@@ -52,7 +63,7 @@ function showPage(pageId) {
 // ══════════════════════════════════════════════════════════════════════════════
 const USERS_PER_PAGE    = 10;
 let   usersPage         = 1;
-let   filteredBorrowers = [];  // the subset currently shown (after search filter)
+let   filteredBorrowers = [];
 
 function loadBorrowers() {
   fetch(scriptURL + "?action=getUsers")
@@ -119,7 +130,6 @@ function renderBorrowerPage() {
   }
 }
 
-// Called by Prev / Next buttons in the HTML
 function changeUsersPage(delta) {
   const totalPages = Math.ceil(filteredBorrowers.length / USERS_PER_PAGE);
   const next = usersPage + delta;
@@ -128,7 +138,7 @@ function changeUsersPage(delta) {
   renderBorrowerPage();
 }
 
-// ── Borrower search — resets to page 1 ───────────────────────────────────────
+// ── Borrower search ───────────────────────────────────────────────────────────
 document.getElementById("borrowerSearch").addEventListener("input", e => {
   const q = e.target.value.toLowerCase();
   filteredBorrowers = allBorrowers.filter(u =>
@@ -266,11 +276,13 @@ function loadUserDashboard() {
         return diff >= 0 && diff <= 2;
       });
 
+      // Stats
       document.getElementById("statCurrent").textContent = borrowed.length;
       document.getElementById("statPending").textContent = pending.length;
       document.getElementById("statDueSoon").textContent = dueSoon.length;
       document.getElementById("statOverdue").textContent = overdue.length;
 
+      // Profile stats
       const totalBorrows = history.filter(tx => tx.status !== "Pending" && tx.status !== "Rejected").length;
       document.getElementById("profileTotal").textContent = totalBorrows;
       const lateCount  = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
@@ -282,6 +294,7 @@ function loadUserDashboard() {
       document.getElementById("profileOverdue").className   =
         "profile-stat-value" + (overdue.length > 0 ? " profile-stat-overdue-active" : " profile-stat-overdue");
 
+      // Overdue alert
       const alertBox = document.getElementById("overdueAlert");
       if (overdue.length > 0) {
         alertBox.style.display = "block";
@@ -291,6 +304,7 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
+      // Currently borrowed list
       const borrowedList = document.getElementById("borrowedList");
       borrowedList.innerHTML = "";
       if (borrowed.length === 0) {
@@ -316,6 +330,7 @@ function loadUserDashboard() {
         });
       }
 
+      // ── Pending borrow section ────────────────────────────────────────────
       const pendingSection = document.getElementById("pendingSection");
       if (pending.length > 0) {
         pendingSection.style.display = "block";
@@ -328,41 +343,34 @@ function loadUserDashboard() {
         pendingSection.style.display = "none";
       }
 
-      // Return Pending section
-      let returnPendingSection = document.getElementById("returnPendingSection");
-      if (!returnPendingSection) {
-        returnPendingSection = document.createElement("div");
-        returnPendingSection.id = "returnPendingSection";
-        returnPendingSection.style.display = "none";
-        returnPendingSection.innerHTML = `
-          <h2>↩ Awaiting Return Confirmation</h2>
-          <p class="pending-user-note">You've submitted a return — please hand the item to the admin. They will confirm receipt and mark it as returned.</p>
-          <ul id="returnPendingList" class="pending-user-list"></ul>`;
-        pendingSection.parentNode.insertBefore(returnPendingSection, pendingSection.nextSibling);
-      }
-      if (returnPending.length > 0) {
-        returnPendingSection.style.display = "block";
-        document.getElementById("returnPendingList").innerHTML = returnPending.map(tx => `
-          <li>
-            <span>📦 <strong>${tx.item}</strong></span>
-            <span class="pending-pill" style="background:var(--info,#4fc3f7);color:#000;">Return Pending</span>
-          </li>`).join("");
-      } else {
-        returnPendingSection.style.display = "none";
+      // ── Return Pending section ────────────────────────────────────────────
+      // Shows items the student has submitted a return for, awaiting admin confirmation
+      const returnPendingSection = document.getElementById("returnPendingSection");
+      if (returnPendingSection) {
+        if (returnPending.length > 0) {
+          returnPendingSection.style.display = "block";
+          document.getElementById("returnPendingList").innerHTML = returnPending.map(tx => `
+            <li>
+              <span>📦 <strong>${tx.item}</strong></span>
+              <span class="pending-pill return-pending-pill">↩ Return Pending</span>
+            </li>`).join("");
+        } else {
+          returnPendingSection.style.display = "none";
+        }
       }
     })
     .catch(() => showNotification("Error loading your data.", "error"));
 }
 
 function getDueBadge(daysLeft) {
-  if (daysLeft === null) return { badgeClass: "due-ok",     badgeText: "—",                          barClass: "due-ok",      barWidth: 50  };
+  if (daysLeft === null) return { badgeClass: "due-ok",     badgeText: "—",                           barClass: "due-ok",      barWidth: 50  };
   if (daysLeft < 0)     return { badgeClass: "due-overdue", badgeText: `${Math.abs(daysLeft)}d overdue`, barClass: "due-overdue", barWidth: 100 };
-  if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",                  barClass: "due-today",   barWidth: 95  };
-  if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,           barClass: "due-soon",    barWidth: 70  };
+  if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",                   barClass: "due-today",   barWidth: 95  };
+  if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,            barClass: "due-soon",    barWidth: 70  };
   return { badgeClass: "due-ok", badgeText: `${daysLeft}d left`, barClass: "due-ok", barWidth: Math.min(60, daysLeft * 8) };
 }
 
-// ── Populate selects ──────────────────────────────────────────────────────────
+// ── Populate borrow select ────────────────────────────────────────────────────
 function populateBorrowSelect() {
   document.getElementById("borrowDate").value = new Date().toISOString().split("T")[0];
   fetch(scriptURL + "?action=getItems")
@@ -385,20 +393,27 @@ function populateBorrowSelect() {
     .catch(() => showNotification("Error loading items.", "error"));
 }
 
+// ── Populate return select — only shows items currently "Borrowed" ─────────
+// Items already in "Return Pending" state are excluded so the student
+// cannot submit a duplicate return request.
 function populateReturnSelect() {
   document.getElementById("returnDate").value = new Date().toISOString().split("T")[0];
   if (!currentUser) return;
+
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      const borrowed  = history.filter(tx => tx.status === "Borrowed");
-      const select    = document.getElementById("returnItem");
+      // Only show items with status exactly "Borrowed"
+      // "Return Pending" items are already submitted and awaiting admin
+      const eligible = history.filter(tx => tx.status === "Borrowed");
+      const select   = document.getElementById("returnItem");
       select.innerHTML = "";
-      if (borrowed.length === 0) {
-        select.innerHTML = `<option disabled selected>No items to return</option>`;
+
+      if (eligible.length === 0) {
+        select.innerHTML = `<option disabled selected>No items available to return</option>`;
         return;
       }
-      borrowed.forEach(tx => {
+      eligible.forEach(tx => {
         const opt = document.createElement("option");
         opt.value       = tx.item;
         opt.textContent = `${tx.item} (due ${tx.dueDate})`;
@@ -408,7 +423,7 @@ function populateReturnSelect() {
     .catch(() => showNotification("Error loading items.", "error"));
 }
 
-// ── Borrow form ───────────────────────────────────────────────────────────────
+// ── Borrow form — submits a Pending request ───────────────────────────────────
 document.getElementById("borrowForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
@@ -444,7 +459,10 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   );
 });
 
-// ── Return form ───────────────────────────────────────────────────────────────
+// ── Return form — submits a "Return Pending" request ─────────────────────────
+// This sets the item status to "Return Pending" in the spreadsheet.
+// The admin then physically receives the item and clicks "Confirm Return"
+// in the Returns tab to finalise it (status → "Returned", stock += 1).
 document.getElementById("returnForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
@@ -452,21 +470,31 @@ document.getElementById("returnForm").addEventListener("submit", e => {
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
 
+  if (!item) {
+    showNotification("Please select an item to return.", "error");
+    return;
+  }
+
   showConfirmModal("↩", "Submit Return Request",
     `Submit a return request for <strong>${item}</strong>?<br>
      <small style="color:var(--text-muted);">
-       The admin will verify and confirm the return.
-       Status will update to <strong>Returned</strong> once confirmed.
+       Please hand the item to the admin.<br>
+       Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
       fetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({ action: "requestReturn", studentId: currentUser.id, item, returnDate })
+        body: JSON.stringify({
+          action:     "requestReturn",   // sets status = "Return Pending"
+          studentId:  currentUser.id,
+          item,
+          returnDate
+        })
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          showNotification(`Return request submitted! Hand the item to the admin. ⏳`, "success");
+          showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
           showPage("userDashboardPage");
         } else {
           showNotification(data.message || "Return request failed.", "error");

@@ -915,3 +915,31 @@ body:not(.dark) .return-confirm-btn {
   color: #1565c0 !important;
   border-color: rgba(21,101,192,0.3) !important;
 }
+/* ════════════════════════════════════════════════════════════
+   RETURN PENDING — new status styles
+   ════════════════════════════════════════════════════════════ */
+
+/* Transactions table status cell */
+#transactionsTable .status-return-pending {
+  color: #4fc3f7;
+  font-weight: 600;
+}
+
+/* Pill shown in the user dashboard's "Return Pending" section */
+.return-pending-pill {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  background: rgba(79,195,247,0.15) !important;
+  color: #4fc3f7 !important;
+  border: 1px solid rgba(79,195,247,0.4) !important;
+  border-radius: 10px !important;
+  padding: 2px 8px !important;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+body:not(.dark) .return-pending-pill {
+  background: #e3f2fd !important;
+  color: #1565c0 !important;
+  border-color: rgba(21,101,192,0.35) !important;
+}
