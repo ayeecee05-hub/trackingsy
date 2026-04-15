@@ -437,7 +437,7 @@ function renderTransactions(transactions) {
   const tbody = document.querySelector("#transactionsTable tbody");
   tbody.innerHTML = "";
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No transactions found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">No transactions found yet.</td></tr>`;
     return;
   }
   transactions.forEach((tx, index) => {
@@ -456,6 +456,7 @@ function renderTransactions(transactions) {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${tx.studentId}</td>
+      <td>${tx.studentName || "—"}</td>
       <td>${tx.item}</td>
       <td>${tx.borrowDate}</td>
       <td>${tx.dueDate}</td>

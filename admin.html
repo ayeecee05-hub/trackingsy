@@ -69,11 +69,11 @@
         <div class="admin-panel-left">
           <h2>Register Borrower</h2>
           <form id="adminForm" aria-label="Register new borrower">
-            <input id="adminId" placeholder="Student ID (numbers only)" required aria-label="Student ID" inputmode="numeric">
+            <input id="adminId" placeholder="Student ID" required aria-label="Student ID" inputmode="numeric">
             <p class="field-error-msg" id="adminIdError" style="display:none;"></p>
-            <input id="adminName" placeholder="Full Name (letters only)" required aria-label="Full name">
+            <input id="adminName" placeholder="Full Name" required aria-label="Full name">
             <p class="field-error-msg" id="adminNameError" style="display:none;"></p>
-            <input id="adminEmail" placeholder="Email (optional)" type="email" aria-label="Email address (optional)">
+            <input id="adminEmail" placeholder="Email" type="email" aria-label="Email address (optional)">
             <p class="field-error-msg" id="adminEmailError" style="display:none;"></p>
             <button type="submit" aria-label="Register borrower">Register Borrower</button>
           </form>
@@ -135,6 +135,7 @@
                 <thead>
                   <tr>
                     <th>Student ID</th>
+                    <th>Name</th>
                     <th>Item</th>
                     <th>Borrow Date</th>
                     <th>Due Date</th>
