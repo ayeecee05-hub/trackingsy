@@ -101,8 +101,7 @@ function renderBorrowerPage() {
     card.setAttribute("aria-label", `Select ${user.name}`);
     card.innerHTML = `
       <div class="borrower-avatar">${initials}</div>
-      <h3>${user.name}</h3>
-      <p>${user.id}</p>`;
+      <h3>${user.name}</h3>`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);
@@ -133,7 +132,7 @@ function changeUsersPage(delta) {
 document.getElementById("borrowerSearch").addEventListener("input", e => {
   const q = e.target.value.toLowerCase();
   filteredBorrowers = allBorrowers.filter(u =>
-    u.name.toLowerCase().includes(q) || String(u.id).includes(q)
+    u.name.toLowerCase().includes(q)
   );
   usersPage = 1;
   renderBorrowerPage();

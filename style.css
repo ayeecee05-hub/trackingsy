@@ -886,3 +886,32 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .users-page-btn   { font-size: 12px !important; padding: 6px 14px !important; }
   .users-page-label { font-size: 11px; }
 }
+/* ── Admin return button in transactions table ───────────────── */
+.return-confirm-btn {
+  background: rgba(79,195,247,0.12) !important;
+  color: var(--accent-primary) !important;
+  border: 1px solid rgba(79,195,247,0.35) !important;
+  font-size: 12px !important;
+  padding: 5px 10px !important;
+  border-radius: 7px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.return-confirm-btn:hover {
+  background: rgba(79,195,247,0.22) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px) !important;
+}
+.return-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+body:not(.dark) .return-confirm-btn {
+  background: #e3f2fd !important;
+  color: #1565c0 !important;
+  border-color: rgba(21,101,192,0.3) !important;
+}

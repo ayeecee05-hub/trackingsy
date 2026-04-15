@@ -140,6 +140,7 @@
                     <th>Due Date</th>
                     <th>Return Date</th>
                     <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -247,6 +248,19 @@
         <div class="confirm-actions">
           <button id="rejectYes" class="reject-confirm-btn">Yes, Reject</button>
           <button class="btn-neutral" id="rejectNo">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Return Confirm Modal -->
+    <div id="adminReturnModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="adminReturnTitle">
+      <div class="confirm-box">
+        <div class="confirm-icon">↩</div>
+        <h3 id="adminReturnTitle">Confirm Return</h3>
+        <p id="adminReturnMessage">Are you sure you want to mark this item as returned?</p>
+        <div class="confirm-actions">
+          <button id="adminReturnYes">Yes, Mark Returned</button>
+          <button class="btn-neutral" id="adminReturnNo">Cancel</button>
         </div>
       </div>
     </div>

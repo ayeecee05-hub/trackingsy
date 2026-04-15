@@ -437,10 +437,10 @@ function renderTransactions(transactions) {
   const tbody = document.querySelector("#transactionsTable tbody");
   tbody.innerHTML = "";
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No transactions found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No transactions found yet.</td></tr>`;
     return;
   }
-  transactions.forEach(tx => {
+  transactions.forEach((tx, index) => {
     const s   = (tx.status || "").toLowerCase();
     const cls = s === "returned"  ? "status-returned"
               : s === "borrowed"  ? "status-borrowed"
@@ -448,6 +448,11 @@ function renderTransactions(transactions) {
               : s === "pending"   ? "status-pending"
               : s === "rejected"  ? "status-rejected"
               : "";
+    // Show Return button only for Borrowed and Overdue rows
+    const canReturn = s === "borrowed" || s === "overdue";
+    const returnBtn = canReturn
+      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Mark as returned">↩ Return</button>`
+      : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${tx.studentId}</td>
@@ -455,7 +460,8 @@ function renderTransactions(transactions) {
       <td>${tx.borrowDate}</td>
       <td>${tx.dueDate}</td>
       <td>${tx.returnDate || "-"}</td>
-      <td class="${cls}">${tx.status}</td>`;
+      <td class="${cls}">${tx.status}</td>
+      <td>${returnBtn}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -476,6 +482,64 @@ function filterTransactions() {
 function resetFilter() {
   document.getElementById("searchInput").value = "";
   renderTransactions(allTransactions);
+}
+
+// ── Admin Return Confirmation ──────────────────────────────────────────────────
+function confirmAdminReturn(index) {
+  const tx = allTransactions[index];
+  if (!tx) return;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  document.getElementById("adminReturnMessage").innerHTML =
+    `Mark <strong>${tx.item}</strong> as returned by
+     <strong>${tx.studentName || tx.studentId}</strong>?
+     <br><small style="color:var(--text-muted);">
+       Return date: <strong>${today}</strong> · Stock will increase by 1.
+     </small>`;
+
+  const modal = document.getElementById("adminReturnModal");
+  modal.style.display = "flex";
+
+  document.getElementById("adminReturnYes").onclick = () => {
+    modal.style.display = "none";
+    executeAdminReturn(tx, today);
+  };
+  document.getElementById("adminReturnNo").onclick = () => {
+    modal.style.display = "none";
+  };
+}
+
+function executeAdminReturn(tx, returnDate) {
+  showNotification("Processing return…", "info");
+
+  const btn = document.querySelector(`button.return-confirm-btn[onclick*="confirmAdminReturn"]`);
+  document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = true; });
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action:     "returnItem",
+      studentId:  tx.studentId,
+      item:       tx.item,
+      returnDate: returnDate
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`✅ "${tx.item}" marked as returned!`, "success");
+      loadTransactions();
+      loadItemsTable();
+    } else {
+      showNotification(data.message || "Return failed. Please try again.", "error");
+      document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = false; });
+    }
+  })
+  .catch(() => {
+    showNotification("Network error during return.", "error");
+    document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = false; });
+  });
 }
 
 // ── Item Management ───────────────────────────────────────────────────────────
