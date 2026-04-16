@@ -103,6 +103,7 @@
               <span id="returnsBadge" class="pending-tab-badge" style="display:none;"></span>
             </button>
             <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Items</button>
+            <button class="admin-tab" id="tabCharts" onclick="switchTab('charts')">📊 Charts</button>
           </div>
 
           <!-- Pending Panel -->
@@ -173,6 +174,55 @@
                 </thead>
                 <tbody id="returnsTableBody"></tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Charts / Analytics Panel -->
+          <div id="panelCharts" style="display:none;">
+            <div class="charts-panel">
+              <div class="charts-panel-header">
+                <p class="pending-panel-desc">Visual overview of borrowing activity — built from your transaction data.</p>
+                <button onclick="loadCharts()" class="refresh-btn" title="Refresh charts">↻ Refresh</button>
+              </div>
+              <div class="charts-grid">
+
+                <!-- Most Borrowed Items -->
+                <div class="chart-card chart-card-wide">
+                  <div class="chart-card-header">
+                    <span class="chart-card-title">📦 Most Borrowed Items</span>
+                    <span class="chart-card-sub">All-time borrow count per item</span>
+                  </div>
+                  <div id="chartBorrowedItems" class="chart-area"></div>
+                </div>
+
+                <!-- Monthly Borrow Trend -->
+                <div class="chart-card chart-card-wide">
+                  <div class="chart-card-header">
+                    <span class="chart-card-title">📅 Monthly Borrow Trend</span>
+                    <span class="chart-card-sub">Number of borrows per month</span>
+                  </div>
+                  <div id="chartMonthlyTrend" class="chart-area"></div>
+                </div>
+
+                <!-- On-Time vs Late -->
+                <div class="chart-card">
+                  <div class="chart-card-header">
+                    <span class="chart-card-title">⏱ On-Time vs Late Returns</span>
+                    <span class="chart-card-sub">Of all completed returns</span>
+                  </div>
+                  <div id="chartOnTime" class="chart-area chart-area-sm"></div>
+                </div>
+
+                <!-- Status Breakdown -->
+                <div class="chart-card">
+                  <div class="chart-card-header">
+                    <span class="chart-card-title">📋 Status Breakdown</span>
+                    <span class="chart-card-sub">Current state of all transactions</span>
+                  </div>
+                  <div id="chartStatus" class="chart-area chart-area-sm"></div>
+                </div>
+
+              </div>
             </div>
           </div>
 
@@ -306,6 +356,7 @@
   <div id="notification"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

@@ -943,3 +943,60 @@ body:not(.dark) .return-pending-pill {
   color: #1565c0 !important;
   border-color: rgba(21,101,192,0.35) !important;
 }
+/* ── Charts / Analytics Panel ────────────────────────────── */
+.charts-panel { padding: 4px 0; }
+.charts-panel-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 18px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.chart-card-wide { grid-column: 1 / -1; }   /* full width */
+
+.chart-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.chart-card-header {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-bottom: 14px;
+}
+
+.chart-card-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chart-card-sub {
+  font-size: 11px; color: var(--text-muted);
+}
+
+.chart-area {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+}
+
+.chart-area-sm { min-height: 200px; }
+
+.chart-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 40px 0;
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 640px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .chart-card-wide { grid-column: 1; }
+}

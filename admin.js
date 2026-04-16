@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbyrMvjjPdShjn8_FceVFS6SNuv4UPirjLGCqr7-wQ-wdrPg-c3NI9_8_4Br_14mUMGshQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzX7kC8wpCKjtMBt95iFPAizm51KOC_INYni08hyTk1zcExqQY2iC93zmiBVlXps4J5XA/exec";
 const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
@@ -55,12 +55,15 @@ function switchTab(tab) {
   document.getElementById("panelTransactions").style.display = tab === "transactions" ? "block" : "none";
   document.getElementById("panelReturns").style.display      = tab === "returns"      ? "block" : "none";
   document.getElementById("panelItems").style.display        = tab === "items"        ? "block" : "none";
+  document.getElementById("panelCharts").style.display       = tab === "charts"       ? "block" : "none";
   document.getElementById("tabPending").classList.toggle("active",       tab === "pending");
   document.getElementById("tabTransactions").classList.toggle("active",  tab === "transactions");
   document.getElementById("tabReturns").classList.toggle("active",       tab === "returns");
   document.getElementById("tabItems").classList.toggle("active",         tab === "items");
+  document.getElementById("tabCharts").classList.toggle("active",        tab === "charts");
   if (tab === "pending") loadPendingRequests();
   if (tab === "returns") loadReturnRequests();
+  if (tab === "charts")  loadCharts();
 }
 
 // ── Register borrower ─────────────────────────────────────────────────────────
@@ -996,4 +999,334 @@ function updateSummaryStats() {
   document.getElementById("overdueItems").innerText      = allTransactions.filter(tx => tx.status === "Overdue").length;
   document.getElementById("totalPending").innerText      = allPending.length;
   updatePendingBadge(allPending.length);
+}
+// ════════════════════════════════════════════════════════════════════════════
+// ── CHARTS / ANALYTICS ───────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+// Store Chart.js instances so we can destroy and re-draw on refresh
+const chartInstances = {};
+
+function loadCharts() {
+  // Reuse allTransactions if already loaded, otherwise fetch fresh
+  if (allTransactions && allTransactions.length > 0) {
+    renderAllCharts(allTransactions);
+  } else {
+    fetch(scriptURL + "?action=getAllHistory")
+      .then(res => res.json())
+      .then(history => {
+        // Apply overdue logic same as loadTransactions
+        const today = new Date(); today.setHours(0,0,0,0);
+        const processed = history.map(tx => {
+          if (tx.status === "Borrowed" && tx.dueDate) {
+            const p = tx.dueDate.split("-");
+            const d = new Date(+p[0], +p[1]-1, +p[2]);
+            if (d < today) return { ...tx, status: "Overdue" };
+          }
+          return tx;
+        });
+        renderAllCharts(processed);
+      })
+      .catch(() => showNotification("Error loading chart data.", "error"));
+  }
+}
+
+function renderAllCharts(transactions) {
+  drawMostBorrowedChart(transactions);
+  drawMonthlyTrendChart(transactions);
+  drawOnTimeChart(transactions);
+  drawStatusChart(transactions);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function destroyChart(id) {
+  if (chartInstances[id]) {
+    chartInstances[id].destroy();
+    delete chartInstances[id];
+  }
+}
+
+function getChartColors(count) {
+  const palette = [
+    "#4fc3f7","#81c784","#ffb74d","#e57373","#ba68c8",
+    "#4dd0e1","#aed581","#ff8a65","#f06292","#7986cb"
+  ];
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(palette[i % palette.length]);
+  return out;
+}
+
+function isDarkMode() {
+  return document.body.classList.contains("dark");
+}
+
+function chartDefaults() {
+  const dark = isDarkMode();
+  return {
+    textColor:  dark ? "#c9d1d9" : "#1a2332",
+    gridColor:  dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
+    fontFamily: "'Inter','Segoe UI',sans-serif"
+  };
+}
+
+// ── Chart 1: Most Borrowed Items (horizontal bar) ─────────────────────────────
+function drawMostBorrowedChart(transactions) {
+  destroyChart("borrowedItems");
+  const container = document.getElementById("chartBorrowedItems");
+  container.innerHTML = "";
+
+  // Count all borrows (including Pending, Borrowed, Overdue, Returned — excludes Rejected)
+  const counts = {};
+  transactions
+    .filter(tx => tx.status !== "Rejected")
+    .forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
+
+  const sorted  = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+  if (sorted.length === 0) {
+    container.innerHTML = "<p class='chart-empty'>No borrow data yet.</p>";
+    return;
+  }
+
+  const labels = sorted.map(e => e[0]);
+  const data   = sorted.map(e => e[1]);
+  const colors = getChartColors(labels.length);
+  const { textColor, gridColor, fontFamily } = chartDefaults();
+
+  const canvas = document.createElement("canvas");
+  canvas.height = Math.max(200, labels.length * 36);
+  container.appendChild(canvas);
+
+  chartInstances["borrowedItems"] = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Times Borrowed",
+        data,
+        backgroundColor: colors,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x} borrow${ctx.parsed.x !== 1 ? "s" : ""}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 },
+          grid:  { color: gridColor }
+        },
+        y: {
+          ticks: { color: textColor, font: { family: fontFamily, size: 12 } },
+          grid:  { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ── Chart 2: Monthly Borrow Trend (line chart) ────────────────────────────────
+function drawMonthlyTrendChart(transactions) {
+  destroyChart("monthlyTrend");
+  const container = document.getElementById("chartMonthlyTrend");
+  container.innerHTML = "";
+
+  const monthCounts = {};
+  transactions
+    .filter(tx => tx.borrowDate && tx.status !== "Rejected")
+    .forEach(tx => {
+      const parts = tx.borrowDate.split("-");
+      if (parts.length < 2) return;
+      const key = `${parts[0]}-${parts[1].padStart(2,"0")}`;  // "2025-03"
+      monthCounts[key] = (monthCounts[key] || 0) + 1;
+    });
+
+  const sortedKeys = Object.keys(monthCounts).sort();
+
+  if (sortedKeys.length === 0) {
+    container.innerHTML = "<p class='chart-empty'>No borrow date data yet.</p>";
+    return;
+  }
+
+  const labels = sortedKeys.map(k => {
+    const [y, m] = k.split("-");
+    return new Date(+y, +m - 1, 1).toLocaleString("default", { month: "short", year: "2-digit" });
+  });
+  const data   = sortedKeys.map(k => monthCounts[k]);
+  const { textColor, gridColor, fontFamily } = chartDefaults();
+
+  const canvas = document.createElement("canvas");
+  canvas.height = 220;
+  container.appendChild(canvas);
+
+  chartInstances["monthlyTrend"] = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Borrows",
+        data,
+        borderColor:     "#4fc3f7",
+        backgroundColor: "rgba(79,195,247,0.12)",
+        pointBackgroundColor: "#4fc3f7",
+        pointRadius:     5,
+        fill:            true,
+        tension:         0.35
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.parsed.y} borrow${ctx.parsed.y !== 1 ? "s" : ""}` }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, font: { family: fontFamily } },
+          grid:  { color: gridColor }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 },
+          grid:  { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+// ── Chart 3: On-Time vs Late Returns (doughnut) ───────────────────────────────
+function drawOnTimeChart(transactions) {
+  destroyChart("onTime");
+  const container = document.getElementById("chartOnTime");
+  container.innerHTML = "";
+
+  const returned = transactions.filter(tx => tx.status === "Returned");
+  const onTime   = returned.filter(tx => !tx.isLate).length;
+  const late     = returned.filter(tx => tx.isLate).length;
+
+  if (returned.length === 0) {
+    container.innerHTML = "<p class='chart-empty'>No completed returns yet.</p>";
+    return;
+  }
+
+  const { textColor, fontFamily } = chartDefaults();
+  const canvas = document.createElement("canvas");
+  canvas.height = 200;
+  container.appendChild(canvas);
+
+  chartInstances["onTime"] = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: ["On Time", "Late"],
+      datasets: [{
+        data: [onTime, late],
+        backgroundColor: ["#81c784", "#e57373"],
+        borderWidth: 0,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "60%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: textColor, font: { family: fontFamily }, padding: 16 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = ((ctx.parsed / returned.length) * 100).toFixed(1);
+              return ` ${ctx.parsed} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Chart 4: Status Breakdown (doughnut) ─────────────────────────────────────
+function drawStatusChart(transactions) {
+  destroyChart("status");
+  const container = document.getElementById("chartStatus");
+  container.innerHTML = "";
+
+  const counts = {};
+  transactions.forEach(tx => {
+    const s = tx.status || "Unknown";
+    counts[s] = (counts[s] || 0) + 1;
+  });
+
+  const labels = Object.keys(counts);
+  const data   = labels.map(l => counts[l]);
+
+  const colorMap = {
+    "Borrowed":       "#4fc3f7",
+    "Pending":        "#ffb74d",
+    "Returned":       "#81c784",
+    "Overdue":        "#e57373",
+    "Rejected":       "#9e9e9e",
+    "Return Pending": "#ba68c8"
+  };
+  const colors = labels.map(l => colorMap[l] || "#7986cb");
+
+  if (labels.length === 0) {
+    container.innerHTML = "<p class='chart-empty'>No transaction data yet.</p>";
+    return;
+  }
+
+  const { textColor, fontFamily } = chartDefaults();
+  const canvas = document.createElement("canvas");
+  canvas.height = 200;
+  container.appendChild(canvas);
+
+  chartInstances["status"] = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 0,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "60%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: textColor, font: { family: fontFamily }, padding: 12, boxWidth: 12 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = data.reduce((a,b) => a+b, 0);
+              const pct   = ((ctx.parsed / total) * 100).toFixed(1);
+              return ` ${ctx.parsed} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
