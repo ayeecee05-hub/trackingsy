@@ -33,7 +33,6 @@ function addDaysToPHTString(dateStr, days) {
 
 let currentUser      = null;
 let allBorrowers     = [];
-let html5QrScanner   = null;
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -199,71 +198,6 @@ function verifyPin(user) {
     document.getElementById("pinInput").value = "";
     document.getElementById("pinInput").focus();
   }
-}
-
-// ── QR scanner ────────────────────────────────────────────────────────────────
-document.getElementById("qrScanBtn").addEventListener("click", () => {
-  document.getElementById("qrScannerBox").style.display = "block";
-  startQrScanner();
-});
-document.getElementById("qrCloseBtn").addEventListener("click", stopQrScanner);
-
-function startQrScanner() {
-  if (html5QrScanner) {
-    const old = html5QrScanner;
-    html5QrScanner = null;
-    old.stop().catch(() => {}).finally(() => {
-      old.clear().catch(() => {});
-      _doStartScanner();
-    });
-  } else {
-    _doStartScanner();
-  }
-}
-
-function _doStartScanner() {
-  const readerEl = document.getElementById("qr-reader");
-  if (!readerEl) { showNotification("QR reader not found.", "error"); return; }
-  readerEl.innerHTML = "";
-
-  try { html5QrScanner = new Html5Qrcode("qr-reader"); }
-  catch (e) { showNotification("Could not initialise QR scanner.", "error"); return; }
-
-  html5QrScanner.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 220, height: 220 } },
-    decodedText => {
-      const scannedId = String(decodedText).trim();
-      stopQrScanner();
-      const user = allBorrowers.find(u => String(u.id) === scannedId);
-      if (user) {
-        showNotification(`Welcome, ${user.name}! 👋`, "success");
-        currentUser = user;
-        showPage("userDashboardPage");
-      } else {
-        showNotification(`ID "${scannedId}" not registered. Ask an admin.`, "error");
-      }
-    },
-    () => {}
-  ).catch(err => {
-    html5QrScanner = null;
-    document.getElementById("qrScannerBox").style.display = "none";
-    let msg = "Camera access denied or unavailable.";
-    if (err && err.message) {
-      if (err.message.toLowerCase().includes("permission"))  msg = "Camera permission denied. Allow access and try again.";
-      if (err.message.toLowerCase().includes("notfound"))    msg = "No camera found on this device.";
-      if (err.message.toLowerCase().includes("notreadable")) msg = "Camera is in use by another app.";
-    }
-    showNotification(msg, "error");
-  });
-}
-
-function stopQrScanner() {
-  document.getElementById("qrScannerBox").style.display = "none";
-  if (!html5QrScanner) return;
-  const scanner  = html5QrScanner;
-  html5QrScanner = null;
-  scanner.stop().catch(() => {}).finally(() => scanner.clear().catch(() => {}));
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -707,7 +641,10 @@ function handleDeepLink(users) {
   history.replaceState({}, "", window.location.pathname);
   const user = users.find(u => String(u.id) === String(userId).trim());
   if (user) {
-    openPinModal(user);
+    // QR deep-link = no PIN — go straight to the user's dashboard
+    showNotification(`Welcome, ${user.name}! 👋`, "success");
+    currentUser = user;
+    showPage("userDashboardPage");
   } else {
     showNotification(`ID "${userId}" is not registered. Ask an admin.`, "error");
   }

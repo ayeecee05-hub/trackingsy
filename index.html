@@ -57,24 +57,6 @@
         </div>
       </section>
 
-      <!-- ── QR Scanner ──────────────────────────────────────────────── -->
-      <div class="qr-scan-bar">
-        <button id="qrScanBtn" class="qr-btn" aria-label="Scan QR code to log in">
-          <span>📷</span> Scan QR to Login
-        </button>
-      </div>
-
-      <div id="qrScannerBox" style="display:none;">
-        <div class="qr-scanner-inner">
-          <div class="qr-scanner-header">
-            <span>Point camera at your QR code</span>
-            <button class="qr-close-btn" id="qrCloseBtn">✕</button>
-          </div>
-          <div id="qr-reader"></div>
-          <p class="qr-hint">Make sure your QR code is well-lit and centered</p>
-        </div>
-      </div>
-
       <!-- ── Borrower List ────────────────────────────────────────────── -->
       <div class="search-bar">
         <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
@@ -305,7 +287,6 @@
     <button class="install-dismiss" id="installDismiss">✕</button>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
