@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbyJDjAM7UX7d9xT9QMvWn4FB22fxe8TZBciMMIDP29dblCivWyc2PNoftpq7a4c3ra1WQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzLyXmXJwlF_970RZJ8DsjMho2MvYMcu0Qlu_ww7StlWmPf-J5FmkE0yttb20cLiyPTkg/exec";
 
 // ── Philippine Time helpers ────────────────────────────────────────────
 function getPHTDate() {
@@ -652,10 +652,10 @@ function renderTransactions(transactions) {
   const tbody = document.querySelector("#transactionsTable tbody");
   tbody.innerHTML = "";
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">No transactions found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No transactions found yet.</td></tr>`;
     return;
   }
-  transactions.forEach((tx, index) => {
+  transactions.forEach((tx) => {
     const s   = (tx.status || "").toLowerCase();
     const cls = s === "returned"       ? "status-returned"
               : s === "borrowed"       ? "status-borrowed"
@@ -664,12 +664,6 @@ function renderTransactions(transactions) {
               : s === "return pending" ? "status-return-pending"
               : s === "rejected"       ? "status-rejected"
               : "";
-    // Show Return button ONLY when the student has submitted a return request
-    // (status = "Return Pending"). It must NOT appear for plain Borrowed/Overdue rows
-    // — those only move to the Returns tab once the student clicks "↩ Return Item".
-    const returnBtn = s === "return pending"
-      ? `<button class="return-confirm-btn" onclick="confirmAdminReturn(${index})" title="Student submitted a return — confirm receipt">✅ Confirm Return</button>`
-      : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${tx.studentId}</td>
@@ -678,8 +672,7 @@ function renderTransactions(transactions) {
       <td>${tx.borrowDate}</td>
       <td>${tx.dueDate}</td>
       <td>${tx.returnDate || "-"}</td>
-      <td class="${cls}">${tx.status}</td>
-      <td>${returnBtn}</td>`;
+      <td class="${cls}">${tx.status}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -998,6 +991,7 @@ function saveEditStudent() {
       showNotification(`${name} updated successfully.`, "success");
       closeEditStudentModal();
       loadQrStudentList();
+      loadTransactions();   // refresh so transaction rows show the updated name
       updateSummaryStats();
     } else {
       errEl.textContent   = data.message || "Update failed.";
