@@ -1,17 +1,17 @@
 const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwnjTUWOQOqmrIfRjrNLlR-aeJdbNOJMBXOdX71llTJw2l7aAnUrY3UTY_ew_wIzXtB7g/exec";
 
-// ── Philippine Time (UTC+8) helpers ───────────────────────────────────────────
+// ── Philippine Time helpers ────────────────────────────────────────────
 function getPHTDate() {
   const now = new Date();
   const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
   return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
 }
-
 function getPHTDateString() {
   const pht = getPHTDate();
-  const y   = pht.getUTCFullYear();
-  const m   = String(pht.getUTCMonth() + 1).padStart(2, "0");
-  const d   = String(pht.getUTCDate()).padStart(2, "0");
+  const y = pht.getUTCFullYear();
+  const m = String(pht.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(pht.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 const ADMIN_PASSWORD = "12345";
@@ -850,8 +850,14 @@ function showQrModal(studentId, studentName) {
 
   if (qrInstance) { try { qrInstance.clear(); } catch(e) {} }
 
+  // Encode a deep-link URL so scanning with any camera app opens the
+  // borrower page directly at that student's PIN prompt.
+  const appUrl = window.location.origin +
+                 window.location.pathname.replace(/\/admin\.html$/, "/index.html") +
+                 "?user=" + encodeURIComponent(String(studentId));
+
   qrInstance = new QRCode(container, {
-    text:         String(studentId),
+    text:         appUrl,
     width:        200,
     height:       200,
     colorDark:    "#000000",

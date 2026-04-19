@@ -12,28 +12,20 @@
 const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
 
 
-
-// ── Philippine Time (UTC+8) helpers ───────────────────────────────────────────
-// Always use these instead of new Date().toISOString() to avoid UTC date shift.
+// ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 function getPHTDate() {
-  // Returns a Date object whose local-style values reflect PHT (UTC+8)
   const now = new Date();
-  // Offset in ms between UTC and PHT
   const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
   return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
 }
-
 function getPHTDateString() {
-  // Returns today's date in PHT as "YYYY-MM-DD"
   const pht = getPHTDate();
-  const y   = pht.getUTCFullYear();
-  const m   = String(pht.getUTCMonth() + 1).padStart(2, "0");
-  const d   = String(pht.getUTCDate()).padStart(2, "0");
+  const y = pht.getUTCFullYear();
+  const m = String(pht.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(pht.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
-
 function addDaysToPHTString(dateStr, days) {
-  // Adds N days to a "YYYY-MM-DD" string and returns a new "YYYY-MM-DD" string
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d + days));
   return date.toISOString().split("T")[0];
@@ -101,6 +93,7 @@ function loadBorrowers() {
       filteredBorrowers = users;
       usersPage         = 1;
       renderBorrowerPage();
+      handleDeepLink(users);   // auto-open PIN if ?user= param present
     })
     .catch(() => showNotification("Error loading users.", "error"));
 }
@@ -317,9 +310,7 @@ function loadUserDashboard() {
       ).length;
       document.getElementById("profileTotal").textContent = totalBorrows;
 
-      // On-time rate is based ONLY on completed returns.
-      // isLate is only set by the backend when admin confirms the return,
-      // so items still out (Borrowed/Overdue/Return Pending) are excluded.
+      // On-time rate based ONLY on completed returns (status === "Returned")
       const completedReturns = history.filter(tx => tx.status === "Returned");
       const lateReturns      = completedReturns.filter(tx => tx.isLate === true || tx.isLate === "TRUE");
       const onTimeRate = completedReturns.length > 0
@@ -703,5 +694,24 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+// ── Deep-link: ?user=STUDENTID ───────────────────────────────────────────────
+// When a student scans their QR code (which encodes a URL like
+// https://borrowingandreturn.netlify.app/index.html?user=323232),
+// the browser opens this page with ?user= in the URL. We read it
+// here after users are loaded and go straight to their PIN prompt.
+function handleDeepLink(users) {
+  const params  = new URLSearchParams(window.location.search);
+  const userId  = params.get("user");
+  if (!userId) return;
+  // Clean the URL so refreshing doesn't re-trigger
+  history.replaceState({}, "", window.location.pathname);
+  const user = users.find(u => String(u.id) === String(userId).trim());
+  if (user) {
+    openPinModal(user);
+  } else {
+    showNotification(`ID "${userId}" is not registered. Ask an admin.`, "error");
+  }
+}
+
 loadBorrowers();
 loadStockPanel();
