@@ -11,6 +11,8 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
 
+
+
 // ── Philippine Time (UTC+8) helpers ───────────────────────────────────────────
 // Always use these instead of new Date().toISOString() to avoid UTC date shift.
 function getPHTDate() {
@@ -310,11 +312,18 @@ function loadUserDashboard() {
       document.getElementById("statOverdue").textContent = overdue.length;
 
       // Profile stats
-      const totalBorrows = history.filter(tx => tx.status !== "Pending" && tx.status !== "Rejected").length;
+      const totalBorrows = history.filter(tx =>
+        tx.status !== "Pending" && tx.status !== "Rejected"
+      ).length;
       document.getElementById("profileTotal").textContent = totalBorrows;
-      const lateCount  = history.filter(tx => tx.isLate === true || tx.isLate === "TRUE").length;
-      const onTimeRate = totalBorrows > 0
-        ? Math.round(((totalBorrows - lateCount) / totalBorrows) * 100) + "%"
+
+      // On-time rate is based ONLY on completed returns.
+      // isLate is only set by the backend when admin confirms the return,
+      // so items still out (Borrowed/Overdue/Return Pending) are excluded.
+      const completedReturns = history.filter(tx => tx.status === "Returned");
+      const lateReturns      = completedReturns.filter(tx => tx.isLate === true || tx.isLate === "TRUE");
+      const onTimeRate = completedReturns.length > 0
+        ? Math.round(((completedReturns.length - lateReturns.length) / completedReturns.length) * 100) + "%"
         : "—";
       document.getElementById("profileOnTime").textContent  = onTimeRate;
       document.getElementById("profileOverdue").textContent = overdue.length;
