@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbzX7kC8wpCKjtMBt95iFPAizm51KOC_INYni08hyTk1zcExqQY2iC93zmiBVlXps4J5XA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycby7sgfD-AiJcngyo6cylq0cSxsrFfDXSjjsWtKxgkyhmckYi7MLuWU9emtkwNxJb-FvHw/exec";
 const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
