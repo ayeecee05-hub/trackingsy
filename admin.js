@@ -1,4 +1,19 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbwnjTUWOQOqmrIfRjrNLlR-aeJdbNOJMBXOdX71llTJw2l7aAnUrY3UTY_ew_wIzXtB7g/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
+
+// ── Philippine Time (UTC+8) helpers ───────────────────────────────────────────
+function getPHTDate() {
+  const now = new Date();
+  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+  return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
+}
+
+function getPHTDateString() {
+  const pht = getPHTDate();
+  const y   = pht.getUTCFullYear();
+  const m   = String(pht.getUTCMonth() + 1).padStart(2, "0");
+  const d   = String(pht.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 const ADMIN_PASSWORD = "12345";
 let allTransactions = [];
 let allUsers        = [];
@@ -504,7 +519,7 @@ function confirmReturnRequest(index) {
   const req = allReturnRequests[index];
   if (!req) return;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getPHTDateString();
 
   document.getElementById("adminReturnMessage").innerHTML =
     `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?
@@ -566,8 +581,8 @@ function loadTransactions() {
   fetch(scriptURL + "?action=getAllHistory")
     .then(res => res.json())
     .then(history => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const _ts = getPHTDateString().split("-").map(Number);
+      const today = new Date(_ts[0], _ts[1] - 1, _ts[2]);
       allTransactions = history.map(tx => {
         if (tx.status === "Borrowed" && tx.dueDate) {
           const parts   = tx.dueDate.split("-");
@@ -641,7 +656,7 @@ function confirmAdminReturn(index) {
   const tx = allTransactions[index];
   if (!tx) return;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getPHTDateString();
 
   document.getElementById("adminReturnMessage").innerHTML =
     `Mark <strong>${tx.item}</strong> as returned by
@@ -972,7 +987,8 @@ function showOverdueList() {
     <th>Student ID</th><th>Name</th><th>Item</th><th>Due Date</th><th>Days Overdue</th>
   </tr></thead><tbody></tbody>`;
   const tbody = table.querySelector("tbody");
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const _ts2 = getPHTDateString().split("-").map(Number);
+  const today = new Date(_ts2[0], _ts2[1] - 1, _ts2[2]);
   overdueItems.forEach(tx => {
     const parts       = tx.dueDate.split("-");
     const dueDate     = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
@@ -1027,7 +1043,8 @@ function loadCharts() {
       .then(res => res.json())
       .then(history => {
         // Apply overdue logic same as loadTransactions
-        const today = new Date(); today.setHours(0,0,0,0);
+        const _ts3 = getPHTDateString().split("-").map(Number);
+        const today = new Date(_ts3[0], _ts3[1] - 1, _ts3[2]);
         const processed = history.map(tx => {
           if (tx.status === "Borrowed" && tx.dueDate) {
             const p = tx.dueDate.split("-");

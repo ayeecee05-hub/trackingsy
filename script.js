@@ -9,7 +9,33 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwnjTUWOQOqmrIfRjrNLlR-aeJdbNOJMBXOdX71llTJw2l7aAnUrY3UTY_ew_wIzXtB7g/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
+
+// ── Philippine Time (UTC+8) helpers ───────────────────────────────────────────
+// Always use these instead of new Date().toISOString() to avoid UTC date shift.
+function getPHTDate() {
+  // Returns a Date object whose local-style values reflect PHT (UTC+8)
+  const now = new Date();
+  // Offset in ms between UTC and PHT
+  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+  return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
+}
+
+function getPHTDateString() {
+  // Returns today's date in PHT as "YYYY-MM-DD"
+  const pht = getPHTDate();
+  const y   = pht.getUTCFullYear();
+  const m   = String(pht.getUTCMonth() + 1).padStart(2, "0");
+  const d   = String(pht.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addDaysToPHTString(dateStr, days) {
+  // Adds N days to a "YYYY-MM-DD" string and returns a new "YYYY-MM-DD" string
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().split("T")[0];
+}
 
 let currentUser      = null;
 let allBorrowers     = [];
@@ -256,8 +282,9 @@ function loadUserDashboard() {
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayStr = getPHTDateString();
+      const [ty, tm, td] = todayStr.split("-").map(Number);
+      const today = new Date(ty, tm - 1, td);
 
       const borrowed      = history.filter(tx => tx.status === "Borrowed");
       const pending       = history.filter(tx => tx.status === "Pending");
@@ -372,22 +399,14 @@ function getDueBadge(daysLeft) {
 
 // ── Populate borrow select ────────────────────────────────────────────────────
 function populateBorrowSelect() {
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = getPHTDateString();
   document.getElementById("borrowDate").value = todayStr;
 
   // Default due date = today + 3 days; min = tomorrow, max = today + 30 days
-  const defaultDue = new Date(today);
-  defaultDue.setDate(defaultDue.getDate() + 3);
-  const maxDue = new Date(today);
-  maxDue.setDate(maxDue.getDate() + 30);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
   const dueDateInput = document.getElementById("borrowDueDate");
-  dueDateInput.value = defaultDue.toISOString().split("T")[0];
-  dueDateInput.min   = tomorrow.toISOString().split("T")[0];
-  dueDateInput.max   = maxDue.toISOString().split("T")[0];
+  dueDateInput.value = addDaysToPHTString(todayStr, 3);
+  dueDateInput.min   = addDaysToPHTString(todayStr, 1);
+  dueDateInput.max   = addDaysToPHTString(todayStr, 30);
 
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
@@ -413,7 +432,7 @@ function populateBorrowSelect() {
 // Items already in "Return Pending" state are excluded so the student
 // cannot submit a duplicate return request.
 function populateReturnSelect() {
-  document.getElementById("returnDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("returnDate").value = getPHTDateString();
   if (!currentUser) return;
 
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
