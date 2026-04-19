@@ -266,6 +266,16 @@ function renderPendingTable(requests) {
   }
 
   requests.forEach((req, index) => {
+    // Calculate duration in days if we have both borrowDate and dueDate
+    let durationText = "—";
+    if (req.borrowDate && req.dueDate) {
+      const b = req.borrowDate.split("-");
+      const d = req.dueDate.split("-");
+      const bDate = new Date(+b[0], +b[1]-1, +b[2]);
+      const dDate = new Date(+d[0], +d[1]-1, +d[2]);
+      const days  = Math.round((dDate - bDate) / 86400000);
+      if (!isNaN(days) && days > 0) durationText = `${days}d`;
+    }
     const row = document.createElement("tr");
     row.className = "pending-row";
     row.innerHTML = `
@@ -273,6 +283,7 @@ function renderPendingTable(requests) {
       <td><strong>${req.studentName || "—"}</strong></td>
       <td>${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
+      <td><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--warning);">${durationText}</span></td>
       <td><span class="date-chip due">${req.dueDate || "—"}</span></td>
       <td>
         <div class="pending-action-btns">

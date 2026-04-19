@@ -371,8 +371,26 @@ function getDueBadge(daysLeft) {
 }
 
 // ── Populate borrow select ────────────────────────────────────────────────────
+function updateDurationPreview() {
+  const borrowDateVal = document.getElementById("borrowDate").value;
+  const duration      = parseInt(document.getElementById("borrowDuration").value) || 3;
+  const preview       = document.getElementById("durationPreview");
+  if (!preview) return;
+  if (!borrowDateVal) { preview.textContent = "Expected return: —"; return; }
+  const d = new Date(borrowDateVal);
+  d.setDate(d.getDate() + duration);
+  preview.textContent = `Expected return: ${d.toISOString().split("T")[0]} (${duration} day${duration !== 1 ? "s" : ""})`;
+}
+
 function populateBorrowSelect() {
-  document.getElementById("borrowDate").value = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0];
+  document.getElementById("borrowDate").value = today;
+  const durInput = document.getElementById("borrowDuration");
+  if (durInput) {
+    durInput.addEventListener("input", updateDurationPreview);
+    // also run immediately
+    updateDurationPreview();
+  }
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
@@ -430,14 +448,15 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
 
   const item       = document.getElementById("borrowItem").value;
   const borrowDate = document.getElementById("borrowDate").value;
+  const duration   = Math.max(1, Math.min(30, parseInt(document.getElementById("borrowDuration").value) || 3));
   const dueDateObj = new Date(borrowDate);
-  dueDateObj.setDate(dueDateObj.getDate() + 3);
+  dueDateObj.setDate(dueDateObj.getDate() + duration);
   const dueDate = dueDateObj.toISOString().split("T")[0];
 
   showConfirmModal("📋", "Submit Borrow Request",
     `Request <strong>${item}</strong>?<br>
      <small style="color:var(--text-muted);">
-       Borrow date: ${borrowDate} · Due: ${dueDate}<br>
+       Borrow date: ${borrowDate} · Expected return: ${dueDate} (${duration} day${duration !== 1 ? "s" : ""})<br>
        Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
      </small>`,
     () => {
