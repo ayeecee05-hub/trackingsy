@@ -207,12 +207,9 @@
         <label for="borrowDate">Request Date</label>
         <input type="date" id="borrowDate" required readonly aria-label="Borrow date (set automatically to today)">
         <p class="field-note">📅 Request date is set to today automatically</p>
-        <label for="borrowDuration">How many days do you need it?</label>
-        <div class="duration-row">
-          <input type="number" id="borrowDuration" min="1" max="30" value="3" required aria-label="Number of days to borrow">
-          <span class="duration-preview" id="durationPreview">Expected return: —</span>
-        </div>
-        <p class="field-note" style="margin-top:6px;">📆 Max 30 days. Expected return date is calculated automatically.</p>
+        <label for="borrowDueDate">Expected Return Date</label>
+        <input type="date" id="borrowDueDate" required aria-label="Pick the date you plan to return the item">
+        <p class="field-note" id="dueDateNote">📆 Defaults to 3 days from today — tap to pick a different date</p>
         <p class="field-note" style="color:var(--warning);margin-top:6px;">⏳ Status will be <strong>Pending</strong> until the admin confirms hand-over</p>
         <div class="actions" style="margin-top:20px;">
           <button type="submit">📋 Submit Request</button>

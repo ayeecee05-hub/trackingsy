@@ -371,26 +371,24 @@ function getDueBadge(daysLeft) {
 }
 
 // ── Populate borrow select ────────────────────────────────────────────────────
-function updateDurationPreview() {
-  const borrowDateVal = document.getElementById("borrowDate").value;
-  const duration      = parseInt(document.getElementById("borrowDuration").value) || 3;
-  const preview       = document.getElementById("durationPreview");
-  if (!preview) return;
-  if (!borrowDateVal) { preview.textContent = "Expected return: —"; return; }
-  const d = new Date(borrowDateVal);
-  d.setDate(d.getDate() + duration);
-  preview.textContent = `Expected return: ${d.toISOString().split("T")[0]} (${duration} day${duration !== 1 ? "s" : ""})`;
-}
-
 function populateBorrowSelect() {
-  const today = new Date().toISOString().split("T")[0];
-  document.getElementById("borrowDate").value = today;
-  const durInput = document.getElementById("borrowDuration");
-  if (durInput) {
-    durInput.addEventListener("input", updateDurationPreview);
-    // also run immediately
-    updateDurationPreview();
-  }
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  document.getElementById("borrowDate").value = todayStr;
+
+  // Default due date = today + 3 days; min = tomorrow, max = today + 30 days
+  const defaultDue = new Date(today);
+  defaultDue.setDate(defaultDue.getDate() + 3);
+  const maxDue = new Date(today);
+  maxDue.setDate(maxDue.getDate() + 30);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const dueDateInput = document.getElementById("borrowDueDate");
+  dueDateInput.value = defaultDue.toISOString().split("T")[0];
+  dueDateInput.min   = tomorrow.toISOString().split("T")[0];
+  dueDateInput.max   = maxDue.toISOString().split("T")[0];
+
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
@@ -448,15 +446,25 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
 
   const item       = document.getElementById("borrowItem").value;
   const borrowDate = document.getElementById("borrowDate").value;
-  const duration   = Math.max(1, Math.min(30, parseInt(document.getElementById("borrowDuration").value) || 3));
-  const dueDateObj = new Date(borrowDate);
-  dueDateObj.setDate(dueDateObj.getDate() + duration);
-  const dueDate = dueDateObj.toISOString().split("T")[0];
+  const dueDate    = document.getElementById("borrowDueDate").value;
+
+  if (!dueDate) {
+    showNotification("Please select an expected return date.", "error");
+    return;
+  }
+  if (dueDate <= borrowDate) {
+    showNotification("Expected return date must be after the borrow date.", "error");
+    return;
+  }
+
+  // Calculate days for display in confirm modal
+  const b = new Date(borrowDate), d = new Date(dueDate);
+  const days = Math.round((d - b) / 86400000);
 
   showConfirmModal("📋", "Submit Borrow Request",
     `Request <strong>${item}</strong>?<br>
      <small style="color:var(--text-muted);">
-       Borrow date: ${borrowDate} · Expected return: ${dueDate} (${duration} day${duration !== 1 ? "s" : ""})<br>
+       Borrow date: ${borrowDate} · Expected return: ${dueDate} (${days} day${days !== 1 ? "s" : ""})<br>
        Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
      </small>`,
     () => {

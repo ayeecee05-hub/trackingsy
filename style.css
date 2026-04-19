@@ -505,6 +505,27 @@ body:not(.dark) .due-progress-track { background: rgba(0,0,0,0.08); }
 
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* Transactions panel — fixed-height vertical scroll so the table doesn't push the page */
+#panelTransactions .table-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) transparent;
+}
+#panelTransactions .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+#panelTransactions .table-scroll::-webkit-scrollbar-track { background: transparent; }
+#panelTransactions .table-scroll::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 4px; }
+/* Stick the header so it stays visible while scrolling */
+#transactionsTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-accent);
+}
+
 #transactionsTable { width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.88rem; }
 #transactionsTable thead { background: var(--bg-accent); }
 #transactionsTable th { padding: 9px 8px; text-align: left; font-weight: 600; color: var(--accent-primary); border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -1016,22 +1037,4 @@ body:not(.dark) .return-pending-pill {
   .chart-card-wide { grid-column: 1; }
 }
 
-/* ── Borrow duration picker ─────────────────────────────────── */
-.duration-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.duration-row input[type="number"] {
-  width: 80px;
-  flex-shrink: 0;
-}
-.duration-preview {
-  font-size: 12px;
-  color: var(--accent-primary);
-  font-weight: 600;
-  font-family: var(--mono);
-  flex: 1;
-  white-space: nowrap;
-}
+/* ── Borrow due date picker note ────────────────────────────── */
