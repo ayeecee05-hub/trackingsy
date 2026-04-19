@@ -9,8 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyJDjAM7UX7d9xT9QMvWn4FB22fxe8TZBciMMIDP29dblCivWyc2PNoftpq7a4c3ra1WQ/exec";
-
+const scriptURL = "https://script.google.com/macros/s/AKfycbwvcm-aFs0W2e3SahoQym8co0EvZHvU8kAr8yfGZEl4zI-R69kTegyd6zw1S3tmp9PF6A/exec";
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 function getPHTDate() {
@@ -110,17 +109,42 @@ const USERS_PER_PAGE    = 10;
 let   usersPage         = 1;
 let   filteredBorrowers = [];
 
+// Map of studentId → worst active status (used to badge cards)
+let borrowerStatusMap = {};
+
+function computeStatusMap(history) {
+  const priority = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
+  const map = {};
+  const todayStr = getPHTDateString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
+  history.forEach(tx => {
+    let status = tx.status;
+    if (status === "Borrowed" && tx.dueDate) {
+      const p = tx.dueDate.split("-");
+      if (new Date(+p[0], +p[1] - 1, +p[2]) < today) status = "Overdue";
+    }
+    if (!priority[status]) return;
+    const cur = map[tx.studentId];
+    if (!cur || priority[status] > priority[cur]) map[tx.studentId] = status;
+  });
+  return map;
+}
+
 function loadBorrowers() {
-  fetch(scriptURL + "?action=getUsers")
-    .then(res => res.json())
-    .then(users => {
-      allBorrowers      = users;
-      filteredBorrowers = users;
-      usersPage         = 1;
-      renderBorrowerPage();
-      handleDeepLink(users);   // auto-open PIN if ?user= param present
-    })
-    .catch(() => showNotification("Error loading users.", "error"));
+  Promise.all([
+    fetch(scriptURL + "?action=getUsers").then(r => r.json()),
+    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
+  ])
+  .then(([users, history]) => {
+    borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
+    allBorrowers      = users;
+    filteredBorrowers = users;
+    usersPage         = 1;
+    renderBorrowerPage();
+    handleDeepLink(users);
+  })
+  .catch(() => showNotification("Error loading users.", "error"));
 }
 
 function renderBorrowerPage() {
@@ -151,14 +175,25 @@ function renderBorrowerPage() {
 
   pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    const status   = borrowerStatusMap[user.id];
+    const badgeCfg = {
+      "Overdue":        { cls: "card-badge-overdue",  label: "⚠ Overdue"        },
+      "Borrowed":       { cls: "card-badge-borrowed", label: "📦 Borrowed"       },
+      "Return Pending": { cls: "card-badge-return",   label: "↩ Returning"       },
+      "Pending":        { cls: "card-badge-pending",  label: "⏳ Pending"        }
+    };
+    const badge = status && badgeCfg[status]
+      ? `<span class="card-status-badge ${badgeCfg[status].cls}">${badgeCfg[status].label}</span>`
+      : "";
     const card = document.createElement("div");
-    card.className = "borrower-card";
+    card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
     card.setAttribute("aria-label", `Select ${user.name}`);
     card.innerHTML = `
       <div class="borrower-avatar">${initials}</div>
-      <h3>${user.name}</h3>`;
+      <h3>${user.name}</h3>
+      ${badge}`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);

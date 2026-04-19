@@ -262,6 +262,29 @@ body:not(.dark) .borrower-card { background: linear-gradient(135deg, #e3f2fd, #f
 body:not(.dark) .borrower-card:hover { box-shadow: 0 6px 20px rgba(21,101,192,0.2); border-color: var(--accent-primary); }
 body:not(.dark) .borrower-card h3 { color: #1a2332; }
 
+/* ── Borrower card status badges ─────────────────────────── */
+.card-status-badge {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.card-badge-overdue  { background: rgba(255,107,107,0.18); color: #ef9a9a; border: 1px solid rgba(255,107,107,0.35); }
+.card-badge-borrowed { background: rgba(79,195,247,0.14);  color: #81d4fa; border: 1px solid rgba(79,195,247,0.3);  }
+.card-badge-return   { background: rgba(186,104,200,0.16); color: #ce93d8; border: 1px solid rgba(186,104,200,0.35);}
+.card-badge-pending  { background: rgba(255,183,77,0.15);  color: #ffe082; border: 1px solid rgba(255,183,77,0.35); }
+.card-overdue-ring   { border-color: rgba(255,107,107,0.55) !important; }
+
+body:not(.dark) .card-badge-overdue  { background: #ffebee; color: #c62828; border-color: rgba(198,40,40,0.3); }
+body:not(.dark) .card-badge-borrowed { background: #e3f2fd; color: #0d47a1; border-color: rgba(13,71,161,0.25); }
+body:not(.dark) .card-badge-return   { background: #f3e5f5; color: #6a1b9a; border-color: rgba(106,27,154,0.3); }
+body:not(.dark) .card-badge-pending  { background: #fff8e1; color: #e65100; border-color: rgba(230,81,0,0.3);   }
+body:not(.dark) .card-overdue-ring   { border-color: rgba(198,40,40,0.5) !important; }
+
 /* ── Summary stats ───────────────────────────────────────── */
 #summaryStats { display: flex; justify-content: space-around; gap: 10px; margin: 14px 0 18px; }
 .stat-card {

@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbzLyXmXJwlF_970RZJ8DsjMho2MvYMcu0Qlu_ww7StlWmPf-J5FmkE0yttb20cLiyPTkg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwvcm-aFs0W2e3SahoQym8co0EvZHvU8kAr8yfGZEl4zI-R69kTegyd6zw1S3tmp9PF6A/exec";
 
 // ── Philippine Time helpers ────────────────────────────────────────────
 function getPHTDate() {
