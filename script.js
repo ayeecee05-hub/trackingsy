@@ -11,6 +11,7 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbwvcm-aFs0W2e3SahoQym8co0EvZHvU8kAr8yfGZEl4zI-R69kTegyd6zw1S3tmp9PF6A/exec";
 
+
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 function getPHTDate() {
   const now = new Date();
@@ -54,6 +55,7 @@ function resetBorrowerSession() {
 // ── Log out the current borrower ──────────────────────────────────────────────
 function logoutUser(timedOut = false) {
   clearTimeout(borrowerSessionTimer);
+  stopDashboardPoll();
   currentUser = null;
   showPage("dashboardPage");
   showNotification(timedOut ? "Session expired. Please select your name again." : "Logged out.", "info");
@@ -97,9 +99,22 @@ function showPage(pageId) {
     if (el) el.style.display = id === pageId ? "block" : "none";
   });
   if (pageId === "userDashboardPage") loadUserDashboard();
-  if (pageId === "borrowPage")        populateBorrowSelect();
-  if (pageId === "returnPage")        populateReturnSelect();
+  if (pageId === "borrowPage")        { stopDashboardPoll(); populateBorrowSelect(); }
+  if (pageId === "returnPage")        { stopDashboardPoll(); populateReturnSelect(); }
+  // Silently refresh status badges whenever the main dashboard comes back into view
+  if (pageId === "dashboardPage")     refreshStatusBadges();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Re-fetches history only (fast) and repaints card badges — no full page reload
+function refreshStatusBadges() {
+  fetch(scriptURL + "?action=getAllHistory")
+    .then(r => r.json())
+    .then(history => {
+      borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
+      renderBorrowerPage();
+    })
+    .catch(() => {}); // fail silently — stale badges are better than an error
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -223,7 +238,8 @@ function changeUsersPage(delta) {
 document.getElementById("borrowerSearch").addEventListener("input", e => {
   const q = e.target.value.toLowerCase();
   filteredBorrowers = allBorrowers.filter(u =>
-    u.name.toLowerCase().includes(q)
+    u.name.toLowerCase().includes(q) ||
+    String(u.id).toLowerCase().includes(q)
   );
   usersPage = 1;
   renderBorrowerPage();
@@ -260,6 +276,28 @@ function verifyPin(user) {
     document.getElementById("pinInput").value = "";
     document.getElementById("pinInput").focus();
   }
+}
+
+// ── User dashboard polling (auto-refresh while Pending items exist) ──────────
+// Polls every 15 s when the student has a Pending or Return Pending item so
+// the status updates automatically once the admin confirms, no manual refresh.
+let _dashPollTimer = null;
+
+function startDashboardPoll() {
+  stopDashboardPoll();
+  _dashPollTimer = setInterval(() => {
+    // Only poll when the userDashboardPage is actually visible
+    const page = document.getElementById("userDashboardPage");
+    if (page && page.style.display !== "none" && currentUser) {
+      loadUserDashboard();
+    } else {
+      stopDashboardPoll();
+    }
+  }, 15000);
+}
+
+function stopDashboardPoll() {
+  if (_dashPollTimer) { clearInterval(_dashPollTimer); _dashPollTimer = null; }
 }
 
 // ── User dashboard ────────────────────────────────────────────────────────────
@@ -382,6 +420,15 @@ function loadUserDashboard() {
         } else {
           returnPendingSection.style.display = "none";
         }
+      }
+      // ── Auto-poll logic ───────────────────────────────────────────────────
+      // Start polling if the student has anything still waiting on the admin.
+      // Stop polling once everything is confirmed (no Pending / Return Pending).
+      const needsPoll = pending.length > 0 || returnPending.length > 0;
+      if (needsPoll) {
+        if (!_dashPollTimer) startDashboardPoll();
+      } else {
+        stopDashboardPoll();
       }
     })
     .catch(() => showNotification("Error loading your data.", "error"));
