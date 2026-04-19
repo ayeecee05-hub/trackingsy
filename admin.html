@@ -253,6 +253,10 @@
       </div>
 
       <div class="admin-footer">
+        <div class="session-info">
+          <span class="session-icon">🔒</span>
+          <span id="sessionCountdown" class="session-countdown">Session active</span>
+        </div>
         <button class="btn-neutral" onclick="logoutAdmin()">Logout</button>
       </div>
     </div>
@@ -353,6 +357,39 @@
     <span class="footer-sep">·</span>
     <span>AY 2025–2026</span>
   </footer>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true">
+      <div class="confirm-box" style="max-width:400px;width:90%;">
+        <div class="confirm-icon">✏️</div>
+        <h3>Edit Student</h3>
+        <input type="hidden" id="editStudentId">
+        <div style="width:100%;margin-bottom:10px;">
+          <input id="editStudentName"  type="text"  placeholder="Full Name"        style="width:100%;box-sizing:border-box;" aria-label="Student full name">
+        </div>
+        <div style="width:100%;margin-bottom:10px;">
+          <input id="editStudentEmail" type="email" placeholder="Email (optional)" style="width:100%;box-sizing:border-box;" aria-label="Student email">
+        </div>
+        <p id="editStudentError" class="field-error-msg" style="display:none;margin-bottom:10px;"></p>
+        <div class="confirm-actions">
+          <button id="editStudentSaveBtn" onclick="saveEditStudent()">Save Changes</button>
+          <button class="btn-neutral" onclick="closeEditStudentModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Student Modal -->
+    <div id="deleteStudentModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true">
+      <div class="confirm-box">
+        <div class="confirm-icon">🗑️</div>
+        <h3>Delete Student</h3>
+        <p id="deleteStudentMessage">Are you sure?</p>
+        <div class="confirm-actions">
+          <button id="deleteStudentYes" class="reject-confirm-btn">Yes, Delete</button>
+          <button class="btn-neutral"   id="deleteStudentNo">Cancel</button>
+        </div>
+      </div>
+    </div>
 
   <div id="notification"></div>
 

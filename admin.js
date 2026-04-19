@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyJDjAM7UX7d9xT9QMvWn4FB22fxe8TZBciMMIDP29dblCivWyc2PNoftpq7a4c3ra1WQ/exec";
 
 // ── Philippine Time helpers ────────────────────────────────────────────
 function getPHTDate() {
@@ -13,7 +13,54 @@ function getPHTDateString() {
   const d = String(pht.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
-const ADMIN_PASSWORD = "12345";
+// ── Admin password (SHA-256 hash) ─────────────────────────────────────────────
+// Default password is: ctu@danao2025
+// To change: open browser console and run:
+//   crypto.subtle.digest("SHA-256", new TextEncoder().encode("yourNewPassword"))
+//     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")))
+// Then paste the resulting hash string below.
+const ADMIN_PASSWORD_HASH = "48d2a5bbcf422ccd1b69e2a82fb90bafb52384953e77e304bef856084be052b6";
+
+async function hashPassword(pw) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
+  return [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+// ── Admin session timeout (15 minutes of inactivity) ─────────────────────────
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+let   sessionTimer       = null;
+
+function resetSessionTimer() {
+  clearTimeout(sessionTimer);
+  window._sessionResetAt = Date.now();
+  sessionTimer = setTimeout(() => {
+    if (document.getElementById("adminSection").style.display !== "none") {
+      logoutAdmin(true);
+    }
+  }, SESSION_TIMEOUT_MS);
+}
+
+["click", "keydown", "mousemove", "touchstart"].forEach(evt =>
+  document.addEventListener(evt, resetSessionTimer, { passive: true })
+);
+
+// ── Auto-refresh interval for Pending & Returns tabs ─────────────────────────
+let autoRefreshInterval = null;
+const AUTO_REFRESH_MS   = 30 * 1000;
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshInterval = setInterval(() => {
+    loadPendingRequests();
+    loadReturnRequests();
+    updateSummaryStats();
+  }, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+}
+
 let allTransactions = [];
 let allUsers        = [];
 let allPending      = [];
@@ -38,12 +85,15 @@ function showNotification(message, type = "info") {
 }
 
 // ── Password gate ─────────────────────────────────────────────────────────────
-function checkPassword() {
+async function checkPassword() {
   const entered = document.getElementById("adminPassword").value;
-  if (entered === ADMIN_PASSWORD) {
+  const hashed  = await hashPassword(entered);
+  if (hashed === ADMIN_PASSWORD_HASH) {
     document.getElementById("loginSection").style.display = "none";
     document.getElementById("adminSection").style.display = "block";
     showNotification("Admin access granted", "success");
+    resetSessionTimer();
+    startAutoRefresh();
     loadPendingRequests();
     loadReturnRequests();
     loadTransactions();
@@ -56,11 +106,13 @@ function checkPassword() {
   }
 }
 
-function logoutAdmin() {
+function logoutAdmin(timedOut = false) {
+  stopAutoRefresh();
+  clearTimeout(sessionTimer);
   document.getElementById("adminSection").style.display = "none";
   document.getElementById("loginSection").style.display = "block";
   document.getElementById("adminPassword").value = "";
-  showNotification("Logged out successfully", "info");
+  showNotification(timedOut ? "Session expired — please log in again." : "Logged out successfully", timedOut ? "error" : "info");
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -835,7 +887,11 @@ function renderQrStudentList(users) {
         <strong>${u.name}</strong>
         <small>ID: ${u.id}</small>
       </div>
-      <button class="qr-gen-btn" onclick="showQrModal('${u.id}', '${u.name.replace(/'/g, "\\'")}')">QR</button>`;
+      <div class="qr-student-actions">
+        <button class="qr-gen-btn"    onclick="showQrModal('${u.id}', '${u.name.replace(/'/g, "\\'")}')">QR</button>
+        <button class="qr-edit-btn"   onclick="openEditStudentModal('${u.id}', '${u.name.replace(/'/g, "\\'")}', '${(u.email||"").replace(/'/g, "\\'")}')">✏️</button>
+        <button class="qr-delete-btn" onclick="confirmDeleteStudent('${u.id}', '${u.name.replace(/'/g, "\\'")}')">🗑</button>
+      </div>`;
     container.appendChild(row);
   });
 }
@@ -891,6 +947,106 @@ function printQr() {
     <script>window.onload = () => { window.print(); window.close(); }<\/script>
     </body></html>`);
   win.document.close();
+}
+
+// ── Edit student ──────────────────────────────────────────────────────────────
+function openEditStudentModal(studentId, name, email) {
+  document.getElementById("editStudentId").value    = studentId;
+  document.getElementById("editStudentName").value  = name;
+  document.getElementById("editStudentEmail").value = email || "";
+  document.getElementById("editStudentError").style.display = "none";
+  document.getElementById("editStudentModal").style.display = "flex";
+}
+
+function closeEditStudentModal() {
+  document.getElementById("editStudentModal").style.display = "none";
+}
+
+function saveEditStudent() {
+  const studentId = document.getElementById("editStudentId").value.trim();
+  const name      = document.getElementById("editStudentName").value.trim();
+  const email     = document.getElementById("editStudentEmail").value.trim();
+  const errEl     = document.getElementById("editStudentError");
+
+  if (!name || name.length < 2) {
+    errEl.textContent   = "Name must be at least 2 characters.";
+    errEl.style.display = "block";
+    return;
+  }
+  if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(name)) {
+    errEl.textContent   = "Name must contain letters only.";
+    errEl.style.display = "block";
+    return;
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent   = "Enter a valid email address.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  const saveBtn = document.getElementById("editStudentSaveBtn");
+  saveBtn.disabled    = true;
+  saveBtn.textContent = "Saving…";
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "updateUser", studentId, name, email })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`${name} updated successfully.`, "success");
+      closeEditStudentModal();
+      loadQrStudentList();
+      updateSummaryStats();
+    } else {
+      errEl.textContent   = data.message || "Update failed.";
+      errEl.style.display = "block";
+    }
+  })
+  .catch(() => {
+    errEl.textContent   = "Network error. Please try again.";
+    errEl.style.display = "block";
+  })
+  .finally(() => {
+    saveBtn.disabled    = false;
+    saveBtn.textContent = "Save Changes";
+  });
+}
+
+// ── Delete student ────────────────────────────────────────────────────────────
+function confirmDeleteStudent(studentId, name) {
+  document.getElementById("deleteStudentMessage").innerHTML =
+    `Delete <strong>${name}</strong> (ID: ${studentId})?<br>
+     <small style="color:var(--text-muted);">This cannot be undone. Students with active borrows cannot be deleted.</small>`;
+  document.getElementById("deleteStudentModal").style.display = "flex";
+
+  document.getElementById("deleteStudentYes").onclick = () => {
+    document.getElementById("deleteStudentModal").style.display = "none";
+    executeDeleteStudent(studentId, name);
+  };
+  document.getElementById("deleteStudentNo").onclick = () => {
+    document.getElementById("deleteStudentModal").style.display = "none";
+  };
+}
+
+function executeDeleteStudent(studentId, name) {
+  showNotification("Deleting student…", "info");
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "deleteUser", studentId })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`${name} has been removed.`, "success");
+      loadQrStudentList();
+      updateSummaryStats();
+    } else {
+      showNotification(data.message || "Could not delete student.", "error");
+    }
+  })
+  .catch(() => showNotification("Network error during deletion.", "error"));
 }
 
 // QR search filter
@@ -1018,6 +1174,18 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adminLoginBtn").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); checkPassword(); }
   });
+
+  // ── Session countdown display ──────────────────────────────────────────────
+  setInterval(() => {
+    const el = document.getElementById("sessionCountdown");
+    if (!el || document.getElementById("adminSection").style.display === "none") return;
+    if (!sessionTimer) return;
+    // _idleStart is set each time resetSessionTimer runs
+    const remaining = Math.max(0, SESSION_TIMEOUT_MS - (Date.now() - (window._sessionResetAt || Date.now())));
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    el.textContent = `Auto-logout in ${mins}:${String(secs).padStart(2,"0")}`;
+  }, 1000);
 });
 
 // ── Summary stats ─────────────────────────────────────────────────────────────

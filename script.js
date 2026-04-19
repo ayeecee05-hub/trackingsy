@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbz-s0vmF-RjgGhR1T7TKkHxVH8hNM8IixtfXb_cfbqvqTtWFzaxjw2Qgc2QuNoQ-3ToTg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyJDjAM7UX7d9xT9QMvWn4FB22fxe8TZBciMMIDP29dblCivWyc2PNoftpq7a4c3ra1WQ/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
@@ -33,6 +33,32 @@ function addDaysToPHTString(dateStr, days) {
 
 let currentUser      = null;
 let allBorrowers     = [];
+
+// ── Borrower session timeout (10 minutes of inactivity) ──────────────────────
+const BORROWER_SESSION_MS = 10 * 60 * 1000;
+let   borrowerSessionTimer = null;
+
+function resetBorrowerSession() {
+  clearTimeout(borrowerSessionTimer);
+  if (!currentUser) return;
+  borrowerSessionTimer = setTimeout(() => {
+    if (currentUser) {
+      logoutUser(true);
+    }
+  }, BORROWER_SESSION_MS);
+}
+
+["click", "keydown", "touchstart"].forEach(evt =>
+  document.addEventListener(evt, () => { if (currentUser) resetBorrowerSession(); }, { passive: true })
+);
+
+// ── Log out the current borrower ──────────────────────────────────────────────
+function logoutUser(timedOut = false) {
+  clearTimeout(borrowerSessionTimer);
+  currentUser = null;
+  showPage("dashboardPage");
+  showNotification(timedOut ? "Session expired. Please select your name again." : "Logged out.", "info");
+}
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -192,6 +218,7 @@ function verifyPin(user) {
   if (entered === expected) {
     document.getElementById("pinModal").style.display = "none";
     currentUser = user;
+    resetBorrowerSession();
     showPage("userDashboardPage");
   } else {
     document.getElementById("pinError").style.display = "block";
@@ -215,10 +242,12 @@ function loadUserDashboard() {
       const [ty, tm, td] = todayStr.split("-").map(Number);
       const today = new Date(ty, tm - 1, td);
 
-      const borrowed      = history.filter(tx => tx.status === "Borrowed");
+      const borrowed      = history.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue");
       const pending       = history.filter(tx => tx.status === "Pending");
       const returnPending = history.filter(tx => tx.status === "Return Pending");
 
+      // Reclassify any "Borrowed" item whose due date has passed as overdue
+      // (the spreadsheet only updates via the admin; this keeps the borrower view accurate)
       const overdue = borrowed.filter(tx => {
         if (!tx.dueDate) return false;
         const p = tx.dueDate.split("-");
@@ -644,6 +673,7 @@ function handleDeepLink(users) {
     // QR deep-link = no PIN — go straight to the user's dashboard
     showNotification(`Welcome, ${user.name}! 👋`, "success");
     currentUser = user;
+    resetBorrowerSession();
     showPage("userDashboardPage");
   } else {
     showNotification(`ID "${userId}" is not registered. Ask an admin.`, "error");
