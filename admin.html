@@ -4,396 +4,1050 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — CTU Danao Borrowing System</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg:           #0d1117;
+      --surface:      #161b22;
+      --surface2:     #1c2128;
+      --border:       rgba(255,255,255,0.08);
+      --border-mid:   rgba(255,255,255,0.12);
+      --text:         #e6edf3;
+      --text2:        rgba(230,237,243,0.70);
+      --text3:        rgba(230,237,243,0.42);
+      --accent:       #4fc3f7;
+      --accent2:      #0288d1;
+      --accent-glow:  rgba(79,195,247,0.15);
+      --success:      #3fb950;
+      --warning:      #d29922;
+      --danger:       #f85149;
+      --purple:       #a371f7;
+      --mono:         'JetBrains Mono', monospace;
+      --font:         'Inter', sans-serif;
+      --shadow-sm:    0 1px 4px rgba(0,0,0,0.3);
+      --shadow:       0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg:    0 8px 32px rgba(0,0,0,0.5);
+      --sidebar-w:    240px;
+      --topbar-h:     56px;
+      --radius:       10px;
+      --radius-lg:    14px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESET
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100%; font-size: 14px; line-height: 1.5; }
+
+    /* ═══════════════════════════════════════════════
+       LOGIN SCREEN
+    ═══════════════════════════════════════════════ */
+    #loginScreen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      background-image: radial-gradient(ellipse at 60% 10%, rgba(79,195,247,0.07) 0%, transparent 60%);
+      padding: 16px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border-mid);
+      border-radius: 20px;
+      padding: 40px 36px 32px;
+      width: 100%; max-width: 380px;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), var(--purple));
+    }
+    .login-logo { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.07); object-fit: contain; padding: 4px; margin: 0 auto 16px; display: block; }
+    .login-univ { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+    .login-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .login-sub { font-size: 12px; color: var(--text3); margin-bottom: 28px; }
+    .login-label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; text-align: left; }
+    .login-input {
+      width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-mid); border-radius: var(--radius);
+      color: var(--text); font-family: var(--font); font-size: 15px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+      text-align: center; letter-spacing: 3px; margin-bottom: 16px;
+    }
+    .login-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .login-btn {
+      width: 100%; padding: 12px; background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius); font-family: var(--font);
+      font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .login-btn:hover { background: var(--accent2); }
+    .login-btn:active { transform: scale(0.98); }
+
+    /* ═══════════════════════════════════════════════
+       APP SHELL — sidebar + main
+    ═══════════════════════════════════════════════ */
+    #appShell { display: none; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 50; overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .sidebar-logo { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.07); object-fit: contain; padding: 2px; flex-shrink: 0; }
+    .sidebar-brand-title { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .sidebar-brand-sub { font-size: 10px; color: var(--text3); font-weight: 500; letter-spacing: 0.3px; }
+
+    .sidebar-section-label {
+      padding: 16px 18px 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text3);
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px; margin: 1px 8px;
+      border-radius: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 500; color: var(--text2);
+      transition: background 0.15s, color 0.15s;
+      border: none; background: none; width: calc(100% - 16px); text-align: left;
+      position: relative;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-item.active { background: rgba(79,195,247,0.12); color: var(--accent); font-weight: 600; }
+    .nav-item .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto; background: var(--warning); color: #000;
+      font-size: 10px; font-weight: 800; min-width: 18px; height: 18px;
+      border-radius: 9px; padding: 0 5px; display: none;
+      align-items: center; justify-content: center;
+    }
+    .sidebar-spacer { flex: 1; }
+    .sidebar-footer {
+      padding: 12px 18px; border-top: 1px solid var(--border);
+    }
+    .session-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 10px;
+    }
+    .session-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--text3); font-family: var(--mono);
+    }
+    .session-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+    .logout-btn {
+      width: 100%; padding: 8px; background: rgba(248,81,73,0.1);
+      color: var(--danger); border: 1px solid rgba(248,81,73,0.25);
+      border-radius: 8px; font-family: var(--font); font-size: 12px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .logout-btn:hover { background: rgba(248,81,73,0.2); }
+
+    /* Main content */
+    .main-content {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* Top bar */
+    .topbar {
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      position: sticky; top: 0; z-index: 40;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .topbar-desc { font-size: 12px; color: var(--text3); }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .topbar-sync { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+    /* Page area */
+    .page-area { flex: 1; padding: 24px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ═══════════════════════════════════════════════
+       KPI STAT ROW
+    ═══════════════════════════════════════════════ */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+    .kpi-card:hover { border-color: var(--border-mid); box-shadow: var(--shadow-sm); }
+    .kpi-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1.1; }
+    .kpi-value.kpi-accent  { color: var(--accent); }
+    .kpi-value.kpi-warning { color: var(--warning); }
+    .kpi-value.kpi-danger  { color: var(--danger); }
+    .kpi-value.kpi-success { color: var(--success); }
+    .kpi-sub { font-size: 11px; color: var(--text3); }
+
+    /* ═══════════════════════════════════════════════
+       TWO-COLUMN LAYOUT
+    ═══════════════════════════════════════════════ */
+    .two-col { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; margin-bottom: 20px; }
+    .one-col { margin-bottom: 20px; }
+
+    /* ═══════════════════════════════════════════════
+       PANELS / CARDS
+    ═══════════════════════════════════════════════ */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .panel-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
+    .panel-title-icon { font-size: 14px; opacity: 0.8; }
+    .panel-actions { display: flex; align-items: center; gap: 6px; }
+    .panel-body { padding: 16px 18px; }
+    .panel-body-flush { padding: 0; }
+
+    /* ═══════════════════════════════════════════════
+       ALERT BANNER
+    ═══════════════════════════════════════════════ */
+    .alert-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .alert-banner.warn { background: rgba(210,153,34,0.12); border: 1px solid rgba(210,153,34,0.3); color: #d29922; }
+    .alert-banner.info { background: rgba(79,195,247,0.1);  border: 1px solid rgba(79,195,247,0.25); color: var(--accent); }
+    .alert-banner strong { font-weight: 700; }
+
+    /* ═══════════════════════════════════════════════
+       TABLES
+    ═══════════════════════════════════════════════ */
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+    }
+    .table-wrap::-webkit-scrollbar { height: 5px; width: 5px; }
+    .table-wrap::-webkit-scrollbar-track { background: transparent; }
+    .table-wrap::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+    .data-table {
+      width: 100%; min-width: 540px;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    .data-table thead tr { background: var(--surface2); }
+    .data-table th {
+      padding: 10px 12px;
+      text-align: left; white-space: nowrap;
+      font-size: 11px; font-weight: 700;
+      color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface2); z-index: 2;
+    }
+    .data-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle;
+    }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+    .scrollable-table { max-height: 400px; overflow-y: auto; }
+    .scrollable-table::-webkit-scrollbar { width: 5px; }
+    .scrollable-table::-webkit-scrollbar-track { background: transparent; }
+    .scrollable-table::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+    /* ── Status pills ── */
+    .status-pill {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 20px; font-size: 11px; font-weight: 700;
+      white-space: nowrap; letter-spacing: 0.2px;
+    }
+    .s-borrowed       { background: rgba(79,195,247,0.12); color: var(--accent); border: 1px solid rgba(79,195,247,0.25); }
+    .s-pending        { background: rgba(210,153,34,0.12);  color: var(--warning); border: 1px solid rgba(210,153,34,0.3); }
+    .s-returned       { background: rgba(63,185,80,0.12);   color: var(--success); border: 1px solid rgba(63,185,80,0.25); }
+    .s-overdue        { background: rgba(248,81,73,0.12);   color: var(--danger);  border: 1px solid rgba(248,81,73,0.25); }
+    .s-return-pending { background: rgba(163,113,247,0.12); color: var(--purple);  border: 1px solid rgba(163,113,247,0.25); }
+    .s-rejected       { background: rgba(255,255,255,0.06); color: var(--text3);   border: 1px solid var(--border); text-decoration: line-through; }
+
+    /* ── Mono chip ── */
+    .mono-chip {
+      font-family: var(--mono); font-size: 11px;
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 5px; padding: 1px 6px; color: var(--text2);
+    }
+    .date-chip { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+    .date-chip.overdue { color: var(--danger); }
+
+    /* ── Empty state ── */
+    .table-empty {
+      text-align: center; padding: 40px 20px;
+      color: var(--text3); font-size: 13px;
+    }
+    .table-empty .empty-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+
+    /* ═══════════════════════════════════════════════
+       SEARCH + FILTER BAR
+    ═══════════════════════════════════════════════ */
+    .filter-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .filter-input {
+      flex: 1; padding: 7px 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text); font-family: var(--font); font-size: 13px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .filter-input:focus { border-color: var(--accent); }
+    .filter-input::placeholder { color: var(--text3); }
+    .filter-select {
+      padding: 7px 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text); font-family: var(--font); font-size: 12px; outline: none;
+    }
+    .filter-select option { background: var(--surface2); }
+
+    /* ═══════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 7px;
+      font-family: var(--font); font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text2); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); color: var(--text); border-color: var(--border-mid); }
+    .btn-success { background: rgba(63,185,80,0.12); color: var(--success); border: 1px solid rgba(63,185,80,0.3); }
+    .btn-success:hover { background: rgba(63,185,80,0.2); }
+    .btn-danger { background: rgba(248,81,73,0.1); color: var(--danger); border: 1px solid rgba(248,81,73,0.25); }
+    .btn-danger:hover { background: rgba(248,81,73,0.2); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+
+    /* ═══════════════════════════════════════════════
+       FORM ELEMENTS
+    ═══════════════════════════════════════════════ */
+    .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input {
+      padding: 9px 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text); font-family: var(--font); font-size: 13px; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .form-input::placeholder { color: var(--text3); }
+    .form-input.invalid { border-color: var(--danger); }
+    .form-input.valid   { border-color: var(--success); }
+    .form-error { font-size: 11px; color: var(--danger); padding-left: 2px; display: none; }
+
+    /* ═══════════════════════════════════════════════
+       ANALYTICS PAGE
+    ═══════════════════════════════════════════════ */
+    .analytics-kpi-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 20px;
+    }
+    .a-kpi {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 14px 16px;
+    }
+    .a-kpi-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .a-kpi-value { font-size: 24px; font-weight: 800; color: var(--text); }
+    .a-kpi-sub   { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-header { margin-bottom: 14px; }
+    .chart-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .chart-sub   { font-size: 11px; color: var(--text3); }
+    .chart-area  { position: relative; width: 100%; min-height: 200px; }
+    .chart-area-sm { min-height: 200px; }
+    .chart-empty { text-align: center; padding: 40px 0; color: var(--text3); font-size: 12px; }
+
+    /* ═══════════════════════════════════════════════
+       QR / STUDENTS LIST
+    ═══════════════════════════════════════════════ */
+    .student-list {
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 320px; overflow-y: auto;
+      padding: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+    }
+    .student-list::-webkit-scrollbar { width: 4px; }
+    .student-list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+    .student-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 8px 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    .student-row:hover { background: rgba(255,255,255,0.06); }
+    .student-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .student-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .student-id   { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+    .student-btns { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════
+       ITEMS TABLE CONTROLS
+    ═══════════════════════════════════════════════ */
+    .qty-control { display: flex; align-items: center; gap: 6px; }
+    .qty-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.25);
+      color: var(--accent); font-size: 14px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; flex-shrink: 0;
+    }
+    .qty-btn:hover { background: rgba(79,195,247,0.2); }
+    .qty-val { font-weight: 700; min-width: 22px; text-align: center; font-size: 13px; }
+
+    /* ═══════════════════════════════════════════════
+       CONFIRM MODALS
+    ═══════════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000; padding: 16px; animation: fadeIn 0.15s ease;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border-mid);
+      border-radius: 18px; padding: 28px 24px 22px;
+      max-width: 380px; width: 100%; text-align: center;
+      box-shadow: var(--shadow-lg); animation: slideUp 0.2s ease;
+    }
+    .modal-icon { font-size: 36px; display: block; margin-bottom: 12px; }
+    .modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .modal-msg   { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; }
+    .modal-actions .btn { flex: 1; max-width: 140px; justify-content: center; padding: 9px 14px; }
+
+    /* Edit student modal */
+    .modal-box.wide { max-width: 400px; }
+    .modal-form { text-align: left; margin: 16px 0; }
+
+    /* ═══════════════════════════════════════════════
+       NOTIFICATION TOAST
+    ═══════════════════════════════════════════════ */
+    #toast {
+      position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border-mid);
+      color: var(--text); padding: 10px 20px;
+      border-radius: 20px; box-shadow: var(--shadow);
+      transition: top 0.3s ease; z-index: 2000;
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+      max-width: calc(100vw - 32px); text-align: center;
+    }
+    #toast.success { background: rgba(63,185,80,0.2);  border-color: rgba(63,185,80,0.4);  color: var(--success); }
+    #toast.error   { background: rgba(248,81,73,0.2);  border-color: rgba(248,81,73,0.4);  color: var(--danger); }
+    #toast.info    { background: rgba(79,195,247,0.15); border-color: rgba(79,195,247,0.35); color: var(--accent); }
+
+    /* ═══════════════════════════════════════════════
+       QR PRINT MODAL
+    ═══════════════════════════════════════════════ */
+    #qrModalBox { max-width: 340px; }
+
+    /* ═══════════════════════════════════════════════
+       ANIMATIONS
+    ═══════════════════════════════════════════════ */
+    @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+    @keyframes slideUp { from { transform:translateY(16px);opacity:0 } to { transform:translateY(0);opacity:1 } }
+    @keyframes pulse   { 0%,100% { box-shadow:0 0 0 0 rgba(210,153,34,0.4) } 50% { box-shadow:0 0 0 5px rgba(210,153,34,0) } }
+
+    .pulse-badge { animation: pulse 2s ease-in-out infinite; }
+
+    /* ═══════════════════════════════════════════════
+       DIVIDER
+    ═══════════════════════════════════════════════ */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      .analytics-kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-card.wide { grid-column: 1; }
+    }
+    @media (max-width: 700px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-240px); transition: transform 0.25s ease; }
+      .sidebar.open { transform: translateX(0); width: 240px; box-shadow: var(--shadow-lg); }
+      .main-content { margin-left: 0; }
+      .menu-toggle { display: flex !important; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .analytics-kpi-row { grid-template-columns: 1fr 1fr; }
+    }
+    .menu-toggle { display: none; align-items: center; justify-content: center; width: 32px; height: 32px; background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; }
+  </style>
 </head>
-<body class="dark">
+<body>
 
-  <div class="top-accent-bar"></div>
+<!-- ═════════════════════════════════════════════
+     LOGIN SCREEN
+═════════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <img src="logo.png" alt="CTU Danao Logo" class="login-logo">
+    <div class="login-univ">Cebu Technological University · Danao</div>
+    <div class="login-title">Admin Panel</div>
+    <div class="login-sub">Equipment &amp; Device Borrowing System</div>
+    <label class="login-label" for="adminPassword">Password</label>
+    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
+    <button class="login-btn" id="adminLoginBtn" onclick="checkPassword()">Sign In</button>
+  </div>
+</div>
 
-  <div class="container">
+<!-- ═════════════════════════════════════════════
+     APP SHELL
+═════════════════════════════════════════════ -->
+<div id="appShell">
 
-    <!-- Admin Header -->
-    <div class="uni-header" style="padding-top:36px;padding-bottom:16px;">
-      <div class="uni-logo-row">
-        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="logo.png" alt="Logo" class="sidebar-logo">
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-title">CTU Danao</div>
+        <div class="sidebar-brand-sub">Borrowing System · Admin</div>
       </div>
-      <div class="badge">Administration Panel</div>
-      <h1>Cebu Technological University<br><span>Danao Campus</span></h1>
-      <p>Equipment &amp; Device Borrowing System</p>
     </div>
 
-    <!-- Login Section -->
-    <div id="loginSection" role="form" aria-label="Admin login">
-      <div class="admin-login-card">
-        <div class="admin-login-icon">🔐</div>
-        <h2 class="admin-login-title">Admin Access</h2>
-        <p class="admin-login-sub">Enter your password to continue</p>
-        <div class="admin-login-fields">
-          <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password" aria-label="Admin password">
-          <button id="adminLoginBtn" onclick="checkPassword()" aria-label="Login as admin">Login</button>
+    <div class="sidebar-section-label">Overview</div>
+    <button class="nav-item active" data-page="pageDashboard" onclick="switchPage('pageDashboard')">
+      <span class="nav-icon">📊</span> Dashboard
+    </button>
+    <button class="nav-item" data-page="pageAnalytics" onclick="switchPage('pageAnalytics')">
+      <span class="nav-icon">📈</span> Analytics
+    </button>
+
+    <div class="sidebar-section-label">Queue</div>
+    <button class="nav-item" data-page="pagePending" onclick="switchPage('pagePending')">
+      <span class="nav-icon">⏳</span> Pending Borrows
+      <span class="nav-badge pulse-badge" id="navBadgePending"></span>
+    </button>
+    <button class="nav-item" data-page="pageReturns" onclick="switchPage('pageReturns')">
+      <span class="nav-icon">↩</span> Pending Returns
+      <span class="nav-badge pulse-badge" id="navBadgeReturns"></span>
+    </button>
+
+    <div class="sidebar-section-label">Data</div>
+    <button class="nav-item" data-page="pageTransactions" onclick="switchPage('pageTransactions')">
+      <span class="nav-icon">📋</span> Transaction Log
+    </button>
+    <button class="nav-item" data-page="pageItems" onclick="switchPage('pageItems')">
+      <span class="nav-icon">📦</span> Inventory
+    </button>
+    <button class="nav-item" data-page="pageStudents" onclick="switchPage('pageStudents')">
+      <span class="nav-icon">👥</span> Students
+    </button>
+
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-footer">
+      <div class="session-row">
+        <div class="session-badge">
+          <div class="session-dot"></div>
+          <span id="sessionCountdown">Active</span>
         </div>
+        <span id="syncTime" style="font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
       </div>
+      <button class="logout-btn" onclick="logoutAdmin()">Sign Out</button>
     </div>
+  </aside>
 
-    <!-- Admin Section -->
-    <div id="adminSection" style="display:none;">
-
-      <!-- Summary Stats -->
-      <div id="summaryStats">
-        <div class="stat-card" onclick="showModal('borrowersModal')">
-          <div class="stat-icon">👥</div>
-          <h3 id="totalBorrowers">0</h3>
-          <p>Registered Users</p>
-        </div>
-        <div class="stat-card pending-stat" onclick="switchTab('pending')">
-          <div class="stat-icon">⏳</div>
-          <h3 id="totalPending">0</h3>
-          <p>Pending Requests</p>
-        </div>
-        <div class="stat-card" onclick="showModal('transactionsModal')">
-          <div class="stat-icon">📋</div>
-          <h3 id="totalTransactions">0</h3>
-          <p>Total Transactions</p>
-        </div>
-        <div class="stat-card" onclick="showModal('overdueModal')">
-          <div class="stat-icon">⚠️</div>
-          <h3 id="overdueItems">0</h3>
-          <p>Overdue Items</p>
+  <!-- Main -->
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="topbar-title" id="topbarTitle">Dashboard</div>
+          <div class="topbar-desc" id="topbarDesc">Overview of borrowing activity</div>
         </div>
       </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="refreshAll()">↻ Refresh</button>
+      </div>
+    </header>
 
-      <!-- Main Grid -->
-      <div class="admin-main-grid">
+    <main class="page-area">
 
-        <!-- LEFT: Register + QR -->
-        <div class="admin-panel-left">
-          <h2>Register Borrower</h2>
-          <form id="adminForm" aria-label="Register new borrower">
-            <input id="adminId" placeholder="Student ID" required aria-label="Student ID" inputmode="numeric">
-            <p class="field-error-msg" id="adminIdError" style="display:none;"></p>
-            <input id="adminName" placeholder="Full Name" required aria-label="Full name">
-            <p class="field-error-msg" id="adminNameError" style="display:none;"></p>
-            <input id="adminEmail" placeholder="Email" type="email" aria-label="Email address (optional)">
-            <p class="field-error-msg" id="adminEmailError" style="display:none;"></p>
-            <button type="submit" aria-label="Register borrower">Register Borrower</button>
-          </form>
-
-          <div class="admin-panel-divider"></div>
-
-          <h2>Print Student QR</h2>
-          <p class="admin-panel-note">Select a student to generate and print their QR login code.</p>
-          <div class="admin-search-bar" style="margin-bottom:8px;">
-            <input type="text" id="qrStudentSearch" placeholder="Search student…">
+      <!-- ─── DASHBOARD ─────────────────────────────── -->
+      <div class="page active" id="pageDashboard">
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Registered Students</div>
+            <div class="kpi-value kpi-accent" id="kpiStudents">—</div>
+            <div class="kpi-sub">Total enrolled borrowers</div>
           </div>
-          <div id="qrStudentList" class="qr-student-list">
-            <p class="empty-state">Loading students…</p>
+          <div class="kpi-card">
+            <div class="kpi-label">Pending Borrows</div>
+            <div class="kpi-value kpi-warning" id="kpiPending">—</div>
+            <div class="kpi-sub">Awaiting hand-over</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Active Borrows</div>
+            <div class="kpi-value kpi-accent" id="kpiBorrowed">—</div>
+            <div class="kpi-sub">Items currently out</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Overdue</div>
+            <div class="kpi-value kpi-danger" id="kpiOverdue">—</div>
+            <div class="kpi-sub">Past expected return date</div>
           </div>
         </div>
 
-        <!-- RIGHT: Tabs + Panels -->
-        <div class="admin-panel-right">
-          <div class="admin-tabs">
-            <button class="admin-tab" id="tabPending" onclick="switchTab('pending')">
-              ⏳ Pending
-              <span id="pendingBadge" class="pending-tab-badge" style="display:none;"></span>
-            </button>
-            <button class="admin-tab active" id="tabTransactions" onclick="switchTab('transactions')">Transactions</button>
-            <button class="admin-tab" id="tabReturns" onclick="switchTab('returns')">
-              ↩ Returns
-              <span id="returnsBadge" class="pending-tab-badge" style="display:none;"></span>
-            </button>
-            <button class="admin-tab" id="tabItems" onclick="switchTab('items')">Items</button>
-            <button class="admin-tab" id="tabCharts" onclick="switchTab('charts')">📊 Charts</button>
-          </div>
-
-          <!-- Pending Panel -->
-          <div id="panelPending" style="display:none;">
-            <div class="pending-panel-header">
-              <p class="pending-panel-desc">Students have submitted these borrow requests. Click <strong>Hand Over</strong> once you physically give the item — stock decreases and status becomes <em>Borrowed</em>.</p>
-              <button onclick="loadPendingRequests()" class="refresh-btn" title="Refresh">↻ Refresh</button>
+        <div class="two-col">
+          <!-- Pending borrows quick table -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">⏳</span> Pending Hand-Overs</span>
+              <button class="btn btn-ghost btn-sm" onclick="switchPage('pagePending')">View all →</button>
             </div>
-            <div class="table-scroll">
-              <table id="pendingTable">
-                <thead>
-                  <tr>
-                    <th>Student ID</th>
-                    <th>Name</th>
-                    <th>Item</th>
-                    <th>Requested</th>
-                    <th>Duration</th>
-                    <th>Expected Return</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+            <div class="panel-body-flush">
+              <div class="table-wrap scrollable-table" style="max-height:280px;">
+                <table class="data-table" id="dashPendingTable">
+                  <thead><tr>
+                    <th>Student</th><th>Item</th><th>Due</th><th>Action</th>
+                  </tr></thead>
+                  <tbody id="dashPendingBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overdue quick table -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">⚠️</span> Overdue Items</span>
+              <button class="btn btn-ghost btn-sm" onclick="switchPage('pageTransactions')">View log →</button>
+            </div>
+            <div class="panel-body-flush">
+              <div class="table-wrap scrollable-table" style="max-height:280px;">
+                <table class="data-table" id="dashOverdueTable">
+                  <thead><tr>
+                    <th>Student</th><th>Item</th><th>Due Date</th><th>Days</th>
+                  </tr></thead>
+                  <tbody id="dashOverdueBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent transactions -->
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">🕐</span> Recent Transactions</span>
+            <button class="btn btn-ghost btn-sm" onclick="switchPage('pageTransactions')">Full log →</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:300px;">
+              <table class="data-table" id="dashRecentTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Due Date</th><th>Status</th>
+                </tr></thead>
+                <tbody id="dashRecentBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── PENDING BORROWS ───────────────────────── -->
+      <div class="page" id="pagePending">
+        <div class="alert-banner warn" style="margin-bottom:16px;">
+          <span>⚡</span>
+          <span>Students have submitted these requests. Click <strong>Hand Over</strong> once you physically give the item — stock decreases and status becomes <em>Borrowed</em>.</span>
+        </div>
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">⏳</span> Pending Borrow Requests</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadPendingRequests()">↻ Refresh</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:500px;">
+              <table class="data-table" id="pendingTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Requested</th><th>Duration</th><th>Expected Return</th><th>Actions</th>
+                </tr></thead>
                 <tbody id="pendingTableBody"></tbody>
               </table>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Transactions Panel -->
-          <div id="panelTransactions">
-            <div class="admin-search-bar">
-              <input type="text" id="searchInput" placeholder="Filter by Student ID or Item">
-              <button onclick="resetFilter()">Reset</button>
-            </div>
-            <div class="table-scroll">
-              <table id="transactionsTable">
-                <thead>
-                  <tr>
-                    <th>Student ID</th>
-                    <th>Name</th>
-                    <th>Item</th>
-                    <th>Borrow Date</th>
-                    <th>Expected Return</th>
-                    <th>Return Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+      <!-- ─── PENDING RETURNS ──────────────────────── -->
+      <div class="page" id="pageReturns">
+        <div class="alert-banner info" style="margin-bottom:16px;">
+          <span>ℹ️</span>
+          <span>Students have submitted return requests. Click <strong>Confirm Return</strong> once you physically receive the item — stock increases and status becomes <em>Returned</em>.</span>
+        </div>
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">↩</span> Pending Return Requests</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadReturnRequests()">↻ Refresh</button>
           </div>
-
-          <!-- Returns Confirmation Panel -->
-          <div id="panelReturns" style="display:none;">
-            <div class="pending-panel-header">
-              <p class="pending-panel-desc">Students have submitted return requests. Click <strong>Confirm Return</strong> once you physically receive the item — stock increases and status becomes <em>Returned</em>.</p>
-              <button onclick="loadReturnRequests()" class="refresh-btn" title="Refresh">↻ Refresh</button>
-            </div>
-            <div class="table-scroll">
-              <table id="returnsTable">
-                <thead>
-                  <tr>
-                    <th>Student ID</th>
-                    <th>Name</th>
-                    <th>Item</th>
-                    <th>Borrow Date</th>
-                    <th>Expected Return</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:500px;">
+              <table class="data-table" id="returnsTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Action</th>
+                </tr></thead>
                 <tbody id="returnsTableBody"></tbody>
               </table>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Charts / Analytics Panel -->
-          <div id="panelCharts" style="display:none;">
-            <div class="charts-panel">
-              <div class="charts-panel-header">
-                <p class="pending-panel-desc">Visual overview of borrowing activity — built from your transaction data.</p>
-                <button onclick="loadCharts()" class="refresh-btn" title="Refresh charts">↻ Refresh</button>
-              </div>
-              <div class="charts-grid">
-
-                <!-- Most Borrowed Items -->
-                <div class="chart-card chart-card-wide">
-                  <div class="chart-card-header">
-                    <span class="chart-card-title">📦 Most Borrowed Items</span>
-                    <span class="chart-card-sub">All-time borrow count per item</span>
-                  </div>
-                  <div id="chartBorrowedItems" class="chart-area"></div>
-                </div>
-
-                <!-- Monthly Borrow Trend -->
-                <div class="chart-card chart-card-wide">
-                  <div class="chart-card-header">
-                    <span class="chart-card-title">📅 Monthly Borrow Trend</span>
-                    <span class="chart-card-sub">Number of borrows per month</span>
-                  </div>
-                  <div id="chartMonthlyTrend" class="chart-area"></div>
-                </div>
-
-                <!-- On-Time vs Late -->
-                <div class="chart-card">
-                  <div class="chart-card-header">
-                    <span class="chart-card-title">⏱ On-Time vs Late Returns</span>
-                    <span class="chart-card-sub">Of all completed returns</span>
-                  </div>
-                  <div id="chartOnTime" class="chart-area chart-area-sm"></div>
-                </div>
-
-                <!-- Status Breakdown -->
-                <div class="chart-card">
-                  <div class="chart-card-header">
-                    <span class="chart-card-title">📋 Status Breakdown</span>
-                    <span class="chart-card-sub">Current state of all transactions</span>
-                  </div>
-                  <div id="chartStatus" class="chart-area chart-area-sm"></div>
-                </div>
-
-              </div>
+      <!-- ─── TRANSACTION LOG ──────────────────────── -->
+      <div class="page" id="pageTransactions">
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">📋</span> Transaction Log</span>
+            <div class="panel-actions">
+              <button class="btn btn-ghost btn-sm" onclick="exportTransactionsCSV()">⬇ Export CSV</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadTransactions()">↻ Refresh</button>
             </div>
           </div>
-
-          <!-- Item Management Panel -->
-          <div id="panelItems" style="display:none;">
-            <div class="item-mgmt-add">
-              <input type="text" id="newItemName" placeholder="Item name (e.g. Projector)">
-              <input type="number" id="newItemQty" placeholder="Qty" min="0" style="width:80px;">
-              <button onclick="addItem()">＋ Add</button>
-            </div>
-            <div class="table-scroll">
-              <table id="itemsTable">
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Quantity</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="itemsTableBody"></tbody>
+          <div class="filter-bar">
+            <input type="text" class="filter-input" id="searchInput" placeholder="🔍  Search by name, ID, or item…">
+            <select class="filter-select" id="statusFilter" onchange="filterTransactions()">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Borrowed">Borrowed</option>
+              <option value="Overdue">Overdue</option>
+              <option value="Return Pending">Return Pending</option>
+              <option value="Returned">Returned</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetFilter()">Reset</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:480px;">
+              <table class="data-table" id="transactionsTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th>
+                </tr></thead>
+                <tbody></tbody>
               </table>
             </div>
           </div>
-
         </div>
       </div>
 
-      <div class="admin-footer">
-        <div class="session-info">
-          <span class="session-icon">🔒</span>
-          <span id="sessionCountdown" class="session-countdown">Session active</span>
+      <!-- ─── INVENTORY ────────────────────────────── -->
+      <div class="page" id="pageItems">
+        <div class="two-col">
+          <div class="panel" style="align-self:start;">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">➕</span> Add Item</span>
+            </div>
+            <div class="panel-body">
+              <div class="form-group">
+                <label class="form-label">Item Name</label>
+                <input type="text" class="form-input" id="newItemName" placeholder="e.g. Projector">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Quantity</label>
+                <input type="number" class="form-input" id="newItemQty" placeholder="0" min="0">
+              </div>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addItem()">Add to Inventory</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
+              <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
+            </div>
+            <div class="panel-body-flush">
+              <div class="table-wrap scrollable-table" style="max-height:400px;">
+                <table class="data-table" id="itemsTable">
+                  <thead><tr>
+                    <th>Item</th><th>Qty</th><th>Status</th><th></th>
+                  </tr></thead>
+                  <tbody id="itemsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <button class="btn-neutral" onclick="logoutAdmin()">Logout</button>
       </div>
+
+      <!-- ─── STUDENTS ─────────────────────────────── -->
+      <div class="page" id="pageStudents">
+        <div class="two-col">
+          <div class="panel" style="align-self:start;">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">➕</span> Register Student</span>
+            </div>
+            <div class="panel-body">
+              <form id="adminForm">
+                <div class="form-group">
+                  <label class="form-label">Student ID</label>
+                  <input type="text" class="form-input" id="adminId" placeholder="e.g. 20230001" inputmode="numeric" aria-label="Student ID">
+                  <span class="form-error" id="adminIdError"></span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Full Name</label>
+                  <input type="text" class="form-input" id="adminName" placeholder="e.g. Juan Dela Cruz" aria-label="Full name">
+                  <span class="form-error" id="adminNameError"></span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+                  <input type="email" class="form-input" id="adminEmail" placeholder="student@ctu.edu.ph" aria-label="Email">
+                  <span class="form-error" id="adminEmailError"></span>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Register Student</button>
+              </form>
+
+              <hr class="divider">
+
+              <div class="panel-title" style="margin-bottom:10px;"><span class="panel-title-icon">🖨️</span> Print QR Code</div>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Select a student to generate their QR login card.</p>
+              <div style="margin-bottom:8px;">
+                <input type="text" class="filter-input" id="qrStudentSearch" placeholder="Search students…" style="width:100%;">
+              </div>
+              <div class="student-list" id="qrStudentList">
+                <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px;">Loading students…</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">👥</span> Registered Students</span>
+              <span id="studentCountBadge" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
+            </div>
+            <div class="filter-bar">
+              <input type="text" class="filter-input" id="studentTableSearch" placeholder="🔍  Search students…" oninput="filterStudentTable()">
+            </div>
+            <div class="panel-body-flush">
+              <div class="table-wrap scrollable-table" style="max-height:440px;">
+                <table class="data-table" id="studentsTable">
+                  <thead><tr>
+                    <th>Student ID</th><th>Name</th><th>Email</th><th>Actions</th>
+                  </tr></thead>
+                  <tbody id="studentsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── ANALYTICS ────────────────────────────── -->
+      <div class="page" id="pageAnalytics">
+        <div class="analytics-kpi-row" id="analyticsKpiRow">
+          <div class="a-kpi">
+            <div class="a-kpi-label">Total Transactions</div>
+            <div class="a-kpi-value" id="aKpiTotal">—</div>
+            <div class="a-kpi-sub">All borrow events</div>
+          </div>
+          <div class="a-kpi">
+            <div class="a-kpi-label">On-Time Return Rate</div>
+            <div class="a-kpi-value" id="aKpiOnTime">—</div>
+            <div class="a-kpi-sub">Of completed returns</div>
+          </div>
+          <div class="a-kpi">
+            <div class="a-kpi-label">Most Borrowed Item</div>
+            <div class="a-kpi-value" style="font-size:16px;" id="aKpiTopItem">—</div>
+            <div class="a-kpi-sub">By borrow count</div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card wide">
+            <div class="chart-header">
+              <div class="chart-title">Monthly Borrow Trend</div>
+              <div class="chart-sub">Number of borrow requests per month</div>
+            </div>
+            <div class="chart-area" id="chartMonthlyTrend"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Most Borrowed Items</div>
+              <div class="chart-sub">All-time borrow count per item (top 10)</div>
+            </div>
+            <div class="chart-area" id="chartBorrowedItems"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Transaction Status Breakdown</div>
+              <div class="chart-sub">Current state of all transactions</div>
+            </div>
+            <div class="chart-area chart-area-sm" id="chartStatus"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title">On-Time vs Late Returns</div>
+              <div class="chart-sub">Of all completed returns</div>
+            </div>
+            <div class="chart-area chart-area-sm" id="chartOnTime"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- end .main-content -->
+</div><!-- end #appShell -->
+
+<!-- ═════════════════════════════════
+     MODALS
+═════════════════════════════════ -->
+
+<!-- Hand-Over Confirm -->
+<div class="modal-overlay" id="handoverModal">
+  <div class="modal-box">
+    <span class="modal-icon">✅</span>
+    <div class="modal-title">Confirm Hand-Over</div>
+    <div class="modal-msg" id="handoverMessage">Hand over this item?</div>
+    <div class="modal-actions">
+      <button class="btn btn-success" id="handoverYes">Yes, Hand Over</button>
+      <button class="btn btn-ghost" id="handoverNo">Cancel</button>
     </div>
-
-    <!-- MODALS -->
-    <div id="borrowersModal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Registered Users</h2>
-          <button class="modal-close" onclick="closeModal('borrowersModal')">✕</button>
-        </div>
-        <div id="borrowersListContent" class="modal-body">Loading...</div>
-      </div>
-    </div>
-
-    <div id="transactionsModal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>All Transactions</h2>
-          <button class="modal-close" onclick="closeModal('transactionsModal')">✕</button>
-        </div>
-        <div id="transactionsListContent" class="modal-body">Loading...</div>
-      </div>
-    </div>
-
-    <div id="overdueModal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Overdue Items</h2>
-          <button class="modal-close" onclick="closeModal('overdueModal')">✕</button>
-        </div>
-        <div id="overdueListContent" class="modal-body">Loading...</div>
-      </div>
-    </div>
-
-    <!-- QR Print Modal -->
-    <div id="qrPrintModal" class="modal" style="display:none;">
-      <div class="modal-content" style="max-width:380px;">
-        <div class="modal-header">
-          <h2>Student QR Code</h2>
-          <button class="modal-close" onclick="closeModal('qrPrintModal')">✕</button>
-        </div>
-        <div class="modal-body" style="text-align:center;">
-          <div id="qrPrintName" style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text-primary);"></div>
-          <div id="qrPrintId" style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-family:var(--mono);"></div>
-          <div id="qrPrintCode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
-          <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Student scans this to log in instantly — no scrolling needed.</p>
-          <button onclick="printQr()">🖨️ Print QR</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Hand-Over Confirm Modal -->
-    <div id="handoverModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
-      <div class="confirm-box">
-        <div class="confirm-icon">✅</div>
-        <h3 id="handoverTitle">Confirm Hand-Over</h3>
-        <p id="handoverMessage">Are you sure you want to mark this item as handed over?</p>
-        <div class="confirm-actions">
-          <button id="handoverYes">Yes, Hand Over</button>
-          <button class="btn-neutral" id="handoverNo">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reject Confirm Modal -->
-    <div id="rejectModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
-      <div class="confirm-box">
-        <div class="confirm-icon">❌</div>
-        <h3 id="rejectTitle">Reject Request</h3>
-        <p id="rejectMessage">Are you sure you want to reject this borrow request?</p>
-        <div class="confirm-actions">
-          <button id="rejectYes" class="reject-confirm-btn">Yes, Reject</button>
-          <button class="btn-neutral" id="rejectNo">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Admin Return Confirm Modal -->
-    <div id="adminReturnModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="adminReturnTitle">
-      <div class="confirm-box">
-        <div class="confirm-icon">↩</div>
-        <h3 id="adminReturnTitle">Confirm Return</h3>
-        <p id="adminReturnMessage">Are you sure you want to mark this item as returned?</p>
-        <div class="confirm-actions">
-          <button id="adminReturnYes">Yes, Mark Returned</button>
-          <button class="btn-neutral" id="adminReturnNo">Cancel</button>
-        </div>
-      </div>
-    </div>
-
   </div>
+</div>
 
-  <footer class="site-footer">
-    <span>Cebu Technological University — Danao Campus</span>
-    <span class="footer-sep">·</span>
-    <span>Equipment Borrowing System</span>
-    <span class="footer-sep">·</span>
-    <span>AY 2025–2026</span>
-  </footer>
-
-    <!-- Edit Student Modal -->
-    <div id="editStudentModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true">
-      <div class="confirm-box" style="max-width:400px;width:90%;">
-        <div class="confirm-icon">✏️</div>
-        <h3>Edit Student</h3>
-        <input type="hidden" id="editStudentId">
-        <div style="width:100%;margin-bottom:10px;">
-          <input id="editStudentName"  type="text"  placeholder="Full Name"        style="width:100%;box-sizing:border-box;" aria-label="Student full name">
-        </div>
-        <div style="width:100%;margin-bottom:10px;">
-          <input id="editStudentEmail" type="email" placeholder="Email (optional)" style="width:100%;box-sizing:border-box;" aria-label="Student email">
-        </div>
-        <p id="editStudentError" class="field-error-msg" style="display:none;margin-bottom:10px;"></p>
-        <div class="confirm-actions">
-          <button id="editStudentSaveBtn" onclick="saveEditStudent()">Save Changes</button>
-          <button class="btn-neutral" onclick="closeEditStudentModal()">Cancel</button>
-        </div>
-      </div>
+<!-- Reject Confirm -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal-box">
+    <span class="modal-icon">❌</span>
+    <div class="modal-title">Reject Request</div>
+    <div class="modal-msg" id="rejectMessage">Reject this borrow request?</div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="rejectYes">Yes, Reject</button>
+      <button class="btn btn-ghost" id="rejectNo">Cancel</button>
     </div>
+  </div>
+</div>
 
-    <!-- Delete Student Modal -->
-    <div id="deleteStudentModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true">
-      <div class="confirm-box">
-        <div class="confirm-icon">🗑️</div>
-        <h3>Delete Student</h3>
-        <p id="deleteStudentMessage">Are you sure?</p>
-        <div class="confirm-actions">
-          <button id="deleteStudentYes" class="reject-confirm-btn">Yes, Delete</button>
-          <button class="btn-neutral"   id="deleteStudentNo">Cancel</button>
-        </div>
-      </div>
+<!-- Return Confirm -->
+<div class="modal-overlay" id="adminReturnModal">
+  <div class="modal-box">
+    <span class="modal-icon">↩</span>
+    <div class="modal-title">Confirm Return</div>
+    <div class="modal-msg" id="adminReturnMessage">Mark this item as returned?</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="adminReturnYes">Yes, Confirm</button>
+      <button class="btn btn-ghost" id="adminReturnNo">Cancel</button>
     </div>
+  </div>
+</div>
 
-  <div id="notification"></div>
+<!-- Edit Student -->
+<div class="modal-overlay" id="editStudentModal">
+  <div class="modal-box wide">
+    <span class="modal-icon">✏️</span>
+    <div class="modal-title">Edit Student</div>
+    <input type="hidden" id="editStudentId">
+    <div class="modal-form">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" id="editStudentName" placeholder="Full Name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email (optional)</label>
+        <input type="email" class="form-input" id="editStudentEmail" placeholder="Email">
+      </div>
+      <span class="form-error" id="editStudentError" style="display:block;margin-top:-6px;"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="editStudentSaveBtn" onclick="saveEditStudent()">Save Changes</button>
+      <button class="btn btn-ghost" onclick="closeEditStudentModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="admin.js"></script>
+<!-- Delete Student -->
+<div class="modal-overlay" id="deleteStudentModal">
+  <div class="modal-box">
+    <span class="modal-icon">🗑️</span>
+    <div class="modal-title">Delete Student</div>
+    <div class="modal-msg" id="deleteStudentMessage">Are you sure?</div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteStudentYes">Yes, Delete</button>
+      <button class="btn btn-ghost" id="deleteStudentNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Print -->
+<div class="modal-overlay" id="qrPrintModal">
+  <div class="modal-box" id="qrModalBox">
+    <div class="modal-title" id="qrPrintName" style="margin-bottom:2px;"></div>
+    <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px;" id="qrPrintId"></div>
+    <div id="qrPrintCode" style="display:flex;justify-content:center;margin-bottom:14px;"></div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;">Student scans this QR to log in instantly.</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="printQr()">🖨️ Print</button>
+      <button class="btn btn-ghost" onclick="closeModal('qrPrintModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="admin.js"></script>
 </body>
 </html>

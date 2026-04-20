@@ -1,6 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// CTU Danao Borrowing System — admin.js (redesigned)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const scriptURL = "https://script.google.com/macros/s/AKfycbwvcm-aFs0W2e3SahoQym8co0EvZHvU8kAr8yfGZEl4zI-R69kTegyd6zw1S3tmp9PF6A/exec";
 
-// ── Philippine Time helpers ────────────────────────────────────────────
+// ── Philippine Time helpers ──────────────────────────────────────────────────
 function getPHTDate() {
   const now = new Date();
   const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -13,12 +17,9 @@ function getPHTDateString() {
   const d = String(pht.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
-// ── Admin password (SHA-256 hash) ─────────────────────────────────────────────
-// Default password is: ctu@danao2025
-// To change: open browser console and run:
-//   crypto.subtle.digest("SHA-256", new TextEncoder().encode("yourNewPassword"))
-//     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")))
-// Then paste the resulting hash string below.
+
+// ── Admin password (SHA-256) ─────────────────────────────────────────────────
+// Default: ctu@danao2025
 const ADMIN_PASSWORD_HASH = "48d2a5bbcf422ccd1b69e2a82fb90bafb52384953e77e304bef856084be052b6";
 
 async function hashPassword(pw) {
@@ -26,25 +27,24 @@ async function hashPassword(pw) {
   return [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 
-// ── Admin session timeout (15 minutes of inactivity) ─────────────────────────
+// ── Session timeout (15 min) ─────────────────────────────────────────────────
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
-let   sessionTimer       = null;
+let sessionTimer = null;
 
 function resetSessionTimer() {
   clearTimeout(sessionTimer);
   window._sessionResetAt = Date.now();
   sessionTimer = setTimeout(() => {
-    if (document.getElementById("adminSection").style.display !== "none") {
+    if (document.getElementById("appShell").style.display !== "none") {
       logoutAdmin(true);
     }
   }, SESSION_TIMEOUT_MS);
 }
-
 ["click", "keydown", "mousemove", "touchstart"].forEach(evt =>
   document.addEventListener(evt, resetSessionTimer, { passive: true })
 );
 
-// ── Auto-refresh interval for Pending & Returns tabs ─────────────────────────
+// ── Auto-refresh ─────────────────────────────────────────────────────────────
 let autoRefreshInterval = null;
 const AUTO_REFRESH_MS   = 30 * 1000;
 
@@ -53,54 +53,46 @@ function startAutoRefresh() {
   autoRefreshInterval = setInterval(() => {
     loadPendingRequests();
     loadReturnRequests();
-    updateSummaryStats();
+    updateKpiCards();
   }, AUTO_REFRESH_MS);
 }
-
 function stopAutoRefresh() {
   if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
 }
 
-let allTransactions = [];
-let allUsers        = [];
-let allPending      = [];
+// ── State ────────────────────────────────────────────────────────────────────
+let allTransactions  = [];
+let allUsers         = [];
+let allPending       = [];
+let allReturnRequests = [];
+let filteredTx       = [];
 let searchTimeout;
-let qrInstance      = null;
+let qrInstance       = null;
 
-// Pending hand-over / reject callbacks
-let pendingHandoverCallback = null;
-let pendingRejectCallback   = null;
-
-// ── Notification ──────────────────────────────────────────────────────────────
+// ── Toast notification ───────────────────────────────────────────────────────
 function showNotification(message, type = "info") {
-  const banner = document.getElementById("notification");
-  banner.innerText = message;
-  banner.className = type;
-  banner.style.display = "block";
-  banner.style.top = "20px";
+  const toast = document.getElementById("toast");
+  toast.innerText     = message;
+  toast.className     = type;
+  toast.style.top     = "20px";
   setTimeout(() => {
-    banner.style.top = "-100px";
-    setTimeout(() => banner.style.display = "none", 500);
+    toast.style.top = "-80px";
   }, 3000);
 }
 
-// ── Password gate ─────────────────────────────────────────────────────────────
+// ── Login ────────────────────────────────────────────────────────────────────
 async function checkPassword() {
   const entered = document.getElementById("adminPassword").value;
   const hashed  = await hashPassword(entered);
   if (hashed === ADMIN_PASSWORD_HASH) {
-    document.getElementById("loginSection").style.display = "none";
-    document.getElementById("adminSection").style.display = "block";
+    document.getElementById("loginScreen").style.display  = "none";
+    document.getElementById("appShell").style.display     = "flex";
     showNotification("Admin access granted", "success");
     resetSessionTimer();
     startAutoRefresh();
-    loadPendingRequests();
-    loadReturnRequests();
-    loadTransactions();
-    loadItemsTable();
-    loadQrStudentList();
+    refreshAll();
   } else {
-    showNotification("Access denied", "error");
+    showNotification("Incorrect password", "error");
     document.getElementById("adminPassword").value = "";
     document.getElementById("adminPassword").focus();
   }
@@ -109,322 +101,424 @@ async function checkPassword() {
 function logoutAdmin(timedOut = false) {
   stopAutoRefresh();
   clearTimeout(sessionTimer);
-  document.getElementById("adminSection").style.display = "none";
-  document.getElementById("loginSection").style.display = "block";
+  document.getElementById("appShell").style.display    = "none";
+  document.getElementById("loginScreen").style.display = "flex";
   document.getElementById("adminPassword").value = "";
-  showNotification(timedOut ? "Session expired — please log in again." : "Logged out successfully", timedOut ? "error" : "info");
+  showNotification(timedOut ? "Session expired — please log in again." : "Logged out", timedOut ? "error" : "info");
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.getElementById("panelPending").style.display      = tab === "pending"      ? "block" : "none";
-  document.getElementById("panelTransactions").style.display = tab === "transactions" ? "block" : "none";
-  document.getElementById("panelReturns").style.display      = tab === "returns"      ? "block" : "none";
-  document.getElementById("panelItems").style.display        = tab === "items"        ? "block" : "none";
-  document.getElementById("panelCharts").style.display       = tab === "charts"       ? "block" : "none";
-  document.getElementById("tabPending").classList.toggle("active",       tab === "pending");
-  document.getElementById("tabTransactions").classList.toggle("active",  tab === "transactions");
-  document.getElementById("tabReturns").classList.toggle("active",       tab === "returns");
-  document.getElementById("tabItems").classList.toggle("active",         tab === "items");
-  document.getElementById("tabCharts").classList.toggle("active",        tab === "charts");
-  if (tab === "pending") loadPendingRequests();
-  if (tab === "returns") loadReturnRequests();
-  if (tab === "charts")  loadCharts();
+// ── Refresh all data ─────────────────────────────────────────────────────────
+function refreshAll() {
+  loadPendingRequests();
+  loadReturnRequests();
+  loadTransactions();
+  loadItemsTable();
+  loadQrStudentList();
+  updateSyncTime();
 }
 
-// ── Register borrower ─────────────────────────────────────────────────────────
-function setFieldError(fieldId, errorId, message) {
-  const field = document.getElementById(fieldId);
+function updateSyncTime() {
+  const el = document.getElementById("syncTime");
+  if (el) {
+    const now = getPHTDate();
+    el.textContent = now.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" });
+  }
+}
+
+// ── Page navigation (sidebar) ────────────────────────────────────────────────
+const pageMeta = {
+  pageDashboard:    { title: "Dashboard",          desc: "Overview of borrowing activity" },
+  pagePending:      { title: "Pending Borrows",    desc: "Review and hand over requested items" },
+  pageReturns:      { title: "Pending Returns",    desc: "Confirm returned items" },
+  pageTransactions: { title: "Transaction Log",    desc: "Full history of all borrow events" },
+  pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
+  pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
+  pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
+};
+
+function switchPage(pageId) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+
+  const page = document.getElementById(pageId);
+  if (page) page.classList.add("active");
+
+  const navBtn = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+  if (navBtn) navBtn.classList.add("active");
+
+  const meta = pageMeta[pageId] || {};
+  document.getElementById("topbarTitle").textContent = meta.title || "";
+  document.getElementById("topbarDesc").textContent  = meta.desc  || "";
+
+  // Load data when switching to specific pages
+  if (pageId === "pagePending")      loadPendingRequests();
+  if (pageId === "pageReturns")      loadReturnRequests();
+  if (pageId === "pageTransactions") renderTransactions(allTransactions);
+  if (pageId === "pageAnalytics")    loadCharts();
+  if (pageId === "pageDashboard")    renderDashboard();
+
+  // Close sidebar on mobile
+  if (window.innerWidth <= 700) {
+    document.getElementById("sidebar").classList.remove("open");
+  }
+}
+
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+}
+
+// ── KPI cards ────────────────────────────────────────────────────────────────
+function updateKpiCards() {
+  const todayStr = getPHTDateString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  const overdue  = allTransactions.filter(tx => tx.status === "Overdue").length;
+  const borrowed = allTransactions.filter(tx => tx.status === "Borrowed").length;
+  const pending  = allPending.length;
+
+  const kpiStudents = document.getElementById("kpiStudents");
+  const kpiPending  = document.getElementById("kpiPending");
+  const kpiBorrowed = document.getElementById("kpiBorrowed");
+  const kpiOverdue  = document.getElementById("kpiOverdue");
+
+  if (kpiPending)  kpiPending.textContent  = pending;
+  if (kpiBorrowed) kpiBorrowed.textContent = borrowed;
+  if (kpiOverdue)  kpiOverdue.textContent  = overdue;
+
+  // Students count requires separate fetch or uses loaded allUsers
+  if (allUsers.length > 0 && kpiStudents) {
+    kpiStudents.textContent = allUsers.length;
+  } else {
+    fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
+      allUsers = Array.isArray(u) ? u : [];
+      if (kpiStudents) kpiStudents.textContent = allUsers.length;
+      renderStudentsTable(allUsers);
+      const scb = document.getElementById("studentCountBadge");
+      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+    }).catch(() => {});
+  }
+
+  // Update nav badges
+  updateNavBadge("navBadgePending", pending);
+  updateNavBadge("navBadgeReturns", allReturnRequests.length);
+}
+
+function updateNavBadge(id, count) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (count > 0) {
+    el.textContent  = count;
+    el.style.display = "inline-flex";
+  } else {
+    el.style.display = "none";
+  }
+}
+
+// ── Dashboard render ─────────────────────────────────────────────────────────
+function renderDashboard() {
+  renderDashPending();
+  renderDashOverdue();
+  renderDashRecent();
+  updateKpiCards();
+}
+
+function renderDashPending() {
+  const tbody = document.getElementById("dashPendingBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!allPending || allPending.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
+    return;
+  }
+  allPending.slice(0, 8).forEach((req, i) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${req.studentId}</span> <span style="font-size:12px;">${req.studentName || ""}</span></td>
+      <td style="font-weight:600;">${req.item}</td>
+      <td><span class="date-chip">${req.dueDate || "—"}</span></td>
+      <td>
+        <button class="btn btn-success btn-sm" onclick="confirmHandover(${i})">Hand Over</button>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function renderDashOverdue() {
+  const tbody = document.getElementById("dashOverdueBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const todayStr = getPHTDateString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
+  const overdueItems = allTransactions.filter(tx => tx.status === "Overdue");
+  if (overdueItems.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty"><span class="empty-icon">🎉</span>No overdue items</td></tr>`;
+    return;
+  }
+  overdueItems.forEach(tx => {
+    const p    = tx.dueDate.split("-");
+    const due  = new Date(+p[0], +p[1] - 1, +p[2]);
+    const days = Math.floor((today - due) / 86400000);
+    const row  = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${tx.studentId}</span> <span style="font-size:12px;">${tx.studentName || ""}</span></td>
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip overdue">${tx.dueDate}</span></td>
+      <td><span class="status-pill s-overdue">${days}d overdue</span></td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function renderDashRecent() {
+  const tbody = document.getElementById("dashRecentBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const recent = [...allTransactions].reverse().slice(0, 10);
+  if (recent.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No transactions yet.</td></tr>`;
+    return;
+  }
+  recent.forEach(tx => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${tx.studentId}</span></td>
+      <td>${tx.studentName || "—"}</td>
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip">${tx.borrowDate}</span></td>
+      <td><span class="date-chip">${tx.dueDate}</span></td>
+      <td>${statusPill(tx.status)}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function statusPill(status) {
+  const map = {
+    "Borrowed":       "s-borrowed",
+    "Pending":        "s-pending",
+    "Returned":       "s-returned",
+    "Overdue":        "s-overdue",
+    "Return Pending": "s-return-pending",
+    "Rejected":       "s-rejected"
+  };
+  const cls = map[status] || "";
+  return `<span class="status-pill ${cls}">${status}</span>`;
+}
+
+// ── Registration form ─────────────────────────────────────────────────────────
+function setFormError(inputId, errorId, msg) {
+  const input = document.getElementById(inputId);
   const err   = document.getElementById(errorId);
-  if (!field || !err) return;
-  field.classList.add("field-invalid");
-  field.classList.remove("field-valid");
-  err.textContent   = message;
-  err.style.display = "block";
+  if (input) { input.classList.add("invalid"); input.classList.remove("valid"); }
+  if (err)   { err.textContent = msg; err.style.display = "block"; }
 }
-
-function setFieldValid(fieldId, errorId) {
-  const field = document.getElementById(fieldId);
+function setFormValid(inputId, errorId) {
+  const input = document.getElementById(inputId);
   const err   = document.getElementById(errorId);
-  if (!field || !err) return;
-  field.classList.remove("field-invalid");
-  field.classList.add("field-valid");
-  err.style.display = "none";
+  if (input) { input.classList.remove("invalid"); input.classList.add("valid"); }
+  if (err)   { err.style.display = "none"; }
 }
-
-function clearFieldState(fieldId, errorId) {
-  const field = document.getElementById(fieldId);
+function clearFormState(inputId, errorId) {
+  const input = document.getElementById(inputId);
   const err   = document.getElementById(errorId);
-  if (field) { field.classList.remove("field-invalid", "field-valid"); }
+  if (input) { input.classList.remove("invalid", "valid"); }
   if (err)   { err.style.display = "none"; }
 }
 
-document.getElementById("adminForm").addEventListener("submit", e => {
-  e.preventDefault();
+document.addEventListener("DOMContentLoaded", () => {
+  // Login on enter
+  const pwInput = document.getElementById("adminPassword");
+  if (pwInput) pwInput.addEventListener("keypress", e => { if (e.key === "Enter") { e.preventDefault(); checkPassword(); } });
+
+  // Register form
+  const adminForm = document.getElementById("adminForm");
+  if (adminForm) {
+    adminForm.addEventListener("submit", e => {
+      e.preventDefault();
+      submitRegisterForm();
+    });
+
+    // Real-time validation
+    const idField = document.getElementById("adminId");
+    const nameField = document.getElementById("adminName");
+    const emailField = document.getElementById("adminEmail");
+
+    if (idField) idField.addEventListener("input", () => {
+      const v = idField.value.trim();
+      if (!v) { clearFormState("adminId","adminIdError"); return; }
+      if (!/^\d+$/.test(v)) setFormError("adminId","adminIdError","Numbers only.");
+      else if (v.length < 5) setFormError("adminId","adminIdError",`${v.length}/5 digits minimum.`);
+      else if (v.length > 12) setFormError("adminId","adminIdError","Max 12 digits.");
+      else setFormValid("adminId","adminIdError");
+    });
+    if (nameField) nameField.addEventListener("input", () => {
+      const v = nameField.value.trim();
+      if (!v) { clearFormState("adminName","adminNameError"); return; }
+      if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(v)) setFormError("adminName","adminNameError","Letters only.");
+      else if (v.length < 2) setFormError("adminName","adminNameError","Too short.");
+      else setFormValid("adminName","adminNameError");
+    });
+    if (emailField) emailField.addEventListener("input", () => {
+      const v = emailField.value.trim();
+      if (!v) { clearFormState("adminEmail","adminEmailError"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) setFormError("adminEmail","adminEmailError","Enter a valid email.");
+      else setFormValid("adminEmail","adminEmailError");
+    });
+  }
+
+  // Search inputs
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) searchInput.addEventListener("input", filterTransactions);
+
+  const qrSearch = document.getElementById("qrStudentSearch");
+  if (qrSearch) qrSearch.addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allUsers.filter(u =>
+      String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
+    );
+    renderQrStudentList(filtered);
+  });
+
+  // Session countdown
+  setInterval(() => {
+    const el = document.getElementById("sessionCountdown");
+    if (!el || document.getElementById("appShell").style.display === "none") return;
+    const remaining = Math.max(0, SESSION_TIMEOUT_MS - (Date.now() - (window._sessionResetAt || Date.now())));
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    el.textContent = `${mins}:${String(secs).padStart(2,"0")}`;
+  }, 1000);
+});
+
+function submitRegisterForm() {
   const studentId = document.getElementById("adminId").value.trim();
   const name      = document.getElementById("adminName").value.trim();
   const email     = document.getElementById("adminEmail").value.trim();
   let   hasError  = false;
 
-  if (!studentId) {
-    setFieldError("adminId", "adminIdError", "Student ID is required.");
-    hasError = true;
-  } else if (!/^\d+$/.test(studentId)) {
-    setFieldError("adminId", "adminIdError", "Student ID must contain numbers only — no letters or symbols.");
-    hasError = true;
-  } else if (studentId.length < 5 || studentId.length > 12) {
-    setFieldError("adminId", "adminIdError", "Student ID must be between 5 and 12 digits.");
-    hasError = true;
-  } else {
-    setFieldValid("adminId", "adminIdError");
-  }
+  if (!studentId) { setFormError("adminId","adminIdError","Student ID is required."); hasError = true; }
+  else if (!/^\d+$/.test(studentId)) { setFormError("adminId","adminIdError","Numbers only."); hasError = true; }
+  else if (studentId.length < 5 || studentId.length > 12) { setFormError("adminId","adminIdError","5–12 digits required."); hasError = true; }
+  else setFormValid("adminId","adminIdError");
 
-  const sanitizedName = name.replace(/\s+/g, " ").trim();
-  if (!sanitizedName) {
-    setFieldError("adminName", "adminNameError", "Name is required.");
-    hasError = true;
-  } else if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(sanitizedName)) {
-    setFieldError("adminName", "adminNameError", "Name must contain letters only — no numbers or special characters.");
-    hasError = true;
-  } else if (sanitizedName.length < 2 || sanitizedName.length > 60) {
-    setFieldError("adminName", "adminNameError", "Name must be between 2 and 60 characters.");
-    hasError = true;
-  } else {
-    setFieldValid("adminName", "adminNameError");
-  }
+  const sName = name.replace(/\s+/g," ").trim();
+  if (!sName) { setFormError("adminName","adminNameError","Name is required."); hasError = true; }
+  else if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(sName)) { setFormError("adminName","adminNameError","Letters only."); hasError = true; }
+  else if (sName.length < 2 || sName.length > 60) { setFormError("adminName","adminNameError","2–60 characters required."); hasError = true; }
+  else setFormValid("adminName","adminNameError");
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    setFieldError("adminEmail", "adminEmailError", "Please enter a valid email address.");
-    hasError = true;
-  } else if (email) {
-    setFieldValid("adminEmail", "adminEmailError");
-  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFormError("adminEmail","adminEmailError","Invalid email."); hasError = true; }
+  else if (email) setFormValid("adminEmail","adminEmailError");
 
   if (hasError) return;
 
-  // #10: Check for duplicate ID in already-loaded user list before hitting server
-  if (allUsers.length > 0) {
-    const duplicate = allUsers.find(u => String(u.id) === studentId);
-    if (duplicate) {
-      setFieldError("adminId", "adminIdError", `Student ID ${studentId} is already registered (${duplicate.name}).`);
-      document.getElementById("adminId").focus();
-      return;
-    }
+  if (allUsers.some(u => String(u.id) === studentId)) {
+    setFormError("adminId","adminIdError","This ID is already registered.");
+    return;
   }
 
   const submitBtn = document.querySelector("#adminForm button[type=submit]");
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Registering…"; }  // #7
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Registering…"; }
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "register", studentId, name: sanitizedName, email })
+    body: JSON.stringify({ action: "register", studentId, name: sName, email })
   })
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
     if (data.success) {
       showNotification(data.message, "success");
       document.getElementById("adminForm").reset();
       ["adminId","adminName","adminEmail"].forEach((id, i) =>
-        clearFieldState(id, ["adminIdError","adminNameError","adminEmailError"][i])
+        clearFormState(id, ["adminIdError","adminNameError","adminEmailError"][i])
       );
-      updateSummaryStats();
       loadQrStudentList();
+      updateKpiCards();
     } else {
       showNotification(data.message || "Registration failed.", "error");
     }
   })
-  .catch(() => showNotification("Error registering borrower.", "error"))
+  .catch(() => showNotification("Network error during registration.", "error"))
   .finally(() => {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Register Borrower"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Register Student"; }
   });
-});
+}
 
-// ── Real-time field validation feedback ───────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
-  const idField    = document.getElementById("adminId");
-  const nameField  = document.getElementById("adminName");
-  const emailField = document.getElementById("adminEmail");
-
-  if (idField) {
-    idField.addEventListener("input", () => {
-      const val = idField.value.trim();
-      if (!val) { clearFieldState("adminId", "adminIdError"); return; }
-      if (!/^\d+$/.test(val)) {
-        setFieldError("adminId", "adminIdError", "Numbers only — no letters or symbols.");
-      } else if (val.length < 5) {
-        setFieldError("adminId", "adminIdError", `${val.length}/5 digits minimum`);
-      } else if (val.length > 12) {
-        setFieldError("adminId", "adminIdError", "Maximum 12 digits.");
-      } else {
-        setFieldValid("adminId", "adminIdError");
-      }
-    });
-  }
-
-  if (nameField) {
-    nameField.addEventListener("input", () => {
-      const val = nameField.value.trim();
-      if (!val) { clearFieldState("adminName", "adminNameError"); return; }
-      if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(val)) {
-        setFieldError("adminName", "adminNameError", "Letters only — no numbers or special characters.");
-      } else if (val.length < 2) {
-        setFieldError("adminName", "adminNameError", "Name is too short.");
-      } else if (val.length > 60) {
-        setFieldError("adminName", "adminNameError", "Name is too long (max 60 characters).");
-      } else {
-        setFieldValid("adminName", "adminNameError");
-      }
-    });
-  }
-
-  if (emailField) {
-    emailField.addEventListener("input", () => {
-      const val = emailField.value.trim();
-      if (!val) { clearFieldState("adminEmail", "adminEmailError"); return; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-        setFieldError("adminEmail", "adminEmailError", "Enter a valid email (e.g. student@ctu.edu.ph).");
-      } else {
-        setFieldValid("adminEmail", "adminEmailError");
-      }
-    });
-  }
-});
-
-// ════════════════════════════════════════════════════════════════════════════
-// ── PENDING REQUESTS ─────────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Loads all transactions with status "Pending" from the spreadsheet and
- * renders them in the pending queue table. The badge on the tab updates too.
- */
+// ── Pending borrow requests ──────────────────────────────────────────────────
 function loadPendingRequests() {
   const tbody = document.getElementById("pendingTableBody");
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:18px;">Loading pending requests…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getPendingRequests")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
       allPending = Array.isArray(data) ? data : [];
       renderPendingTable(allPending);
-      updatePendingBadge(allPending.length);
-      updateSummaryStats();
+      renderDashPending();
+      updateKpiCards();
     })
     .catch(() => {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--highlight);">Error loading pending requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
     });
 }
 
 function renderPendingTable(requests) {
   const tbody = document.getElementById("pendingTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="text-align:center;padding:32px;">
-          <div style="font-size:28px;margin-bottom:8px;">✅</div>
-          <div style="color:var(--success);font-weight:600;">No pending requests</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">All borrow requests have been handled.</div>
-        </td>
-      </tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
   requests.forEach((req, index) => {
-    // Calculate duration in days if we have both borrowDate and dueDate
     let durationText = "—";
     if (req.borrowDate && req.dueDate) {
       const b = req.borrowDate.split("-");
       const d = req.dueDate.split("-");
-      const bDate = new Date(+b[0], +b[1]-1, +b[2]);
-      const dDate = new Date(+d[0], +d[1]-1, +d[2]);
-      const days  = Math.round((dDate - bDate) / 86400000);
-      if (!isNaN(days) && days > 0) durationText = `${days}d`;
+      const days = Math.round((new Date(+d[0], +d[1]-1, +d[2]) - new Date(+b[0], +b[1]-1, +b[2])) / 86400000);
+      if (!isNaN(days) && days > 0) durationText = `${days} day${days !== 1 ? "s" : ""}`;
     }
     const row = document.createElement("tr");
-    row.className = "pending-row";
     row.innerHTML = `
-      <td><span class="mono-id">${req.studentId}</span></td>
-      <td><strong>${req.studentName || "—"}</strong></td>
-      <td>${req.item}</td>
+      <td><span class="mono-chip">${req.studentId}</span></td>
+      <td style="font-weight:600;">${req.studentName || "—"}</td>
+      <td style="font-weight:600;">${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
-      <td><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--warning);">${durationText}</span></td>
-      <td><span class="date-chip due">${req.dueDate || "—"}</span></td>
+      <td style="font-size:12px;color:var(--text3);">${durationText}</td>
+      <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
       <td>
-        <div class="pending-action-btns">
-          <button
-            class="handover-btn"
-            onclick="confirmHandover(${index})"
-            title="Mark as handed over — confirms borrow and reduces stock"
-          >✅ Hand Over</button>
-          <button
-            class="reject-btn"
-            onclick="confirmReject(${index})"
-            title="Reject this request — no stock change"
-          >✗ Reject</button>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-success btn-sm" onclick="confirmHandover(${index})">✅ Hand Over</button>
+          <button class="btn btn-danger  btn-sm" onclick="confirmReject(${index})">✗ Reject</button>
         </div>
       </td>`;
     tbody.appendChild(row);
   });
 }
 
-function updatePendingBadge(count) {
-  const badge = document.getElementById("pendingBadge");
-  const statEl = document.getElementById("totalPending");
-  if (statEl) statEl.innerText = count;
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent  = count;
-    badge.style.display = "inline-flex";
-  } else {
-    badge.style.display = "none";
-  }
-}
-
-/**
- * Opens the hand-over confirmation modal for a specific pending request.
- * On confirm, calls the Apps Script with action "confirmBorrow" and the
- * row identifier so the backend can flip status Pending → Borrowed and
- * decrement stock.
- */
 function confirmHandover(index) {
   const req = allPending[index];
   if (!req) return;
-
   document.getElementById("handoverMessage").innerHTML =
-    `Hand over <strong>${req.item}</strong> to <strong>${req.studentName || req.studentId}</strong>?
-     <br><small style="color:var(--text-muted);">Status will change to <em>Borrowed</em> and stock will decrease by 1.</small>`;
-
+    `Hand over <strong>${req.item}</strong> to <strong>${req.studentName || req.studentId}</strong>?<br>
+     <small style="color:var(--text3);">Status → <em>Borrowed</em>, stock −1</small>`;
   const modal = document.getElementById("handoverModal");
-  modal.style.display = "flex";
-
-  pendingHandoverCallback = () => {
-    modal.style.display = "none";
-    executeHandover(req);
-  };
-  pendingRejectCallback = null;
-
-  document.getElementById("handoverYes").onclick = pendingHandoverCallback;
-  document.getElementById("handoverNo").onclick  = () => { modal.style.display = "none"; };
+  modal.classList.add("open");
+  document.getElementById("handoverYes").onclick = () => { modal.classList.remove("open"); executeHandover(req); };
+  document.getElementById("handoverNo").onclick  = () => { modal.classList.remove("open"); };
 }
 
 function executeHandover(req) {
   showNotification("Processing hand-over…", "info");
-
-  // #7: Disable all handover buttons during the request
-  document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = true; b.textContent = "Processing…"; });
+  document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success").forEach(b => { b.disabled = true; });
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({
-      action:    "confirmBorrow",
-      studentId: req.studentId,
-      item:      req.item,
-      rowIndex:  req.rowIndex
-    })
+    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
   })
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
     if (data.success) {
       showNotification(`✅ "${req.item}" handed over to ${req.studentName || req.studentId}`, "success");
@@ -432,247 +526,168 @@ function executeHandover(req) {
       loadTransactions();
       loadItemsTable();
     } else {
-      showNotification(data.message || "Hand-over failed. Please try again.", "error");
-      document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+      showNotification(data.message || "Hand-over failed.", "error");
+      loadPendingRequests();
     }
   })
   .catch(() => {
     showNotification("Network error during hand-over.", "error");
-    document.querySelectorAll(".handover-btn").forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+    loadPendingRequests();
   });
 }
 
-/**
- * Opens the reject confirmation modal. On confirm, calls Apps Script with
- * action "rejectBorrow" to mark the row as Rejected (no stock change).
- */
 function confirmReject(index) {
   const req = allPending[index];
   if (!req) return;
-
   document.getElementById("rejectMessage").innerHTML =
-    `Reject the request for <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?
-     <br><small style="color:var(--text-muted);">The request will be marked <em>Rejected</em>. No stock change will occur.</small>`;
-
+    `Reject the request for <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br>
+     <small style="color:var(--text3);">No stock change will occur.</small>`;
   const modal = document.getElementById("rejectModal");
-  modal.style.display = "flex";
-
-  document.getElementById("rejectYes").onclick = () => {
-    modal.style.display = "none";
-    executeReject(req);
-  };
-  document.getElementById("rejectNo").onclick = () => { modal.style.display = "none"; };
+  modal.classList.add("open");
+  document.getElementById("rejectYes").onclick = () => { modal.classList.remove("open"); executeReject(req); };
+  document.getElementById("rejectNo").onclick  = () => { modal.classList.remove("open"); };
 }
 
 function executeReject(req) {
   showNotification("Rejecting request…", "info");
-
-  // #7: Disable reject confirm button during request
-  const rejectYesBtn = document.getElementById("rejectYes");
-  if (rejectYesBtn) { rejectYesBtn.disabled = true; rejectYesBtn.textContent = "Rejecting…"; }
+  const btn = document.getElementById("rejectYes");
+  if (btn) { btn.disabled = true; btn.textContent = "Rejecting…"; }
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({
-      action:    "rejectBorrow",
-      studentId: req.studentId,
-      item:      req.item,
-      rowIndex:  req.rowIndex
-    })
+    body: JSON.stringify({ action: "rejectBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
   })
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
     if (data.success) {
       showNotification(`Request for "${req.item}" rejected.`, "info");
       loadPendingRequests();
       loadTransactions();
     } else {
-      showNotification(data.message || "Rejection failed. Please try again.", "error");
+      showNotification(data.message || "Rejection failed.", "error");
     }
   })
   .catch(() => showNotification("Network error during rejection.", "error"))
-  .finally(() => {
-    if (rejectYesBtn) { rejectYesBtn.disabled = false; rejectYesBtn.textContent = "Yes, Reject"; }
-  });
+  .finally(() => { if (btn) { btn.disabled = false; btn.textContent = "Yes, Reject"; } });
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// ── RETURN REQUESTS ──────────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════════════
-
-let allReturnRequests = [];
-let pendingReturnConfirmCallback = null;
-
+// ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
   const tbody = document.getElementById("returnsTableBody");
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:18px;">Loading return requests…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getReturnRequests")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
       allReturnRequests = Array.isArray(data) ? data : [];
       renderReturnsTable(allReturnRequests);
-      updateReturnsBadge(allReturnRequests.length);
+      updateNavBadge("navBadgeReturns", allReturnRequests.length);
     })
     .catch(() => {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--highlight);">Error loading return requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
     });
 }
 
 function renderReturnsTable(requests) {
   const tbody = document.getElementById("returnsTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="text-align:center;padding:32px;">
-          <div style="font-size:28px;margin-bottom:8px;">✅</div>
-          <div style="color:var(--success);font-weight:600;">No pending return requests</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">All returns have been confirmed.</div>
-        </td>
-      </tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
     return;
   }
 
   requests.forEach((req, index) => {
     const row = document.createElement("tr");
-    row.className = "pending-row";
     row.innerHTML = `
-      <td><span class="mono-id">${req.studentId}</span></td>
-      <td><strong>${req.studentName || "—"}</strong></td>
-      <td>${req.item}</td>
+      <td><span class="mono-chip">${req.studentId}</span></td>
+      <td style="font-weight:600;">${req.studentName || "—"}</td>
+      <td style="font-weight:600;">${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
-      <td><span class="date-chip due">${req.dueDate || "—"}</span></td>
+      <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
       <td>
-        <button
-          class="handover-btn"
-          onclick="confirmReturnRequest(${index})"
-          title="Confirm the item has been physically returned"
-        >✅ Confirm Return</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm Return</button>
       </td>`;
     tbody.appendChild(row);
   });
 }
 
-function updateReturnsBadge(count) {
-  const badge = document.getElementById("returnsBadge");
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent   = count;
-    badge.style.display = "inline-flex";
-  } else {
-    badge.style.display = "none";
-  }
-}
-
 function confirmReturnRequest(index) {
   const req = allReturnRequests[index];
   if (!req) return;
-
   const today = getPHTDateString();
-
   document.getElementById("adminReturnMessage").innerHTML =
-    `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?
-     <br><small style="color:var(--text-muted);">Return date: <strong>${today}</strong> · Stock will increase by 1.</small>`;
-
+    `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br>
+     <small style="color:var(--text3);">Return date: <strong>${today}</strong> · Stock +1</small>`;
   const modal = document.getElementById("adminReturnModal");
-  modal.style.display = "flex";
-
-  document.getElementById("adminReturnYes").onclick = () => {
-    modal.style.display = "none";
-    executeConfirmReturn(req, today);
-  };
-  document.getElementById("adminReturnNo").onclick = () => {
-    modal.style.display = "none";
-  };
+  modal.classList.add("open");
+  document.getElementById("adminReturnYes").onclick = () => { modal.classList.remove("open"); executeConfirmReturn(req, today); };
+  document.getElementById("adminReturnNo").onclick  = () => { modal.classList.remove("open"); };
 }
 
 function executeConfirmReturn(req, returnDate) {
   showNotification("Confirming return…", "info");
-
-  document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
-    b.disabled = true; b.textContent = "Processing…";
-  });
-
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({
-      action:     "confirmReturn",
-      studentId:  req.studentId,
-      item:       req.item,
-      returnDate: returnDate,
-      rowIndex:   req.rowIndex
-    })
+    body: JSON.stringify({ action: "confirmReturn", studentId: req.studentId, item: req.item, returnDate, rowIndex: req.rowIndex })
   })
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
     if (data.success) {
-      showNotification(`✅ "${req.item}" return confirmed for ${req.studentName || req.studentId}`, "success");
+      showNotification(`✅ "${req.item}" return confirmed.`, "success");
       loadReturnRequests();
       loadTransactions();
       loadItemsTable();
     } else {
-      showNotification(data.message || "Confirmation failed. Please try again.", "error");
-      document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
-        b.disabled = false; b.textContent = "✅ Confirm Return";
-      });
+      showNotification(data.message || "Confirmation failed.", "error");
     }
   })
-  .catch(() => {
-    showNotification("Network error during return confirmation.", "error");
-    document.querySelectorAll("#returnsTableBody .handover-btn").forEach(b => {
-      b.disabled = false; b.textContent = "✅ Confirm Return";
-    });
-  });
+  .catch(() => showNotification("Network error during return confirmation.", "error"));
 }
 
-// ── Load transactions ─────────────────────────────────────────────────────────
+// ── Transactions ─────────────────────────────────────────────────────────────
 function loadTransactions() {
   fetch(scriptURL + "?action=getAllHistory")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(history => {
-      const _ts = getPHTDateString().split("-").map(Number);
-      const today = new Date(_ts[0], _ts[1] - 1, _ts[2]);
-      allTransactions = history.map(tx => {
+      const todayStr = getPHTDateString();
+      const [ty, tm, td] = todayStr.split("-").map(Number);
+      const today = new Date(ty, tm - 1, td);
+      allTransactions = (Array.isArray(history) ? history : []).map(tx => {
         if (tx.status === "Borrowed" && tx.dueDate) {
-          const parts   = tx.dueDate.split("-");
-          const dueDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-          if (dueDate < today) return { ...tx, status: "Overdue" };
+          const p = tx.dueDate.split("-");
+          if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...tx, status: "Overdue" };
         }
         return tx;
       });
+      filteredTx = allTransactions;
       renderTransactions(allTransactions);
-      updateSummaryStats();
+      updateKpiCards();
+      renderDashboard();
     })
-    .catch(() => showNotification("Error loading transactions", "error"));
+    .catch(() => showNotification("Error loading transactions.", "error"));
 }
 
 function renderTransactions(transactions) {
   const tbody = document.querySelector("#transactionsTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
+
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No transactions found yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No transactions found.</td></tr>`;
     return;
   }
-  transactions.forEach((tx) => {
-    const s   = (tx.status || "").toLowerCase();
-    const cls = s === "returned"       ? "status-returned"
-              : s === "borrowed"       ? "status-borrowed"
-              : s === "overdue"        ? "status-overdue"
-              : s === "pending"        ? "status-pending"
-              : s === "return pending" ? "status-return-pending"
-              : s === "rejected"       ? "status-rejected"
-              : "";
+  transactions.forEach(tx => {
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${tx.studentId}</td>
+      <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
-      <td>${tx.item}</td>
-      <td>${tx.borrowDate}</td>
-      <td>${tx.dueDate}</td>
-      <td>${tx.returnDate || "-"}</td>
-      <td class="${cls}">${tx.status}</td>`;
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip">${tx.borrowDate}</span></td>
+      <td><span class="date-chip">${tx.dueDate}</span></td>
+      <td><span class="date-chip ${tx.returnDate ? "" : ""}">${tx.returnDate || "—"}</span></td>
+      <td>${statusPill(tx.status)}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -680,240 +695,225 @@ function renderTransactions(transactions) {
 function filterTransactions() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    const query    = document.getElementById("searchInput").value.toLowerCase();
+    const query  = (document.getElementById("searchInput")?.value || "").toLowerCase();
+    const status = document.getElementById("statusFilter")?.value || "";
     const filtered = allTransactions.filter(tx =>
-      String(tx.studentId).toLowerCase().includes(query) ||
-      String(tx.item).toLowerCase().includes(query) ||
-      String(tx.studentName || "").toLowerCase().includes(query)
+      (!query  || String(tx.studentId).toLowerCase().includes(query) ||
+                  String(tx.item).toLowerCase().includes(query) ||
+                  String(tx.studentName || "").toLowerCase().includes(query)) &&
+      (!status || tx.status === status)
     );
-    renderTransactions(filtered.length > 0 ? filtered : []);
-  }, 400);
+    renderTransactions(filtered);
+  }, 300);
 }
 
 function resetFilter() {
-  document.getElementById("searchInput").value = "";
+  const si = document.getElementById("searchInput");
+  const sf = document.getElementById("statusFilter");
+  if (si) si.value = "";
+  if (sf) sf.value = "";
   renderTransactions(allTransactions);
 }
 
-// ── Admin Return Confirmation ──────────────────────────────────────────────────
-function confirmAdminReturn(index) {
-  const tx = allTransactions[index];
-  if (!tx) return;
-
-  const today = getPHTDateString();
-
-  document.getElementById("adminReturnMessage").innerHTML =
-    `Mark <strong>${tx.item}</strong> as returned by
-     <strong>${tx.studentName || tx.studentId}</strong>?
-     <br><small style="color:var(--text-muted);">
-       Return date: <strong>${today}</strong> · Stock will increase by 1.
-     </small>`;
-
-  const modal = document.getElementById("adminReturnModal");
-  modal.style.display = "flex";
-
-  document.getElementById("adminReturnYes").onclick = () => {
-    modal.style.display = "none";
-    executeAdminReturn(tx, today);
-  };
-  document.getElementById("adminReturnNo").onclick = () => {
-    modal.style.display = "none";
-  };
+function exportTransactionsCSV() {
+  if (!allTransactions || allTransactions.length === 0) {
+    showNotification("No transactions to export.", "error");
+    return;
+  }
+  const headers = ["Student ID","Name","Item","Borrow Date","Due Date","Return Date","Status","Late Return"];
+  const rows = allTransactions.map(tx =>
+    [tx.studentId, tx.studentName || "", tx.item, tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
+      .map(v => `"${String(v).replace(/"/g,'""')}"`)
+      .join(",")
+  );
+  const csv  = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `CTU_Transactions_${getPHTDateString()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showNotification("CSV exported.", "success");
 }
 
-function executeAdminReturn(tx, returnDate) {
-  showNotification("Processing return…", "info");
-
-  const btn = document.querySelector(`button.return-confirm-btn[onclick*="confirmAdminReturn"]`);
-  document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = true; });
-
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({
-      action:     "confirmReturn",
-      studentId:  tx.studentId,
-      item:       tx.item,
-      returnDate: returnDate
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      showNotification(`✅ "${tx.item}" marked as returned!`, "success");
-      loadTransactions();
-      loadItemsTable();
-    } else {
-      showNotification(data.message || "Return failed. Please try again.", "error");
-      document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = false; });
-    }
-  })
-  .catch(() => {
-    showNotification("Network error during return.", "error");
-    document.querySelectorAll(".return-confirm-btn").forEach(b => { b.disabled = false; });
-  });
-}
-
-// ── Item Management ───────────────────────────────────────────────────────────
+// ── Inventory ────────────────────────────────────────────────────────────────
 function loadItemsTable() {
   const tbody = document.getElementById("itemsTableBody");
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getItems")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(items => {
+      if (!tbody) return;
       tbody.innerHTML = "";
       if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No items yet. Add one above.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No items yet — add one.</td></tr>`;
         return;
       }
       items.forEach(it => {
-        const status = it.quantity === 0 ? "red" : it.quantity <= 2 ? "amber" : "green";
-        const label  = status === "green" ? "In Stock" : status === "amber" ? "Low Stock" : "Out of Stock";
-        const row    = document.createElement("tr");
+        const tagCls = it.quantity === 0 ? "s-overdue" : it.quantity <= 2 ? "s-pending" : "s-returned";
+        const tagLbl = it.quantity === 0 ? "Out of Stock" : it.quantity <= 2 ? "Low Stock" : "In Stock";
+        const row = document.createElement("tr");
         row.innerHTML = `
-          <td><strong>${it.name}</strong></td>
+          <td style="font-weight:600;">${it.name}</td>
           <td>
             <div class="qty-control">
-              <button class="qty-btn" onclick="adjustQty('${it.name}', ${it.quantity}, -1)">−</button>
-              <span class="qty-value">${it.quantity}</span>
-              <button class="qty-btn" onclick="adjustQty('${it.name}', ${it.quantity}, 1)">＋</button>
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},-1)">−</button>
+              <span class="qty-val">${it.quantity}</span>
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},1)">+</button>
             </div>
           </td>
-          <td><span class="stock-tag ${status}">${label}</span></td>
+          <td><span class="status-pill ${tagCls}">${tagLbl}</span></td>
           <td>
-            <button class="item-delete-btn" onclick="deleteItem('${it.name}', ${it.quantity})">🗑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem('${it.name}',${it.quantity})">🗑</button>
           </td>`;
         tbody.appendChild(row);
       });
     })
     .catch(() => {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--highlight);">Error loading items.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
     });
 }
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
   const qty  = parseInt(document.getElementById("newItemQty").value);
-
-  if (!name)           { showNotification("Item name is required.", "error"); return; }
+  if (!name)                { showNotification("Item name is required.", "error"); return; }
   if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
 
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "addItem", name, quantity: qty })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      showNotification(`"${name}" added!`, "success");
-      document.getElementById("newItemName").value = "";
-      document.getElementById("newItemQty").value  = "";
-      loadItemsTable();
-    } else {
-      showNotification(data.message || "Failed to add item.", "error");
-    }
-  })
-  .catch(() => showNotification("Error adding item.", "error"));
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(`"${name}" added.`, "success");
+        document.getElementById("newItemName").value = "";
+        document.getElementById("newItemQty").value  = "";
+        loadItemsTable();
+      } else {
+        showNotification(data.message || "Failed to add item.", "error");
+      }
+    })
+    .catch(() => showNotification("Error adding item.", "error"));
 }
 
 function adjustQty(name, currentQty, delta) {
   const newQty = currentQty + delta;
   if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
-
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) loadItemsTable();
-    else showNotification(data.message || "Failed to update quantity.", "error");
-  })
-  .catch(() => showNotification("Error updating quantity.", "error"));
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) loadItemsTable();
+      else showNotification(data.message || "Failed to update.", "error");
+    })
+    .catch(() => showNotification("Error updating quantity.", "error"));
 }
 
 function deleteItem(name, quantity) {
-  if (quantity > 0) {
-    showNotification(`Cannot delete "${name}" — set quantity to 0 first.`, "error");
-    return;
-  }
+  if (quantity > 0) { showNotification(`Set quantity to 0 first to delete "${name}".`, "error"); return; }
   if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "deleteItem", name })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
-    else showNotification(data.message || "Failed to delete.", "error");
-  })
-  .catch(() => showNotification("Error deleting item.", "error"));
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
+      else showNotification(data.message || "Failed to delete.", "error");
+    })
+    .catch(() => showNotification("Error deleting item.", "error"));
 }
 
-// ── QR Code generation ────────────────────────────────────────────────────────
+// ── Students (QR + table) ────────────────────────────────────────────────────
 function loadQrStudentList() {
   fetch(scriptURL + "?action=getUsers")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(users => {
-      allUsers = users;
-      renderQrStudentList(users);
+      allUsers = Array.isArray(users) ? users : [];
+      renderQrStudentList(allUsers);
+      renderStudentsTable(allUsers);
+      const el = document.getElementById("studentCountBadge");
+      if (el) el.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+      const kpi = document.getElementById("kpiStudents");
+      if (kpi) kpi.textContent = allUsers.length;
     })
     .catch(() => {
-      document.getElementById("qrStudentList").innerHTML =
-        "<p class='empty-state'>Error loading students.</p>";
+      const el = document.getElementById("qrStudentList");
+      if (el) el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--danger);font-size:12px;">Error loading students.</div>`;
     });
 }
 
 function renderQrStudentList(users) {
   const container = document.getElementById("qrStudentList");
+  if (!container) return;
   container.innerHTML = "";
   if (!users || users.length === 0) {
-    container.innerHTML = "<p class='empty-state'>No students registered.</p>";
+    container.innerHTML = `<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px;">No students found.</div>`;
     return;
   }
   users.forEach(u => {
     const row = document.createElement("div");
-    row.className = "qr-student-row";
+    row.className = "student-row";
     row.innerHTML = `
-      <div class="qr-student-info">
-        <strong>${u.name}</strong>
-        <small>ID: ${u.id}</small>
+      <div class="student-info">
+        <span class="student-name">${u.name}</span>
+        <span class="student-id">${u.id}</span>
       </div>
-      <div class="qr-student-actions">
-        <button class="qr-gen-btn"    onclick="showQrModal('${u.id}', '${u.name.replace(/'/g, "\\'")}')">QR</button>
-        <button class="qr-edit-btn"   onclick="openEditStudentModal('${u.id}', '${u.name.replace(/'/g, "\\'")}', '${(u.email||"").replace(/'/g, "\\'")}')">✏️</button>
-        <button class="qr-delete-btn" onclick="confirmDeleteStudent('${u.id}', '${u.name.replace(/'/g, "\\'")}')">🗑</button>
+      <div class="student-btns">
+        <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditStudentModal('${u.id}','${u.name.replace(/'/g,"\\'")}','${(u.email||"").replace(/'/g,"\\'")}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDeleteStudent('${u.id}','${u.name.replace(/'/g,"\\'")}')">🗑</button>
       </div>`;
     container.appendChild(row);
   });
 }
 
+function renderStudentsTable(users) {
+  const tbody = document.getElementById("studentsTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!users || users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No students registered.</td></tr>`;
+    return;
+  }
+  users.forEach(u => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${u.id}</span></td>
+      <td style="font-weight:600;">${u.name}</td>
+      <td style="font-size:12px;color:var(--text3);">${u.email || "—"}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditStudentModal('${u.id}','${u.name.replace(/'/g,"\\'")}','${(u.email||"").replace(/'/g,"\\'")}')">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteStudent('${u.id}','${u.name.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function filterStudentTable() {
+  const q = (document.getElementById("studentTableSearch")?.value || "").toLowerCase();
+  const filtered = allUsers.filter(u =>
+    String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
+  );
+  renderStudentsTable(filtered);
+}
+
+// ── QR Code ──────────────────────────────────────────────────────────────────
 function showQrModal(studentId, studentName) {
   document.getElementById("qrPrintName").innerText = studentName;
   document.getElementById("qrPrintId").innerText   = "ID: " + studentId;
-
   const container = document.getElementById("qrPrintCode");
   container.innerHTML = "";
-
   if (qrInstance) { try { qrInstance.clear(); } catch(e) {} }
-
-  // Encode a deep-link URL so scanning with any camera app opens the
-  // borrower page directly at that student's PIN prompt.
   const appUrl = window.location.origin +
-                 window.location.pathname.replace(/\/admin\.html$/, "/index.html") +
-                 "?user=" + encodeURIComponent(String(studentId));
-
+    window.location.pathname.replace(/\/admin\.html$/, "/index.html") +
+    "?user=" + encodeURIComponent(String(studentId));
   qrInstance = new QRCode(container, {
-    text:         appUrl,
-    width:        200,
-    height:       200,
-    colorDark:    "#000000",
-    colorLight:   "#ffffff",
+    text: appUrl, width: 200, height: 200,
+    colorDark: "#000000", colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
   });
-
-  showModal("qrPrintModal");
+  openModal("qrPrintModal");
 }
 
 function printQr() {
@@ -921,39 +921,24 @@ function printQr() {
   const id   = document.getElementById("qrPrintId").innerText;
   const img  = document.querySelector("#qrPrintCode img");
   if (!img) { showNotification("QR not ready yet.", "error"); return; }
-
   const win = window.open("", "_blank");
-  win.document.write(`
-    <!DOCTYPE html><html><head>
-    <title>QR Code — ${name}</title>
-    <style>
-      body { font-family: sans-serif; text-align: center; padding: 40px; }
-      h2   { margin: 0 0 4px; font-size: 20px; }
-      p    { margin: 0 0 20px; color: #555; font-size: 13px; }
-      img  { border: 2px solid #eee; border-radius: 8px; padding: 10px; }
-      small{ display:block; margin-top:12px; color:#999; font-size:11px; }
-    </style></head><body>
-    <h2>${name}</h2>
-    <p>${id}</p>
-    <img src="${img.src}" width="200" height="200">
-    <small>CTU Danao Equipment Borrowing System</small>
-    <script>window.onload = () => { window.print(); window.close(); }<\/script>
-    </body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><title>QR — ${name}</title>
+  <style>body{font-family:sans-serif;text-align:center;padding:40px;}h2{margin:0 0 4px;font-size:20px;}p{margin:0 0 20px;color:#555;font-size:13px;}img{border:2px solid #eee;border-radius:8px;padding:10px;}small{display:block;margin-top:12px;color:#999;font-size:11px;}</style>
+  </head><body><h2>${name}</h2><p>${id}</p><img src="${img.src}" width="200" height="200"><small>CTU Danao Equipment Borrowing System</small>
+  <script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
   win.document.close();
 }
 
-// ── Edit student ──────────────────────────────────────────────────────────────
+// ── Edit / Delete student ────────────────────────────────────────────────────
 function openEditStudentModal(studentId, name, email) {
   document.getElementById("editStudentId").value    = studentId;
   document.getElementById("editStudentName").value  = name;
   document.getElementById("editStudentEmail").value = email || "";
-  document.getElementById("editStudentError").style.display = "none";
-  document.getElementById("editStudentModal").style.display = "flex";
+  const err = document.getElementById("editStudentError");
+  if (err) { err.textContent = ""; err.style.display = "none"; }
+  openModal("editStudentModal");
 }
-
-function closeEditStudentModal() {
-  document.getElementById("editStudentModal").style.display = "none";
-}
+function closeEditStudentModal() { closeModal("editStudentModal"); }
 
 function saveEditStudent() {
   const studentId = document.getElementById("editStudentId").value.trim();
@@ -961,327 +946,198 @@ function saveEditStudent() {
   const email     = document.getElementById("editStudentEmail").value.trim();
   const errEl     = document.getElementById("editStudentError");
 
-  if (!name || name.length < 2) {
-    errEl.textContent   = "Name must be at least 2 characters.";
-    errEl.style.display = "block";
-    return;
-  }
-  if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(name)) {
-    errEl.textContent   = "Name must contain letters only.";
-    errEl.style.display = "block";
-    return;
-  }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errEl.textContent   = "Enter a valid email address.";
-    errEl.style.display = "block";
-    return;
-  }
+  if (!name || name.length < 2) { errEl.textContent = "Name must be at least 2 characters."; errEl.style.display = "block"; return; }
+  if (!/^[A-Za-zÀ-ÿ\s\-\.]+$/.test(name)) { errEl.textContent = "Letters only."; errEl.style.display = "block"; return; }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = "Invalid email."; errEl.style.display = "block"; return; }
 
   const saveBtn = document.getElementById("editStudentSaveBtn");
   saveBtn.disabled    = true;
   saveBtn.textContent = "Saving…";
 
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "updateUser", studentId, name, email })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      showNotification(`${name} updated successfully.`, "success");
-      closeEditStudentModal();
-      loadQrStudentList();
-      loadTransactions();   // refresh so transaction rows show the updated name
-      updateSummaryStats();
-    } else {
-      errEl.textContent   = data.message || "Update failed.";
-      errEl.style.display = "block";
-    }
-  })
-  .catch(() => {
-    errEl.textContent   = "Network error. Please try again.";
-    errEl.style.display = "block";
-  })
-  .finally(() => {
-    saveBtn.disabled    = false;
-    saveBtn.textContent = "Save Changes";
-  });
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateUser", studentId, name, email }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(`${name} updated.`, "success");
+        closeEditStudentModal();
+        loadQrStudentList();
+        loadTransactions();
+      } else {
+        errEl.textContent = data.message || "Update failed."; errEl.style.display = "block";
+      }
+    })
+    .catch(() => { errEl.textContent = "Network error."; errEl.style.display = "block"; })
+    .finally(() => { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; });
 }
 
-// ── Delete student ────────────────────────────────────────────────────────────
 function confirmDeleteStudent(studentId, name) {
   document.getElementById("deleteStudentMessage").innerHTML =
     `Delete <strong>${name}</strong> (ID: ${studentId})?<br>
-     <small style="color:var(--text-muted);">This cannot be undone. Students with active borrows cannot be deleted.</small>`;
-  document.getElementById("deleteStudentModal").style.display = "flex";
-
-  document.getElementById("deleteStudentYes").onclick = () => {
-    document.getElementById("deleteStudentModal").style.display = "none";
-    executeDeleteStudent(studentId, name);
-  };
-  document.getElementById("deleteStudentNo").onclick = () => {
-    document.getElementById("deleteStudentModal").style.display = "none";
-  };
+     <small style="color:var(--text3);">This cannot be undone. Students with active borrows cannot be deleted.</small>`;
+  openModal("deleteStudentModal");
+  document.getElementById("deleteStudentYes").onclick = () => { closeModal("deleteStudentModal"); executeDeleteStudent(studentId, name); };
+  document.getElementById("deleteStudentNo").onclick  = () => { closeModal("deleteStudentModal"); };
 }
 
 function executeDeleteStudent(studentId, name) {
   showNotification("Deleting student…", "info");
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "deleteUser", studentId })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      showNotification(`${name} has been removed.`, "success");
-      loadQrStudentList();
-      updateSummaryStats();
-    } else {
-      showNotification(data.message || "Could not delete student.", "error");
-    }
-  })
-  .catch(() => showNotification("Network error during deletion.", "error"));
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteUser", studentId }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) { showNotification(`${name} removed.`, "success"); loadQrStudentList(); updateKpiCards(); }
+      else showNotification(data.message || "Could not delete student.", "error");
+    })
+    .catch(() => showNotification("Network error during deletion.", "error"));
 }
-
-// QR search filter
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("qrStudentSearch").addEventListener("input", e => {
-    const q        = e.target.value.toLowerCase();
-    const filtered = allUsers.filter(u =>
-      String(u.name).toLowerCase().includes(q) ||
-      String(u.id).toLowerCase().includes(q)
-    );
-    renderQrStudentList(filtered);
-  });
-});
 
 // ── Modal helpers ─────────────────────────────────────────────────────────────
-function showModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (!modal) return;
-  modal.style.display = "flex";
-  if (modalId === "borrowersModal")         showBorrowersList();
-  else if (modalId === "transactionsModal") showTransactionsList();
-  else if (modalId === "overdueModal")      showOverdueList();
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add("open");
 }
-
-function closeModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) modal.style.display = "none";
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove("open");
 }
-
-window.addEventListener("click", event => {
-  if (event.target.classList.contains("modal")) event.target.style.display = "none";
+window.addEventListener("click", e => {
+  if (e.target.classList.contains("modal-overlay")) e.target.classList.remove("open");
 });
 
-function showBorrowersList() {
-  const container = document.getElementById("borrowersListContent");
-  container.innerHTML = "<p class='empty-message'>Loading...</p>";
-  fetch(scriptURL + "?action=getUsers")
-    .then(res => res.json())
-    .then(users => {
-      if (!users || users.length === 0) {
-        container.innerHTML = "<p class='empty-message'>No registered users yet.</p>";
-        return;
-      }
-      const list = document.createElement("div");
-      list.className = "user-list";
-      users.forEach(user => {
-        const item = document.createElement("div");
-        item.className = "user-item";
-        item.innerHTML = `<strong>${user.name}</strong> (ID: ${user.id})<br><small>${user.email || "No email"}</small>`;
-        list.appendChild(item);
-      });
-      container.innerHTML = "";
-      container.appendChild(list);
-    })
-    .catch(() => { container.innerHTML = "<p class='empty-message'>Error loading users.</p>"; });
-}
+// ── Update summary stats (alias) ─────────────────────────────────────────────
+function updateSummaryStats() { updateKpiCards(); }
 
-function showTransactionsList() {
-  const container = document.getElementById("transactionsListContent");
-  container.innerHTML = "";
-  if (!allTransactions || allTransactions.length === 0) {
-    container.innerHTML = "<p class='empty-message'>No transactions found.</p>";
-    return;
-  }
-  const table = document.createElement("table");
-  table.innerHTML = `<thead><tr>
-    <th>Student ID</th><th>Name</th><th>Item</th>
-    <th>Borrow Date</th><th>Due Date</th><th>Return Date</th><th>Status</th>
-  </tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector("tbody");
-  allTransactions.forEach(tx => {
-    const s   = (tx.status || "").toLowerCase();
-    const cls = s === "returned" ? "status-returned"
-              : s === "borrowed" ? "status-borrowed"
-              : s === "overdue"  ? "status-overdue"
-              : s === "pending"  ? "status-pending"
-              : s === "rejected" ? "status-rejected"
-              : "";
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${tx.studentId}</td><td>${tx.studentName || "-"}</td><td>${tx.item}</td>
-      <td>${tx.borrowDate}</td><td>${tx.dueDate}</td>
-      <td>${tx.returnDate || "-"}</td><td class="${cls}">${tx.status}</td>`;
-    tbody.appendChild(row);
-  });
-  container.appendChild(table);
-}
-
-function showOverdueList() {
-  const container  = document.getElementById("overdueListContent");
-  container.innerHTML = "";
-  const overdueItems = allTransactions.filter(tx => tx.status === "Overdue");
-  if (overdueItems.length === 0) {
-    container.innerHTML = "<p class='empty-message'>No overdue items. 🎉</p>";
-    return;
-  }
-  const table = document.createElement("table");
-  table.innerHTML = `<thead><tr>
-    <th>Student ID</th><th>Name</th><th>Item</th><th>Due Date</th><th>Days Overdue</th>
-  </tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector("tbody");
-  const _ts2 = getPHTDateString().split("-").map(Number);
-  const today = new Date(_ts2[0], _ts2[1] - 1, _ts2[2]);
-  overdueItems.forEach(tx => {
-    const parts       = tx.dueDate.split("-");
-    const dueDate     = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
-    const row         = document.createElement("tr");
-    row.innerHTML = `
-      <td>${tx.studentId}</td><td>${tx.studentName || "-"}</td><td>${tx.item}</td>
-      <td>${tx.dueDate}</td>
-      <td class="status-overdue"><strong>${daysOverdue} day${daysOverdue !== 1 ? "s" : ""}</strong></td>`;
-    tbody.appendChild(row);
-  });
-  container.appendChild(table);
-}
-
-// ── DOMContentLoaded ──────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("searchInput").addEventListener("input", filterTransactions);
-
-  document.getElementById("adminPassword").addEventListener("keypress", e => {
-    if (e.key === "Enter") { e.preventDefault(); checkPassword(); }
-  });
-  document.getElementById("adminLoginBtn").addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); checkPassword(); }
-  });
-
-  // ── Session countdown display ──────────────────────────────────────────────
-  setInterval(() => {
-    const el = document.getElementById("sessionCountdown");
-    if (!el || document.getElementById("adminSection").style.display === "none") return;
-    if (!sessionTimer) return;
-    // _idleStart is set each time resetSessionTimer runs
-    const remaining = Math.max(0, SESSION_TIMEOUT_MS - (Date.now() - (window._sessionResetAt || Date.now())));
-    const mins = Math.floor(remaining / 60000);
-    const secs = Math.floor((remaining % 60000) / 1000);
-    el.textContent = `Auto-logout in ${mins}:${String(secs).padStart(2,"0")}`;
-  }, 1000);
-});
-
-// ── Summary stats ─────────────────────────────────────────────────────────────
-function updateSummaryStats() {
-  fetch(scriptURL + "?action=getUsers")
-    .then(res => res.json())
-    .then(users => {
-      document.getElementById("totalBorrowers").innerText = Array.isArray(users) ? users.length : 0;
-    }).catch(() => {});
-  document.getElementById("totalTransactions").innerText = allTransactions.length;
-  document.getElementById("overdueItems").innerText      = allTransactions.filter(tx => tx.status === "Overdue").length;
-  document.getElementById("totalPending").innerText      = allPending.length;
-  updatePendingBadge(allPending.length);
-}
-// ════════════════════════════════════════════════════════════════════════════
-// ── CHARTS / ANALYTICS ───────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════════════
-
-// Store Chart.js instances so we can destroy and re-draw on refresh
+// ═══════════════════════════════════════════════════════════════════════════════
+// CHARTS / ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════════
 const chartInstances = {};
 
 function loadCharts() {
-  // Reuse allTransactions if already loaded, otherwise fetch fresh
   if (allTransactions && allTransactions.length > 0) {
     renderAllCharts(allTransactions);
+    updateAnalyticsKpis(allTransactions);
   } else {
     fetch(scriptURL + "?action=getAllHistory")
-      .then(res => res.json())
+      .then(r => r.json())
       .then(history => {
-        // Apply overdue logic same as loadTransactions
-        const _ts3 = getPHTDateString().split("-").map(Number);
-        const today = new Date(_ts3[0], _ts3[1] - 1, _ts3[2]);
-        const processed = history.map(tx => {
+        const todayStr = getPHTDateString();
+        const [ty, tm, td] = todayStr.split("-").map(Number);
+        const today = new Date(ty, tm - 1, td);
+        const processed = (Array.isArray(history) ? history : []).map(tx => {
           if (tx.status === "Borrowed" && tx.dueDate) {
             const p = tx.dueDate.split("-");
-            const d = new Date(+p[0], +p[1]-1, +p[2]);
-            if (d < today) return { ...tx, status: "Overdue" };
+            if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...tx, status: "Overdue" };
           }
           return tx;
         });
         renderAllCharts(processed);
+        updateAnalyticsKpis(processed);
       })
       .catch(() => showNotification("Error loading chart data.", "error"));
   }
 }
 
+function updateAnalyticsKpis(transactions) {
+  const total    = transactions.length;
+  const returned = transactions.filter(tx => tx.status === "Returned");
+  const onTime   = returned.filter(tx => !tx.isLate).length;
+  const pct      = returned.length > 0 ? ((onTime / returned.length) * 100).toFixed(1) + "%" : "N/A";
+
+  const counts = {};
+  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
+  const topItem = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+
+  const el1 = document.getElementById("aKpiTotal");
+  const el2 = document.getElementById("aKpiOnTime");
+  const el3 = document.getElementById("aKpiTopItem");
+  if (el1) el1.textContent = total;
+  if (el2) el2.textContent = pct;
+  if (el3) el3.textContent = topItem ? topItem[0] : "—";
+}
+
 function renderAllCharts(transactions) {
-  drawMostBorrowedChart(transactions);
   drawMonthlyTrendChart(transactions);
-  drawOnTimeChart(transactions);
+  drawMostBorrowedChart(transactions);
   drawStatusChart(transactions);
+  drawOnTimeChart(transactions);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function destroyChart(id) {
-  if (chartInstances[id]) {
-    chartInstances[id].destroy();
-    delete chartInstances[id];
-  }
-}
-
-function getChartColors(count) {
-  const palette = [
-    "#4fc3f7","#81c784","#ffb74d","#e57373","#ba68c8",
-    "#4dd0e1","#aed581","#ff8a65","#f06292","#7986cb"
-  ];
-  const out = [];
-  for (let i = 0; i < count; i++) out.push(palette[i % palette.length]);
-  return out;
-}
-
-function isDarkMode() {
-  return document.body.classList.contains("dark");
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
 
 function chartDefaults() {
-  const dark = isDarkMode();
   return {
-    textColor:  dark ? "#c9d1d9" : "#1a2332",
-    gridColor:  dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
+    textColor:  "#8b949e",
+    gridColor:  "rgba(255,255,255,0.06)",
     fontFamily: "'Inter','Segoe UI',sans-serif"
   };
 }
 
-// ── Chart 1: Most Borrowed Items (horizontal bar) ─────────────────────────────
+function getChartColors(count) {
+  const palette = ["#4fc3f7","#3fb950","#d29922","#f85149","#a371f7","#4dd0e1","#aed581","#ff8a65","#f06292","#7986cb"];
+  return Array.from({ length: count }, (_, i) => palette[i % palette.length]);
+}
+
+function drawMonthlyTrendChart(transactions) {
+  destroyChart("monthlyTrend");
+  const container = document.getElementById("chartMonthlyTrend");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const monthCounts = {};
+  transactions.filter(tx => tx.borrowDate && tx.status !== "Rejected").forEach(tx => {
+    const parts = tx.borrowDate.split("-");
+    if (parts.length < 2) return;
+    const key = `${parts[0]}-${parts[1].padStart(2,"0")}`;
+    monthCounts[key] = (monthCounts[key] || 0) + 1;
+  });
+  const sortedKeys = Object.keys(monthCounts).sort();
+  if (sortedKeys.length === 0) { container.innerHTML = "<p class='chart-empty'>No borrow date data yet.</p>"; return; }
+
+  const labels = sortedKeys.map(k => {
+    const [y, m] = k.split("-");
+    return new Date(+y, +m-1, 1).toLocaleString("default", { month: "short", year: "2-digit" });
+  });
+  const data = sortedKeys.map(k => monthCounts[k]);
+  const { textColor, gridColor, fontFamily } = chartDefaults();
+
+  const canvas = document.createElement("canvas");
+  canvas.height = 220;
+  container.appendChild(canvas);
+
+  chartInstances["monthlyTrend"] = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Borrows", data,
+        borderColor: "#4fc3f7",
+        backgroundColor: "rgba(79,195,247,0.08)",
+        pointBackgroundColor: "#4fc3f7",
+        pointRadius: 5, fill: true, tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} borrow${ctx.parsed.y !== 1 ? "s" : ""}` } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { family: fontFamily } }, grid: { color: gridColor } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
 function drawMostBorrowedChart(transactions) {
   destroyChart("borrowedItems");
   const container = document.getElementById("chartBorrowedItems");
+  if (!container) return;
   container.innerHTML = "";
 
-  // Count all borrows (including Pending, Borrowed, Overdue, Returned — excludes Rejected)
   const counts = {};
-  transactions
-    .filter(tx => tx.status !== "Rejected")
-    .forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
-
-  const sorted  = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
-
-  if (sorted.length === 0) {
-    container.innerHTML = "<p class='chart-empty'>No borrow data yet.</p>";
-    return;
-  }
+  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  if (sorted.length === 0) { container.innerHTML = "<p class='chart-empty'>No borrow data yet.</p>"; return; }
 
   const labels = sorted.map(e => e[0]);
   const data   = sorted.map(e => e[1]);
@@ -1294,233 +1150,78 @@ function drawMostBorrowedChart(transactions) {
 
   chartInstances["borrowedItems"] = new Chart(canvas, {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "Times Borrowed",
-        data,
-        backgroundColor: colors,
-        borderRadius: 6,
-        borderSkipped: false
-      }]
-    },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 5, borderSkipped: false }] },
     options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.parsed.x} borrow${ctx.parsed.x !== 1 ? "s" : ""}`
-          }
-        }
-      },
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} borrow${ctx.parsed.x !== 1 ? "s" : ""}` } } },
       scales: {
-        x: {
-          beginAtZero: true,
-          ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 },
-          grid:  { color: gridColor }
-        },
-        y: {
-          ticks: { color: textColor, font: { family: fontFamily, size: 12 } },
-          grid:  { display: false }
-        }
+        x: { beginAtZero: true, ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, font: { family: fontFamily, size: 12 } }, grid: { display: false } }
       }
     }
   });
 }
 
-// ── Chart 2: Monthly Borrow Trend (line chart) ────────────────────────────────
-function drawMonthlyTrendChart(transactions) {
-  destroyChart("monthlyTrend");
-  const container = document.getElementById("chartMonthlyTrend");
+function drawStatusChart(transactions) {
+  destroyChart("status");
+  const container = document.getElementById("chartStatus");
+  if (!container) return;
   container.innerHTML = "";
 
-  const monthCounts = {};
-  transactions
-    .filter(tx => tx.borrowDate && tx.status !== "Rejected")
-    .forEach(tx => {
-      const parts = tx.borrowDate.split("-");
-      if (parts.length < 2) return;
-      const key = `${parts[0]}-${parts[1].padStart(2,"0")}`;  // "2025-03"
-      monthCounts[key] = (monthCounts[key] || 0) + 1;
-    });
+  const counts = {};
+  transactions.forEach(tx => { const s = tx.status || "Unknown"; counts[s] = (counts[s] || 0) + 1; });
+  const labels = Object.keys(counts);
+  const data   = labels.map(l => counts[l]);
+  if (labels.length === 0) { container.innerHTML = "<p class='chart-empty'>No transaction data yet.</p>"; return; }
 
-  const sortedKeys = Object.keys(monthCounts).sort();
+  const colorMap = { "Borrowed":"#4fc3f7","Pending":"#d29922","Returned":"#3fb950","Overdue":"#f85149","Rejected":"#484f58","Return Pending":"#a371f7" };
+  const colors = labels.map(l => colorMap[l] || "#7986cb");
 
-  if (sortedKeys.length === 0) {
-    container.innerHTML = "<p class='chart-empty'>No borrow date data yet.</p>";
-    return;
-  }
-
-  const labels = sortedKeys.map(k => {
-    const [y, m] = k.split("-");
-    return new Date(+y, +m - 1, 1).toLocaleString("default", { month: "short", year: "2-digit" });
-  });
-  const data   = sortedKeys.map(k => monthCounts[k]);
-  const { textColor, gridColor, fontFamily } = chartDefaults();
-
+  const { textColor, fontFamily } = chartDefaults();
   const canvas = document.createElement("canvas");
   canvas.height = 220;
   container.appendChild(canvas);
 
-  chartInstances["monthlyTrend"] = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "Borrows",
-        data,
-        borderColor:     "#4fc3f7",
-        backgroundColor: "rgba(79,195,247,0.12)",
-        pointBackgroundColor: "#4fc3f7",
-        pointRadius:     5,
-        fill:            true,
-        tension:         0.35
-      }]
-    },
+  chartInstances["status"] = new Chart(canvas, {
+    type: "doughnut",
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false, cutout: "62%",
       plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: { label: ctx => ` ${ctx.parsed.y} borrow${ctx.parsed.y !== 1 ? "s" : ""}` }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: textColor, font: { family: fontFamily } },
-          grid:  { color: gridColor }
-        },
-        y: {
-          beginAtZero: true,
-          ticks: { color: textColor, font: { family: fontFamily }, stepSize: 1 },
-          grid:  { color: gridColor }
-        }
+        legend: { position: "bottom", labels: { color: textColor, font: { family: fontFamily }, padding: 12, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => { const total = data.reduce((a,b)=>a+b,0); const pct = ((ctx.parsed/total)*100).toFixed(1); return ` ${ctx.parsed} (${pct}%)`; } } }
       }
     }
   });
 }
 
-// ── Chart 3: On-Time vs Late Returns (doughnut) ───────────────────────────────
 function drawOnTimeChart(transactions) {
   destroyChart("onTime");
   const container = document.getElementById("chartOnTime");
+  if (!container) return;
   container.innerHTML = "";
 
   const returned = transactions.filter(tx => tx.status === "Returned");
   const onTime   = returned.filter(tx => !tx.isLate).length;
   const late     = returned.filter(tx => tx.isLate).length;
-
-  if (returned.length === 0) {
-    container.innerHTML = "<p class='chart-empty'>No completed returns yet.</p>";
-    return;
-  }
+  if (returned.length === 0) { container.innerHTML = "<p class='chart-empty'>No completed returns yet.</p>"; return; }
 
   const { textColor, fontFamily } = chartDefaults();
   const canvas = document.createElement("canvas");
-  canvas.height = 200;
+  canvas.height = 220;
   container.appendChild(canvas);
 
   chartInstances["onTime"] = new Chart(canvas, {
     type: "doughnut",
     data: {
       labels: ["On Time", "Late"],
-      datasets: [{
-        data: [onTime, late],
-        backgroundColor: ["#81c784", "#e57373"],
-        borderWidth: 0,
-        hoverOffset: 8
-      }]
+      datasets: [{ data: [onTime, late], backgroundColor: ["#3fb950", "#f85149"], borderWidth: 0, hoverOffset: 8 }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "60%",
+      responsive: true, maintainAspectRatio: false, cutout: "60%",
       plugins: {
-        legend: {
-          position: "bottom",
-          labels: { color: textColor, font: { family: fontFamily }, padding: 16 }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const pct = ((ctx.parsed / returned.length) * 100).toFixed(1);
-              return ` ${ctx.parsed} (${pct}%)`;
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-// ── Chart 4: Status Breakdown (doughnut) ─────────────────────────────────────
-function drawStatusChart(transactions) {
-  destroyChart("status");
-  const container = document.getElementById("chartStatus");
-  container.innerHTML = "";
-
-  const counts = {};
-  transactions.forEach(tx => {
-    const s = tx.status || "Unknown";
-    counts[s] = (counts[s] || 0) + 1;
-  });
-
-  const labels = Object.keys(counts);
-  const data   = labels.map(l => counts[l]);
-
-  const colorMap = {
-    "Borrowed":       "#4fc3f7",
-    "Pending":        "#ffb74d",
-    "Returned":       "#81c784",
-    "Overdue":        "#e57373",
-    "Rejected":       "#9e9e9e",
-    "Return Pending": "#ba68c8"
-  };
-  const colors = labels.map(l => colorMap[l] || "#7986cb");
-
-  if (labels.length === 0) {
-    container.innerHTML = "<p class='chart-empty'>No transaction data yet.</p>";
-    return;
-  }
-
-  const { textColor, fontFamily } = chartDefaults();
-  const canvas = document.createElement("canvas");
-  canvas.height = 200;
-  container.appendChild(canvas);
-
-  chartInstances["status"] = new Chart(canvas, {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        borderWidth: 0,
-        hoverOffset: 8
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "60%",
-      plugins: {
-        legend: {
-          position: "bottom",
-          labels: { color: textColor, font: { family: fontFamily }, padding: 12, boxWidth: 12 }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const total = data.reduce((a,b) => a+b, 0);
-              const pct   = ((ctx.parsed / total) * 100).toFixed(1);
-              return ` ${ctx.parsed} (${pct}%)`;
-            }
-          }
-        }
+        legend: { position: "bottom", labels: { color: textColor, font: { family: fontFamily }, padding: 16 } },
+        tooltip: { callbacks: { label: ctx => { const pct = ((ctx.parsed / returned.length)*100).toFixed(1); return ` ${ctx.parsed} (${pct}%)`; } } }
       }
     }
   });
