@@ -905,8 +905,12 @@ function showQrModal(studentId, studentName) {
   const container = document.getElementById("qrPrintCode");
   container.innerHTML = "";
   if (qrInstance) { try { qrInstance.clear(); } catch(e) {} }
-  const appUrl = window.location.origin +
-    window.location.pathname.replace(/\/admin\.html$/, "/index.html") +
+  // Build the URL so it always points to index.html regardless of how
+  // admin.html is served (with or without .html extension, subdirs, etc.)
+  const basePath = window.location.pathname
+    .replace(/\/[^/]*$/, "/")   // strip filename, keep trailing slash
+    .replace(/\/$/, "");         // remove trailing slash for clean join
+  const appUrl = window.location.origin + basePath + "/index.html" +
     "?user=" + encodeURIComponent(String(studentId));
   qrInstance = new QRCode(container, {
     text: appUrl, width: 200, height: 200,
