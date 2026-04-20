@@ -289,6 +289,130 @@ function stopDashboardPoll() {
   if (_dashPollTimer) { clearInterval(_dashPollTimer); _dashPollTimer = null; }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BORROW HISTORY — paginated table with filter
+// ══════════════════════════════════════════════════════════════════════════════
+const HISTORY_PER_PAGE  = 5;
+let   historyPage       = 1;
+let   historyFilter     = "all";
+let   allHistoryRecords = [];
+
+const HISTORY_ICONS = {
+  "Projector":"📽️","Laptop":"💻","Camera":"📷","Multimeter":"📐",
+  "Microscope":"🔬","Tablet":"📱","Router":"📡","Headset":"🎧",
+  "Soldering Iron":"🛠️","Cable":"🔌","Keyboard":"⌨️","Mouse":"🖱️",
+  "Speaker":"🔊","Monitor":"🖥️","Printer":"🖨️"
+};
+
+function getHistoryIcon(name) {
+  for (const key of Object.keys(HISTORY_ICONS)) {
+    if (name.toLowerCase().includes(key.toLowerCase())) return HISTORY_ICONS[key];
+  }
+  return "📦";
+}
+
+function filterHistory(filter, btn) {
+  historyFilter = filter;
+  historyPage   = 1;
+  document.querySelectorAll(".history-filter-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderHistoryTable();
+}
+
+function changeHistoryPage(delta) {
+  const records    = getFilteredHistory();
+  const totalPages = Math.ceil(records.length / HISTORY_PER_PAGE);
+  const next       = historyPage + delta;
+  if (next < 1 || next > totalPages) return;
+  historyPage = next;
+  renderHistoryTable();
+}
+
+function getFilteredHistory() {
+  // Only show "terminal" statuses in history — exclude active/pending items
+  const terminalStatuses = ["Returned", "Rejected"];
+  let records = allHistoryRecords.filter(tx => terminalStatuses.includes(tx.status));
+  if (historyFilter !== "all") records = records.filter(tx => tx.status === historyFilter);
+  // Most recent first (sort by borrowDate desc)
+  return records.slice().sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""));
+}
+
+function renderHistoryTable() {
+  const wrap       = document.getElementById("historyTableWrap");
+  const pagination = document.getElementById("historyPagination");
+  const pageLabel  = document.getElementById("historyPageLabel");
+  const prevBtn    = document.getElementById("historyPrevBtn");
+  const nextBtn    = document.getElementById("historyNextBtn");
+  const countBadge = document.getElementById("historyCount");
+
+  const records    = getFilteredHistory();
+  const total      = allHistoryRecords.filter(tx => ["Returned", "Rejected"].includes(tx.status)).length;
+  if (countBadge) countBadge.textContent = total + " record" + (total !== 1 ? "s" : "");
+
+  if (records.length === 0) {
+    wrap.innerHTML = `<div class="history-empty">No ${historyFilter === "all" ? "" : historyFilter.toLowerCase() + " "}records yet.</div>`;
+    if (pagination) pagination.style.display = "none";
+    return;
+  }
+
+  const totalPages = Math.ceil(records.length / HISTORY_PER_PAGE);
+  if (historyPage > totalPages) historyPage = totalPages;
+  const start = (historyPage - 1) * HISTORY_PER_PAGE;
+  const page  = records.slice(start, start + HISTORY_PER_PAGE);
+
+  const pillClass = s => {
+    switch(s) {
+      case "Returned":       return "returned";
+      case "Rejected":       return "rejected";
+      case "Borrowed":       return "borrowed";
+      case "Overdue":        return "overdue";
+      case "Pending":        return "pending";
+      case "Return Pending": return "ret-pend";
+      default:               return "pending";
+    }
+  };
+
+  const rows = page.map(tx => {
+    const icon     = getHistoryIcon(tx.item);
+    const pill     = pillClass(tx.status);
+    const lateTag  = tx.isLate ? `<span class="history-late-tag">⚠ Late</span>` : "";
+    const retDate  = tx.returnDate || "—";
+    return `
+      <tr>
+        <td><span class="history-item-name">${icon} ${tx.item}</span></td>
+        <td><span class="history-date">${tx.borrowDate || "—"}</span></td>
+        <td><span class="history-date">${tx.dueDate || "—"}</span></td>
+        <td><span class="history-date">${retDate}</span></td>
+        <td><span class="history-pill ${pill}">${tx.status}</span>${lateTag}</td>
+      </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <table class="history-table" aria-label="Borrow history">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Borrowed</th>
+          <th>Due</th>
+          <th>Returned</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  if (totalPages > 1) {
+    if (pagination) {
+      pagination.style.display = "flex";
+      if (prevBtn)   prevBtn.disabled      = historyPage === 1;
+      if (nextBtn)   nextBtn.disabled      = historyPage === totalPages;
+      if (pageLabel) pageLabel.textContent = `${historyPage} / ${totalPages}`;
+    }
+  } else {
+    if (pagination) pagination.style.display = "none";
+  }
+}
+
 // ── User dashboard ────────────────────────────────────────────────────────────
 function loadUserDashboard() {
   if (!currentUser) return;
@@ -303,6 +427,11 @@ function loadUserDashboard() {
       const todayStr = getPHTDateString();
       const [ty, tm, td] = todayStr.split("-").map(Number);
       const today = new Date(ty, tm - 1, td);
+
+      // Store full history for the history table
+      allHistoryRecords = history;
+      historyPage       = 1;
+      renderHistoryTable();
 
       const borrowed      = history.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue");
       const pending       = history.filter(tx => tx.status === "Pending");

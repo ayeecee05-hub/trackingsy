@@ -152,6 +152,31 @@
         <ul id="returnPendingList" class="pending-user-list"></ul>
       </div>
 
+      <!-- Borrow History Section -->
+      <div id="historySection" class="history-section">
+        <div class="history-header">
+          <div class="history-title-row">
+            <h2>📜 Borrow History</h2>
+            <span id="historyCount" class="history-count-badge"></span>
+          </div>
+          <div class="history-filter-row">
+            <button class="history-filter-btn active" data-filter="all" onclick="filterHistory('all', this)">All</button>
+            <button class="history-filter-btn" data-filter="Returned" onclick="filterHistory('Returned', this)">Returned</button>
+            <button class="history-filter-btn" data-filter="Rejected" onclick="filterHistory('Rejected', this)">Rejected</button>
+          </div>
+        </div>
+        <div id="historyTableWrap" class="history-table-wrap">
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+        </div>
+        <div id="historyPagination" class="history-pagination" style="display:none;">
+          <button id="historyPrevBtn" class="history-page-btn" onclick="changeHistoryPage(-1)">&#8249; Prev</button>
+          <span id="historyPageLabel" class="history-page-label"></span>
+          <button id="historyNextBtn" class="history-page-btn" onclick="changeHistoryPage(1)">Next &#8250;</button>
+        </div>
+      </div>
+
       <div class="actions">
         <button onclick="showPage('borrowPage')">＋ Request Item</button>
         <button onclick="showPage('returnPage')">↩ Return Item</button>
