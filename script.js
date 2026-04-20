@@ -66,17 +66,17 @@ function logoutUser(timedOut = false) {
   const saved = localStorage.getItem("theme");
   if (saved === "light") {
     document.body.classList.remove("dark");
-    document.getElementById("toggleTheme").textContent = "🌙 Switch to Dark";
+    document.getElementById("toggleTheme").textContent = "🌙";
   } else {
     document.body.classList.add("dark");
-    document.getElementById("toggleTheme").textContent = "☀️ Switch to Light";
+    document.getElementById("toggleTheme").textContent = "☀️";
   }
 })();
 
 document.getElementById("toggleTheme").addEventListener("click", () => {
   const isDark = document.body.classList.toggle("dark");
   localStorage.setItem("theme", isDark ? "dark" : "light");
-  document.getElementById("toggleTheme").textContent = isDark ? "☀️ Switch to Light" : "🌙 Switch to Dark";
+  document.getElementById("toggleTheme").textContent = isDark ? "☀️" : "🌙";
 });
 
 // ── Notification ──────────────────────────────────────────────────────────────

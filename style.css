@@ -134,16 +134,20 @@ body.dark {
   background: var(--card-bg);
   border: 1px solid var(--border);
   color: var(--accent-primary);
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
+  padding: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .theme-toggle button:hover { background: var(--accent-glow); border-color: var(--accent-primary); transform: translateY(-1px); }
 
