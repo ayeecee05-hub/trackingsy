@@ -5,73 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CTU Danao – Equipment Borrowing System</title>
   <meta name="description" content="Equipment & Device Borrowing System — CTU Danao Campus">
-  <meta name="theme-color" content="#1a56db">
+  <meta name="theme-color" content="#4fc3f7">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="CTU Borrow">
   <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="dark">
-
-  <div class="top-accent-bar"></div>
+<body>
 
   <div class="theme-toggle">
-    <button id="toggleTheme" aria-label="Toggle dark or light mode">☀️ Light</button>
+    <button id="toggleTheme" aria-label="Toggle dark or light mode">🌙 Switch to Light</button>
   </div>
 
   <div class="container">
 
-    <!-- ── University Header ─────────────────────────────────────── -->
-    <header class="uni-header">
-      <div class="uni-logo-row">
-        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo">
+    <div class="uni-header">
+      <div class="uni-logo-row" style="justify-content:center;">
+        <img src="logo.png" alt="CTU Danao Logo" class="uni-logo" aria-label="CTU Danao Campus Logo">
       </div>
-      <div class="header-eyebrow">
-        <span class="badge">College of Technology</span>
-        <span class="badge badge-outline" id="currentYear"></span>
-      </div>
+      <div class="badge">College of Technology</div>
       <h1>Cebu Technological University<br><span>Danao Campus</span></h1>
-      <p class="header-subtitle">Equipment &amp; Device Borrowing System</p>
-      <div class="header-rule"></div>
-    </header>
+      <p>Equipment &amp; Device Borrowing System</p>
+    </div>
 
-    <!-- ── BORROWER DASHBOARD ────────────────────────────────────── -->
+    <!-- Borrower Dashboard -->
     <section id="dashboardPage">
+      <h1>Borrower Dashboard</h1>
+      <h2>Select your name or scan your QR code</h2>
 
-      <div class="section-label">
-        <span class="section-label-dot"></span>Item Availability
-        <div id="stockPageInfo" class="stock-page-info" style="display:none;"></div>
-      </div>
-
+      <!-- ── Stock Availability Panel ──────────────────────────────────── -->
       <section id="stockPanel" class="stock-panel">
+        <div class="stock-panel-header">
+          <div>
+            <h3>Item Availability</h3>
+            <p class="stock-subtitle">Check stock before heading in — green/amber/red status.</p>
+          </div>
+          <div id="stockPageInfo" class="stock-page-info" style="display:none;"></div>
+        </div>
         <div id="stockList" class="stock-list">
           <div class="skeleton-row"></div>
           <div class="skeleton-row"></div>
           <div class="skeleton-row"></div>
         </div>
+        <!-- Stock pagination — shown only when > 5 items -->
         <div id="stockPagination" class="stock-pagination" style="display:none;">
-          <button id="stockPrevBtn" class="stock-page-btn" onclick="changeStockPage(-1)">&#8249; Prev</button>
+          <button id="stockPrevBtn" class="stock-page-btn" onclick="changeStockPage(-1)" aria-label="Previous items page">&#8249; Prev</button>
           <span id="stockPageLabel" class="stock-page-label"></span>
-          <button id="stockNextBtn" class="stock-page-btn" onclick="changeStockPage(1)">Next &#8250;</button>
+          <button id="stockNextBtn" class="stock-page-btn" onclick="changeStockPage(1)" aria-label="Next items page">Next &#8250;</button>
         </div>
       </section>
 
-      <div class="section-label" style="margin-top:28px;">
-        <span class="section-label-dot"></span>Select Borrower
-      </div>
-
+      <!-- ── Borrower List ────────────────────────────────────────────── -->
       <div class="search-bar">
-        <div class="search-bar-inner">
-          <span class="search-icon">⌕</span>
-          <input type="text" id="borrowerSearch" placeholder="Search by name or student ID…" aria-label="Search borrowers">
-        </div>
+        <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
       </div>
 
+      <!-- Cards grid — filled by JS -->
       <div id="usersContainer" class="card-grid">
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
@@ -79,17 +70,17 @@
         <div class="skeleton-card"></div>
       </div>
 
+      <!-- Users pagination — shown only when > 10 borrowers -->
       <div id="usersPagination" class="users-pagination" style="display:none;">
-        <button id="usersPrevBtn" class="users-page-btn" onclick="changeUsersPage(-1)">&#8249; Prev</button>
+        <button id="usersPrevBtn" class="users-page-btn" onclick="changeUsersPage(-1)" aria-label="Previous users page">&#8249; Prev</button>
         <span id="usersPageLabel" class="users-page-label"></span>
-        <button id="usersNextBtn" class="users-page-btn" onclick="changeUsersPage(1)">Next &#8250;</button>
+        <button id="usersNextBtn" class="users-page-btn" onclick="changeUsersPage(1)" aria-label="Next users page">Next &#8250;</button>
       </div>
 
     </section>
 
-    <!-- ── USER DASHBOARD ────────────────────────────────────────── -->
+    <!-- User Dashboard -->
     <section id="userDashboardPage" style="display:none;">
-
       <div class="profile-card">
         <div class="profile-avatar" id="profileAvatar"></div>
         <div class="profile-info">
@@ -99,12 +90,12 @@
         <div class="profile-stats-row">
           <div class="profile-stat">
             <span class="profile-stat-value" id="profileTotal">—</span>
-            <span class="profile-stat-label">Total</span>
+            <span class="profile-stat-label">Total Borrows</span>
           </div>
           <div class="profile-stat-divider"></div>
           <div class="profile-stat">
             <span class="profile-stat-value" id="profileOnTime">—</span>
-            <span class="profile-stat-label">On-Time</span>
+            <span class="profile-stat-label">On-Time Rate</span>
           </div>
           <div class="profile-stat-divider"></div>
           <div class="profile-stat">
@@ -127,44 +118,36 @@
 
       <div id="summaryStats">
         <div class="stat-card">
-          <div class="stat-icon">📋</div>
           <h3 id="statCurrent">0</h3>
           <p>Currently Out</p>
         </div>
         <div class="stat-card pending-stat">
-          <div class="stat-icon">⏳</div>
           <h3 id="statPending">0</h3>
           <p>Pending</p>
         </div>
         <div class="stat-card due-soon-stat">
-          <div class="stat-icon">🔔</div>
           <h3 id="statDueSoon">0</h3>
           <p>Due Soon</p>
         </div>
         <div class="stat-card overdue-stat">
-          <div class="stat-icon">🚨</div>
           <h3 id="statOverdue">0</h3>
           <p>Overdue</p>
         </div>
       </div>
 
-      <div class="section-label" style="margin-top:20px;">
-        <span class="section-label-dot"></span>Currently Borrowed
-      </div>
+      <h2>Currently Borrowed Items</h2>
       <ul id="borrowedList"></ul>
 
+      <!-- Pending requests sub-section -->
       <div id="pendingSection" style="display:none;">
-        <div class="section-label">
-          <span class="section-label-dot" style="background:var(--warning);"></span>Pending Requests
-        </div>
+        <h2>⏳ Pending Requests</h2>
         <p class="pending-user-note">Your request has been submitted. Please proceed to the equipment cabinet — the admin will hand over the item and confirm it.</p>
         <ul id="pendingList" class="pending-user-list"></ul>
       </div>
 
+      <!-- Return Pending sub-section — shown when student has submitted a return -->
       <div id="returnPendingSection" style="display:none;">
-        <div class="section-label">
-          <span class="section-label-dot" style="background:var(--accent-primary);"></span>Awaiting Return Confirmation
-        </div>
+        <h2>↩ Awaiting Return Confirmation</h2>
         <p class="pending-user-note" style="border-color:rgba(79,195,247,0.3);background:rgba(79,195,247,0.07);">You have submitted a return request. Please hand the item to the admin — they will confirm receipt and mark it as returned.</p>
         <ul id="returnPendingList" class="pending-user-list"></ul>
       </div>
@@ -172,16 +155,14 @@
       <div class="actions">
         <button onclick="showPage('borrowPage')">＋ Request Item</button>
         <button onclick="showPage('returnPage')">↩ Return Item</button>
-        <button class="back logout-btn" onclick="logoutUser()">⬅ Sign Out</button>
+        <button class="back" onclick="showPage('dashboardPage')">⬅ Back</button>
       </div>
     </section>
 
-    <!-- ── BORROW PAGE ────────────────────────────────────────────── -->
+    <!-- Borrow / Request Page -->
     <section id="borrowPage" style="display:none;">
-      <div class="page-header">
-        <h1>Request to Borrow</h1>
-        <p class="page-subtitle">Fill in the form below — admin will confirm hand-over</p>
-      </div>
+      <h1>Request to Borrow Item</h1>
+      <h2>Your request goes to the admin for hand-over confirmation</h2>
 
       <div class="how-it-works-box">
         <div class="how-it-works-steps">
@@ -204,13 +185,13 @@
 
       <form id="borrowForm" aria-label="Borrow item form">
         <label for="borrowItem">Select Item</label>
-        <select id="borrowItem" required></select>
+        <select id="borrowItem" required aria-label="Select item to borrow"></select>
         <label for="borrowDate">Request Date</label>
-        <input type="date" id="borrowDate" required readonly>
+        <input type="date" id="borrowDate" required readonly aria-label="Borrow date (set automatically to today)">
         <p class="field-note">📅 Request date is set to today automatically</p>
         <label for="borrowDueDate">Expected Return Date</label>
-        <input type="date" id="borrowDueDate" required>
-        <p class="field-note" id="dueDateNote">📆 Defaults to 3 days from today — tap to change</p>
+        <input type="date" id="borrowDueDate" required aria-label="Pick the date you plan to return the item">
+        <p class="field-note" id="dueDateNote">📆 Defaults to 3 days from today — tap to pick a different date</p>
         <p class="field-note" style="color:var(--warning);margin-top:6px;">⏳ Status will be <strong>Pending</strong> until the admin confirms hand-over</p>
         <div class="actions" style="margin-top:20px;">
           <button type="submit">📋 Submit Request</button>
@@ -219,12 +200,10 @@
       </form>
     </section>
 
-    <!-- ── RETURN PAGE ────────────────────────────────────────────── -->
+    <!-- Return Page -->
     <section id="returnPage" style="display:none;">
-      <div class="page-header">
-        <h1>Return Item</h1>
-        <p class="page-subtitle">Submit a return request — admin will confirm receipt</p>
-      </div>
+      <h1>Return Item</h1>
+      <h2>Submit a return request — the admin will confirm receipt</h2>
 
       <div class="how-it-works-box">
         <div class="how-it-works-steps">
@@ -247,9 +226,9 @@
 
       <form id="returnForm" aria-label="Return item form">
         <label for="returnItem">Item to Return</label>
-        <select id="returnItem" required></select>
+        <select id="returnItem" required aria-label="Select item to return"></select>
         <label for="returnDate">Return Date</label>
-        <input type="date" id="returnDate" required readonly>
+        <input type="date" id="returnDate" required readonly aria-label="Return date (set automatically to today)">
         <p class="field-note">📅 Return date is set to today automatically</p>
         <p class="field-note" style="color:var(--accent-primary);margin-top:6px;">ℹ️ Status will be <strong>Return Pending</strong> until the admin confirms receipt</p>
         <div class="actions" style="margin-top:20px;">
@@ -259,15 +238,7 @@
       </form>
     </section>
 
-  </div><!-- /.container -->
-
-  <footer class="site-footer">
-    <span>CTU Danao Equipment Borrowing System</span>
-    <span class="footer-sep">·</span>
-    <span>Cebu Technological University — Danao Campus</span>
-    <span class="footer-sep">·</span>
-    <span id="footerYear"></span>
-  </footer>
+  </div>
 
   <div id="notification"></div>
 
@@ -283,13 +254,24 @@
     </div>
   </div>
 
+  <!-- PIN Authentication Modal -->
   <div id="pinModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
     <div class="confirm-box pin-box">
       <div class="confirm-icon">🔒</div>
       <h3 id="pinModalTitle" class="pin-modal-name"></h3>
       <p class="pin-modal-hint">Enter your 4-digit PIN</p>
       <p class="pin-modal-sub" id="pinModalHint">Last 4 digits of your Student ID</p>
-      <input type="password" id="pinInput" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="• • • •" autocomplete="one-time-code" aria-label="Enter your 4-digit PIN">
+      <input
+        type="password"
+        id="pinInput"
+        class="pin-input"
+        maxlength="4"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        placeholder="• • • •"
+        autocomplete="one-time-code"
+        aria-label="Enter your 4-digit PIN"
+      >
       <p id="pinError" class="pin-error" style="display:none;">❌ Incorrect PIN. Please try again.</p>
       <div class="confirm-actions">
         <button id="pinSubmitBtn">Confirm</button>
@@ -298,16 +280,13 @@
     </div>
   </div>
 
+  <!-- PWA Install Banner -->
   <div id="installBanner" class="install-banner" style="display:none;">
     <span>📲 Install this app on your device</span>
     <button id="installBtn">Install</button>
     <button class="install-dismiss" id="installDismiss">✕</button>
   </div>
 
-  <script>
-    document.getElementById('currentYear').textContent = new Date().getFullYear();
-    document.getElementById('footerYear').textContent = '© ' + new Date().getFullYear();
-  </script>
   <script src="script.js"></script>
 </body>
 </html>
