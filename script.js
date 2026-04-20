@@ -190,25 +190,14 @@ function renderBorrowerPage() {
 
   pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-    const status   = borrowerStatusMap[user.id];
-    const badgeCfg = {
-      "Overdue":        { cls: "card-badge-overdue",  label: "⚠ Overdue"        },
-      "Borrowed":       { cls: "card-badge-borrowed", label: "📦 Borrowed"       },
-      "Return Pending": { cls: "card-badge-return",   label: "↩ Returning"       },
-      "Pending":        { cls: "card-badge-pending",  label: "⏳ Pending"        }
-    };
-    const badge = status && badgeCfg[status]
-      ? `<span class="card-status-badge ${badgeCfg[status].cls}">${badgeCfg[status].label}</span>`
-      : "";
     const card = document.createElement("div");
-    card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
+    card.className = "borrower-card";
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
     card.setAttribute("aria-label", `Select ${user.name}`);
     card.innerHTML = `
       <div class="borrower-avatar">${initials}</div>
-      <h3>${user.name}</h3>
-      ${badge}`;
+      <h3>${user.name}</h3>`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);
