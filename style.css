@@ -119,6 +119,9 @@ body.dark {
     url("campus.png");
 }
 
+/* ── Top accent bar — hidden ─────────────────────────────── */
+.top-accent-bar { display: none !important; }
+
 /* ── Theme toggle ────────────────────────────────────────── */
 .theme-toggle { position: fixed; top: 16px; right: 16px; z-index: 100; }
 .theme-toggle button {
@@ -786,6 +789,8 @@ body:not(.dark) .pending-user-list li .pending-pill { background: #fff3e0; color
 }
 body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); }
 .footer-sep { color: var(--border); font-size: 14px; }
+.site-footer-divider { color: var(--text-muted); opacity: 0.5; }
+.site-footer strong { color: var(--accent-primary); font-weight: 600; }
 
 /* ── PWA install banner ──────────────────────────────────── */
 .install-banner { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; z-index: 500; font-size: 13px; font-weight: 500; color: var(--text-primary); }
