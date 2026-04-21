@@ -442,47 +442,46 @@ button:active { transform: scale(0.97); }
 .stock-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 body:not(.dark) .stock-name { color: #0d1b2a; font-weight: 800; }
 .stock-name small { font-size: 11px; color: var(--text-muted); font-weight: 400; }
-.stock-tag { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px; padding: 4px 12px; white-space: nowrap; border: 2px solid transparent; }
+.stock-tag { font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0.2px; border-radius: 8px; padding: 3px 9px; white-space: nowrap; border: 1px solid transparent; }
 .stock-tag.green { background: var(--tag-green-bg); color: var(--tag-green-text); border-color: var(--tag-green-border); }
 .stock-tag.amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); border-color: var(--tag-amber-border); }
 .stock-tag.red   { background: var(--tag-red-bg);   color: var(--tag-red-text);   border-color: var(--tag-red-border);   }
 
-/* ── Stock tag overrides — Light mode (bolder, higher contrast) ── */
+/* ── Stock tag overrides — Light mode ── */
 body:not(.dark) .stock-tag.green {
-  background: #c8f7c5;
-  color: #145218;
-  border-color: #2e8b35;
-  font-weight: 900;
-  text-shadow: none;
+  background: #eaf7ea;
+  color: #2e7d32;
+  border-color: rgba(46,125,50,0.3);
+  font-weight: 600;
 }
 body:not(.dark) .stock-tag.amber {
-  background: #ffe8b0;
-  color: #5a2a00;
-  border-color: #d47e00;
-  font-weight: 900;
+  background: #fff8e1;
+  color: #a05000;
+  border-color: rgba(180,100,0,0.28);
+  font-weight: 600;
 }
 body:not(.dark) .stock-tag.red {
-  background: #ffd0d0;
-  color: #6b0000;
-  border-color: #c62828;
-  font-weight: 900;
+  background: #ffebee;
+  color: #c62828;
+  border-color: rgba(198,40,40,0.28);
+  font-weight: 600;
 }
 
-/* ── Stock tag overrides — Dark mode (brighter, more saturated) ── */
+/* ── Stock tag overrides — Dark mode ── */
 body.dark .stock-tag.green {
-  background: rgba(102,187,106,0.25);
-  color: #b9f6ca;
-  border-color: rgba(102,187,106,0.55);
+  background: rgba(102,187,106,0.15);
+  color: #a5d6a7;
+  border-color: rgba(102,187,106,0.3);
 }
 body.dark .stock-tag.amber {
-  background: rgba(255,183,77,0.22);
-  color: #ffe57f;
-  border-color: rgba(255,183,77,0.55);
+  background: rgba(255,183,77,0.14);
+  color: #ffe082;
+  border-color: rgba(255,183,77,0.3);
 }
 body.dark .stock-tag.red {
-  background: rgba(255,107,107,0.22);
-  color: #ff8a80;
-  border-color: rgba(255,107,107,0.55);
+  background: rgba(255,107,107,0.14);
+  color: #ef9a9a;
+  border-color: rgba(255,107,107,0.3);
 }
 
 /* ── Overdue Alert ───────────────────────────────────────── */
@@ -640,18 +639,18 @@ body:not(.dark) .due-progress-track { background: rgba(0,0,0,0.08); }
 /* ════════════════════════════════════════════════════════════
    PROFILE CARD
    ════════════════════════════════════════════════════════════ */
-.profile-card { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, var(--bg-accent), var(--bg-secondary)); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px 20px; margin-bottom: 18px; text-align: center; position: relative; overflow: hidden; }
+.profile-card { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, var(--bg-accent), var(--bg-secondary)); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px 20px; margin-bottom: 18px; text-align: center; position: relative; overflow: hidden; width: 100%; box-sizing: border-box; }
 .profile-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--warning)); border-radius: 16px 16px 0 0; }
 body:not(.dark) .profile-card { background: linear-gradient(135deg, #e3f2fd, #f8fafc); border-color: rgba(25,118,210,0.2); }
 .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: 0 4px 14px var(--accent-glow); }
 .profile-info { margin-bottom: 16px; }
 .profile-name { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px; margin-bottom: 6px; }
 .profile-id { font-size: 12px; color: var(--text-muted); font-family: var(--mono); background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; display: inline-block; padding: 3px 12px; }
-.profile-stats-row { display: flex; align-items: center; justify-content: center; width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.profile-stat { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 8px; gap: 4px; }
-.profile-stat-divider { width: 1px; height: 36px; background: var(--border); flex-shrink: 0; }
+.profile-stats-row { display: flex; align-items: stretch; justify-content: center; width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0; }
+.profile-stat { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 4px; gap: 4px; min-width: 0; }
+.profile-stat-divider { width: 1px; align-self: stretch; background: var(--border); flex-shrink: 0; }
 .profile-stat-value { font-size: 20px; font-weight: 700; color: var(--accent-primary); line-height: 1; }
-.profile-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; white-space: nowrap; }
+.profile-stat-label { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; text-align: center; overflow-wrap: break-word; word-break: break-word; max-width: 100%; line-height: 1.2; }
 .profile-stat-overdue { color: var(--text-muted); }
 .profile-stat-overdue-active { color: var(--highlight) !important; }
 
@@ -855,12 +854,16 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   #notification { font-size: 13px; padding: 10px 16px; }
   .modal-content { border-radius: 14px; }
   .modal-header h2 { font-size: 1rem; }
-  .profile-card { padding: 20px 14px 16px; }
-  .profile-avatar { width: 54px; height: 54px; font-size: 18px; }
-  .profile-name { font-size: 16px; }
-  .profile-stat-value { font-size: 17px; }
-  .profile-stat-label { font-size: 9px; }
-  .profile-stat { padding: 10px 4px; }
+  .profile-card { padding: 18px 12px 16px; border-radius: 14px; }
+  .profile-avatar { width: 52px; height: 52px; font-size: 17px; }
+  .profile-name { font-size: 15px; }
+  .profile-id { font-size: 11px; }
+  .profile-info { margin-bottom: 12px; }
+  .profile-stats-row { border-radius: 10px; }
+  .profile-stat { padding: 10px 3px; }
+  .profile-stat-value { font-size: 16px; }
+  .profile-stat-label { font-size: 8.5px; letter-spacing: 0.1px; }
+  .profile-stat-divider { display: none; }
   .admin-tabs { gap: 2px; }
   .admin-tab  { font-size: 12px !important; padding: 7px 8px 9px !important; }
   .item-mgmt-add { flex-direction: column; align-items: stretch; }
@@ -871,7 +874,19 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .site-footer { font-size: 11px; gap: 4px; padding: 14px 12px; }
   .how-it-works-steps { gap: 5px; }
   .how-step-label { font-size: 9px; }
-  /* Bigger pagination on mobile for touch targets */
+  /* ── User Dashboard mobile improvements ── */
+  #userDashboardPage { padding: 14px 12px 20px; }
+  #summaryStats { flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+  .stat-card { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 12px 6px 10px; border-radius: 10px; }
+  .stat-card h3 { font-size: 22px; }
+  #borrowedList li { font-size: 13px; padding: 10px 12px 9px; }
+  .borrow-item-name { font-size: 13px; }
+  .borrow-item-dates { font-size: 10px; }
+  .overdue-alert-inner { padding: 10px 12px; gap: 8px; }
+  .overdue-alert-title { font-size: 12px; }
+  .overdue-alert-item { font-size: 10px; }
+  #pendingSection h2, #returnPendingSection h2 { font-size: 15px; }
+  .pending-user-list li { font-size: 12px; padding: 9px 12px; flex-wrap: wrap; }
   .users-page-btn { font-size: 14px !important; padding: 10px 18px !important; min-width: 80px; }
   .users-page-label { font-size: 12px; }
   .stock-page-btn { font-size: 12px !important; padding: 8px 14px !important; min-width: 70px; }
@@ -884,9 +899,13 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .borrower-card { padding: 14px 10px 12px; }
   .borrower-card h3 { font-size: 12px; }
   .borrower-avatar { width: 40px; height: 40px; font-size: 14px; }
-  .stat-card h3 { font-size: 17px; }
+  .stat-card h3 { font-size: 18px; }
+  .stat-card p { font-size: 8px; }
   .theme-toggle button { font-size: 10px; padding: 6px 10px; }
-  .profile-stat-value { font-size: 15px; }
+  .profile-stat-value { font-size: 14px; }
+  .profile-name { font-size: 14px; }
+  .profile-stat-label { font-size: 7.5px; }
+  .actions button { font-size: 14px; padding: 12px 14px; }
 }
 
 /* ── Stock panel pagination ──────────────────────────────── */
