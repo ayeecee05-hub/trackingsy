@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ════════════════════════════════════════════════════════════
    DESIGN TOKENS — Dark mode (default)
@@ -20,7 +20,7 @@
   --card-bg:           rgba(26,31,38,0.88);
   --input-bg:          rgba(255,255,255,0.06);
   --shadow:            rgba(0,0,0,0.35);
-  --font:              'Inter', sans-serif;
+  --font:              'Plus Jakarta Sans', 'Inter', sans-serif;
   --mono:              'JetBrains Mono', monospace;
   --skeleton-base:     rgba(255,255,255,0.06);
   --skeleton-shine:    rgba(255,255,255,0.11);
@@ -187,8 +187,11 @@ body:not(.dark) .uni-header .badge { background: #1565c0; }
 
 /* ── Section headings ────────────────────────────────────── */
 h1, h2 { color: var(--text-primary); text-align: center; }
-h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
-h2 { font-size: 13px; font-weight: 400; color: var(--text-secondary); margin-bottom: 16px; }
+h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 6px; font-family: var(--font); }
+h2 { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 16px; letter-spacing: 0.1px; }
+
+body:not(.dark) h1 { color: #0d1b2a; }
+body:not(.dark) h2 { color: #3a5068; }
 
 /* ── Glass card panel ────────────────────────────────────── */
 section {
@@ -1470,4 +1473,309 @@ body:not(.dark) .qr-delete-btn {
   font-size: 11.5px;
   color: var(--text-muted);
   font-family: var(--mono);
+}
+/* ════════════════════════════════════════════════════════════
+   BORROW FLOW STEPPER — inline progress tracker on active items
+   Shows exactly where the transaction is in the 4-step lifecycle:
+   [Request] → [Admin Hands Over] → [Return Submitted] → [Admin Confirms]
+   ════════════════════════════════════════════════════════════ */
+
+/* Outer wrapper for the whole borrowed item row + flow */
+.borrow-flow-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px 13px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.borrow-flow-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 14px 0 0 14px;
+  background: var(--accent-primary);
+}
+
+.borrow-flow-card.flow-pending::before    { background: var(--warning); }
+.borrow-flow-card.flow-borrowed::before   { background: var(--accent-primary); }
+.borrow-flow-card.flow-overdue::before    { background: var(--highlight); animation: pulse-side 2s ease-in-out infinite; }
+.borrow-flow-card.flow-ret-pending::before { background: #ab47bc; }
+
+@keyframes pulse-side {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+body:not(.dark) .borrow-flow-card {
+  background: #ffffff;
+  border-color: rgba(25,118,210,0.18);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+body:not(.dark) .borrow-flow-card.flow-pending   { border-color: rgba(230,81,0,0.22); background: #fffdf7; }
+body:not(.dark) .borrow-flow-card.flow-borrowed  { border-color: rgba(25,118,210,0.22); }
+body:not(.dark) .borrow-flow-card.flow-overdue   { border-color: rgba(183,28,28,0.3); background: #fff8f8; }
+body:not(.dark) .borrow-flow-card.flow-ret-pending { border-color: rgba(106,27,154,0.22); background: #fdf6ff; }
+
+.borrow-flow-card:hover {
+  box-shadow: 0 4px 18px var(--shadow);
+  border-color: var(--accent-primary);
+}
+
+/* Top row: item name + due badge */
+.borrow-flow-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.borrow-flow-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.borrow-flow-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+
+body:not(.dark) .borrow-flow-name { color: #0d1b2a; }
+
+.borrow-flow-dates {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  letter-spacing: 0.1px;
+}
+
+body:not(.dark) .borrow-flow-dates { color: #5a7a96; }
+
+/* ── The stepper track ── */
+.borrow-flow-stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-top: 10px;
+  padding: 10px 12px 8px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+body:not(.dark) .borrow-flow-stepper {
+  background: #f4f8fc;
+  border-color: rgba(25,118,210,0.12);
+}
+
+/* Each step node */
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+  gap: 5px;
+  z-index: 1;
+}
+
+/* Connector line between steps */
+.flow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+  transition: background 0.4s ease;
+}
+
+.flow-step.step-done:not(:last-child)::after {
+  background: var(--success);
+}
+
+.flow-step.step-active:not(:last-child)::after {
+  background: linear-gradient(90deg, var(--accent-primary) 0%, var(--border) 100%);
+}
+
+/* Step circle */
+.flow-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+body:not(.dark) .flow-dot {
+  background: #e8edf3;
+  border-color: #bfcfdf;
+  color: #8fa8bf;
+}
+
+/* Done step */
+.flow-step.step-done .flow-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(102,187,106,0.2);
+}
+
+body:not(.dark) .flow-step.step-done .flow-dot {
+  background: #2e7d32;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 3px rgba(46,125,50,0.18);
+}
+
+/* Active step */
+.flow-step.step-active .flow-dot {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--accent-glow);
+  animation: pulse-step 2s ease-in-out infinite;
+}
+
+/* Pending variant active dot = amber */
+.borrow-flow-card.flow-pending .flow-step.step-active .flow-dot {
+  background: var(--warning);
+  border-color: var(--warning);
+  box-shadow: 0 0 0 4px rgba(255,183,77,0.25);
+}
+
+/* Overdue variant active dot = red */
+.borrow-flow-card.flow-overdue .flow-step.step-active .flow-dot {
+  background: var(--highlight);
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 4px rgba(255,107,107,0.25);
+}
+
+/* Return pending active dot = purple */
+.borrow-flow-card.flow-ret-pending .flow-step.step-active .flow-dot {
+  background: #ab47bc;
+  border-color: #ab47bc;
+  box-shadow: 0 0 0 4px rgba(171,71,188,0.22);
+}
+
+@keyframes pulse-step {
+  0%, 100% { box-shadow: 0 0 0 4px var(--accent-glow); }
+  50%       { box-shadow: 0 0 0 7px var(--accent-glow); }
+}
+
+/* Step label */
+.flow-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  max-width: 68px;
+}
+
+body:not(.dark) .flow-label { color: #8fa8bf; }
+
+.flow-step.step-done   .flow-label { color: var(--success); }
+.flow-step.step-active .flow-label { color: var(--accent-primary); font-weight: 700; }
+
+.borrow-flow-card.flow-pending   .flow-step.step-active .flow-label { color: var(--warning); }
+.borrow-flow-card.flow-overdue   .flow-step.step-active .flow-label { color: var(--highlight); }
+.borrow-flow-card.flow-ret-pending .flow-step.step-active .flow-label { color: #ab47bc; }
+
+body:not(.dark) .flow-step.step-done .flow-label { color: #2e7d32; }
+body:not(.dark) .flow-step.step-active .flow-label { color: #1565c0; }
+body:not(.dark) .borrow-flow-card.flow-pending .flow-step.step-active .flow-label { color: #7a3b00; }
+body:not(.dark) .borrow-flow-card.flow-overdue .flow-step.step-active .flow-label { color: #8b0000; }
+body:not(.dark) .borrow-flow-card.flow-ret-pending .flow-step.step-active .flow-label { color: #6a1b9a; }
+
+/* ── Status banner below stepper ── */
+.borrow-flow-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+  border: 1px solid var(--border);
+}
+
+.borrow-flow-card.flow-pending   .borrow-flow-status-bar { background: rgba(255,183,77,0.12); color: var(--warning);       border-color: rgba(255,183,77,0.3); }
+.borrow-flow-card.flow-overdue   .borrow-flow-status-bar { background: rgba(255,107,107,0.1); color: var(--highlight);      border-color: rgba(255,107,107,0.3); }
+.borrow-flow-card.flow-ret-pending .borrow-flow-status-bar { background: rgba(171,71,188,0.1); color: #ce93d8;               border-color: rgba(171,71,188,0.3); }
+
+body:not(.dark) .borrow-flow-card.flow-borrowed   .borrow-flow-status-bar { background: #e3f2fd; color: #1565c0; border-color: rgba(21,101,192,0.25); }
+body:not(.dark) .borrow-flow-card.flow-pending    .borrow-flow-status-bar { background: #fff8e1; color: #7a3b00; border-color: rgba(230,81,0,0.25); }
+body:not(.dark) .borrow-flow-card.flow-overdue    .borrow-flow-status-bar { background: #ffebee; color: #8b0000; border-color: rgba(183,28,28,0.25); }
+body:not(.dark) .borrow-flow-card.flow-ret-pending .borrow-flow-status-bar { background: #f3e5f5; color: #6a1b9a; border-color: rgba(106,27,154,0.25); }
+
+.borrow-flow-status-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body:not(.dark) .borrow-flow-status-hint { color: #8fa8bf; }
+
+/* Due progress track now inside the flow card */
+.flow-due-track {
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+  width: 100%;
+}
+
+body:not(.dark) .flow-due-track { background: rgba(0,0,0,0.07); }
+
+/* ── Mobile responsive ── */
+@media (max-width: 640px) {
+  .borrow-flow-card { padding: 12px 13px 11px; }
+  .borrow-flow-name { font-size: 13px; }
+  .flow-dot         { width: 22px; height: 22px; font-size: 10px; }
+  .flow-label       { font-size: 8.5px; max-width: 56px; }
+  .borrow-flow-stepper { padding: 8px 8px 7px; gap: 0; }
+  .borrow-flow-status-bar { font-size: 10.5px; }
+}
+
+@media (max-width: 400px) {
+  .flow-label { font-size: 8px; max-width: 46px; }
+  .flow-dot   { width: 20px; height: 20px; }
 }

@@ -485,63 +485,97 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
-      // Currently borrowed list
+      // ── Active items — unified borrow flow stepper list ──────────────────
+      // Combines borrowed + pending + return-pending into one visual tracker.
+      // Each card shows a 4-step progress stepper so the student always knows
+      // exactly where their transaction is in the lifecycle.
       const borrowedList = document.getElementById("borrowedList");
       borrowedList.innerHTML = "";
-      if (borrowed.length === 0) {
-        borrowedList.innerHTML = `<li style="text-align:center;color:var(--text-muted);border-left:none;background:none;">No items currently borrowed.</li>`;
+
+      // Gather all active transactions (not yet returned/rejected)
+      const activeItems = history.filter(tx =>
+        ["Borrowed", "Pending", "Return Pending"].includes(tx.status)
+      );
+
+      if (activeItems.length === 0) {
+        borrowedList.innerHTML = `<li style="text-align:center;color:var(--text-muted);border-left:none;background:none;padding:18px 0;">No active items right now.</li>`;
       } else {
-        borrowed.forEach(tx => {
+        activeItems.forEach(tx => {
           const p       = (tx.dueDate || "").split("-");
           const dueDate = p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null;
           const diff    = dueDate ? Math.ceil((dueDate - today) / 86400000) : null;
+          const isOverdue = diff !== null && diff < 0 && tx.status === "Borrowed";
+
+          const effectiveStatus = isOverdue ? "Overdue" : tx.status;
           const { badgeClass, badgeText, barClass, barWidth } = getDueBadge(diff);
+
+          // Flow card variant CSS class
+          const cardVariant = {
+            "Pending":        "flow-pending",
+            "Borrowed":       isOverdue ? "flow-overdue" : "flow-borrowed",
+            "Overdue":        "flow-overdue",
+            "Return Pending": "flow-ret-pending"
+          }[effectiveStatus] || "flow-borrowed";
+
+          // ── 4-step stepper config ─────────────────────────────────────────
+          // step-done = completed, step-active = current, (empty) = future
+          const steps = buildFlowSteps(effectiveStatus);
+
+          // Status bar hint text
+          const hintMap = {
+            "Pending":        "⏳ Waiting for admin to hand over the item",
+            "Borrowed":       diff === null ? "Item currently with you" : diff === 0 ? "⚠️ Due today — please return!" : diff > 0 ? `${diff} day${diff !== 1 ? "s" : ""} remaining before due date` : "",
+            "Overdue":        `⚠️ ${Math.abs(diff)}d overdue — please return immediately`,
+            "Return Pending": "↩ Waiting for admin to confirm receipt"
+          };
+          const hintText  = hintMap[effectiveStatus] || "";
+
+          const statusLabel = {
+            "Pending":        "Request Submitted",
+            "Borrowed":       isOverdue ? "⚠️ Overdue" : "✅ Item With You",
+            "Overdue":        "⚠️ Overdue",
+            "Return Pending": "↩ Return Submitted"
+          }[effectiveStatus] || effectiveStatus;
+
+          const icon = getHistoryIcon(tx.item);
+          const dateInfo = tx.status === "Pending"
+            ? `Requested ${tx.borrowDate} · Due ${tx.dueDate || "—"}`
+            : tx.status === "Return Pending"
+            ? `Borrowed ${tx.borrowDate} · Returning ${tx.returnDate || "today"}`
+            : `Borrowed ${tx.borrowDate} · Due ${tx.dueDate || "—"}`;
+
+          const dueProgressHTML = tx.status === "Borrowed" && diff !== null
+            ? `<div class="flow-due-track"><div class="due-progress-bar ${barClass}" style="width:${barWidth}%"></div></div>`
+            : "";
+
           const li = document.createElement("li");
-          li.className = diff !== null && diff < 0 ? "overdue" : "";
+          li.style.cssText = "list-style:none;padding:0;margin:0;border:none;background:none;";
           li.innerHTML = `
-            <div class="borrow-item-row">
-              <div class="borrow-item-info">
-                <span class="borrow-item-name">📦 ${tx.item}</span>
-                <span class="borrow-item-dates">Borrowed ${tx.borrowDate} · Due ${tx.dueDate}</span>
-                <div class="due-progress-track"><div class="due-progress-bar ${barClass}" style="width:${barWidth}%"></div></div>
+            <div class="borrow-flow-card ${cardVariant}">
+              <div class="borrow-flow-top">
+                <div class="borrow-flow-meta">
+                  <span class="borrow-flow-name">${icon} ${tx.item}</span>
+                  <span class="borrow-flow-dates">${dateInfo}</span>
+                  ${dueProgressHTML}
+                </div>
+                ${tx.status === "Borrowed" ? `<span class="due-badge ${badgeClass}">${badgeText}</span>` : ""}
               </div>
-              <span class="due-badge ${badgeClass}">${badgeText}</span>
+              <div class="borrow-flow-stepper">${steps}</div>
+              <div class="borrow-flow-status-bar">
+                <span>${statusLabel}</span>
+                <span class="borrow-flow-status-hint">${hintText}</span>
+              </div>
             </div>`;
           borrowedList.appendChild(li);
         });
       }
 
-      // ── Pending borrow section ────────────────────────────────────────────
+      // Hide the old separate sections — they are now unified above
       const pendingSection = document.getElementById("pendingSection");
-      if (pending.length > 0) {
-        pendingSection.style.display = "block";
-        document.getElementById("pendingList").innerHTML = pending.map(tx => `
-          <li>
-            <span>⏳ <strong>${tx.item}</strong></span>
-            <span class="pending-pill">Pending</span>
-          </li>`).join("");
-      } else {
-        pendingSection.style.display = "none";
-      }
-
-      // ── Return Pending section ────────────────────────────────────────────
-      // Shows items the student has submitted a return for, awaiting admin confirmation
+      if (pendingSection) pendingSection.style.display = "none";
       const returnPendingSection = document.getElementById("returnPendingSection");
-      if (returnPendingSection) {
-        if (returnPending.length > 0) {
-          returnPendingSection.style.display = "block";
-          document.getElementById("returnPendingList").innerHTML = returnPending.map(tx => `
-            <li>
-              <span>📦 <strong>${tx.item}</strong></span>
-              <span class="pending-pill return-pending-pill">↩ Return Pending</span>
-            </li>`).join("");
-        } else {
-          returnPendingSection.style.display = "none";
-        }
-      }
+      if (returnPendingSection) returnPendingSection.style.display = "none";
       // ── Auto-poll logic ───────────────────────────────────────────────────
-      // Start polling if the student has anything still waiting on the admin.
-      // Stop polling once everything is confirmed (no Pending / Return Pending).
       const needsPoll = pending.length > 0 || returnPending.length > 0;
       if (needsPoll) {
         if (!_dashPollTimer) startDashboardPoll();
@@ -558,6 +592,40 @@ function getDueBadge(daysLeft) {
   if (daysLeft === 0)   return { badgeClass: "due-today",   badgeText: "Due today",                   barClass: "due-today",   barWidth: 95  };
   if (daysLeft <= 2)    return { badgeClass: "due-soon",    badgeText: `${daysLeft}d left`,            barClass: "due-soon",    barWidth: 70  };
   return { badgeClass: "due-ok", badgeText: `${daysLeft}d left`, barClass: "due-ok", barWidth: Math.min(60, daysLeft * 8) };
+}
+
+// ── Borrow Flow Stepper ───────────────────────────────────────────────────────
+// Builds the 4-step HTML stepper for the given transaction status.
+// Steps: 1=Request Submitted, 2=Admin Hands Over, 3=Return Submitted, 4=Admin Confirms
+function buildFlowSteps(status) {
+  // step state: "done" | "active" | ""
+  const stateMap = {
+    "Pending":        ["active", "",       "",       ""],
+    "Borrowed":       ["done",   "active", "",       ""],
+    "Overdue":        ["done",   "active", "",       ""],
+    "Return Pending": ["done",   "done",   "active", ""],
+    "Returned":       ["done",   "done",   "done",   "done"]
+  };
+  const states = stateMap[status] || ["active", "", "", ""];
+
+  const stepDefs = [
+    { label: "Request\nSubmitted",   icon: "1" },
+    { label: "Admin\nHands Over",    icon: "2" },
+    { label: "Return\nSubmitted",    icon: "3" },
+    { label: "Admin\nConfirms",      icon: "4" }
+  ];
+
+  return stepDefs.map((s, i) => {
+    const state     = states[i];
+    const cls       = state ? `step-${state}` : "";
+    const dotInner  = state === "done" ? "✓" : s.icon;
+    const labelHtml = s.label.replace("\n", "<br>");
+    return `
+      <div class="flow-step ${cls}">
+        <div class="flow-dot">${dotInner}</div>
+        <span class="flow-label">${labelHtml}</span>
+      </div>`;
+  }).join("");
 }
 
 // ── Populate borrow select ────────────────────────────────────────────────────
