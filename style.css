@@ -1871,26 +1871,28 @@ button, [role="button"], input, select, a {
   min-height: 44px;
 }
 
-/* ── Confirm modal: full-width on mobile ──────────────────── */
-.confirm-modal {
-  align-items: flex-end;
-  padding: 0;
-}
-.confirm-box {
-  border-radius: 24px 24px 0 0;
-  max-width: 100%;
-  width: 100%;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
-}
+/* ── Confirm modal: bottom sheet on mobile only ──────────── */
+@media (max-width: 640px) {
+  .confirm-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .confirm-box {
+    border-radius: 24px 24px 0 0;
+    max-width: 100%;
+    width: 100%;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
 
-/* ── PIN modal specific ────────────────────────────────────── */
-.pin-box {
-  border-radius: 24px 24px 0 0;
-}
-.pin-input {
-  font-size: 28px !important;
-  height: 56px;
-  max-width: 220px;
+  /* ── PIN modal specific ── */
+  .pin-box {
+    border-radius: 24px 24px 0 0;
+  }
+  .pin-input {
+    font-size: 28px !important;
+    height: 56px;
+    max-width: 220px;
+  }
 }
 
 /* ── Notification: safe from notch ────────────────────────── */
@@ -2336,17 +2338,48 @@ textarea {
   /* PIN modal bottom sheet */
   .pin-box {
     border-radius: 22px 22px 0 0;
-    padding: 24px 22px max(24px, env(safe-area-inset-bottom));
+    padding: 28px 24px max(28px, env(safe-area-inset-bottom));
+    position: relative;
   }
 
-  .pin-modal-name { font-size: 16px; }
-  .pin-modal-hint { font-size: 12px; }
+  .pin-box::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: -14px auto 18px;
+    opacity: 0.6;
+  }
+
+  .pin-modal-name { font-size: 20px; margin-bottom: 4px; }
+  .pin-modal-hint { font-size: 13px; margin-bottom: 20px; }
+  .pin-modal-sub  { font-size: 12px; }
 
   .pin-input {
-    max-width: 200px;
-    font-size: 26px !important;
-    height: 54px;
-    letter-spacing: 12px;
+    max-width: 100%;
+    width: 100%;
+    font-size: 32px !important;
+    height: 64px;
+    letter-spacing: 16px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
+  .pin-error { font-size: 13px; margin-bottom: 16px; }
+
+  #pinModal .confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  #pinModal .confirm-actions button {
+    max-width: 100%;
+    min-height: 52px;
+    font-size: 16px;
+    border-radius: 14px;
   }
 
   /* ── Pagination ── */
