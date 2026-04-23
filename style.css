@@ -199,7 +199,13 @@ section {
   animation: fadeUp 0.3s ease;
   margin-bottom: 20px;
 }
-#dashboardPage { border-top: none; }
+#dashboardPage {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Borrower list label ─────────────────────────────────── */
