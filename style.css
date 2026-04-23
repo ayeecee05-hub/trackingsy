@@ -442,6 +442,7 @@ button:active { transform: scale(0.97); }
 .stock-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 body:not(.dark) .stock-name { color: #0d1b2a; font-weight: 800; }
 .stock-name small { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+body:not(.dark) .stock-name small { color: #3a5a78; font-weight: 700; }
 .stock-tag { font-size: 11.5px; font-weight: 700; text-transform: none; letter-spacing: 0.3px; border-radius: 8px; padding: 3px 10px; white-space: nowrap; border: 1.5px solid transparent; }
 .stock-tag.green { background: var(--tag-green-bg); color: var(--tag-green-text); border-color: var(--tag-green-border); }
 .stock-tag.amber { background: var(--tag-amber-bg); color: var(--tag-amber-text); border-color: var(--tag-amber-border); }
@@ -891,6 +892,44 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .users-page-label { font-size: 12px; }
   .stock-page-btn { font-size: 12px !important; padding: 8px 14px !important; min-width: 70px; }
   .stock-page-label { font-size: 12px; }
+
+  /* ── History section mobile ── */
+  .history-section { padding: 14px 12px; border-radius: 12px; }
+  .history-header { gap: 8px; margin-bottom: 12px; }
+  .history-title-row h2 { font-size: 0.9rem; }
+  .history-filter-row { gap: 4px; }
+  .history-filter-btn { font-size: 10px; padding: 3px 9px; }
+  .history-table { min-width: 0; font-size: 12px; }
+  .history-table th { font-size: 9.5px; padding: 8px 8px; }
+  .history-table td { padding: 7px 8px; }
+  .history-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Borrow / Return form pages mobile ── */
+  #borrowPage, #returnPage { padding: 14px 12px 20px; }
+  #borrowPage h1, #returnPage h1 { font-size: 18px; }
+  #borrowPage h2, #returnPage h2 { font-size: 12px; }
+  .how-it-works-box { padding: 10px 12px; }
+  .how-it-works-steps { gap: 4px; }
+  .how-step-arrow { font-size: 13px; margin-bottom: 12px; }
+  .how-step-num { width: 24px; height: 24px; font-size: 11px; }
+  #borrowForm label, #returnForm label { font-size: 11px; }
+  #borrowForm input, #borrowForm select,
+  #returnForm input, #returnForm select { font-size: 16px; /* prevent iOS zoom */ padding: 12px; }
+  .field-note { font-size: 10.5px; }
+
+  /* ── Borrow flow cards mobile ── */
+  #borrowedList li { font-size: 12px; padding: 10px 10px 8px; }
+  .borrow-flow-card { padding: 11px 11px 10px; }
+
+  /* ── Pending / return pending section mobile ── */
+  #pendingSection, #returnPendingSection { margin-bottom: 10px; }
+  .pending-user-note { font-size: 11px; padding: 8px 10px; }
+  .pending-user-list li { gap: 6px; }
+
+  /* ── History pagination mobile ── */
+  .history-pagination { gap: 6px; padding-top: 8px; }
+  .history-page-btn { font-size: 12px !important; padding: 8px 14px !important; }
+  .history-page-label { font-size: 11px; }
 }
 
 @media (max-width: 400px) {
