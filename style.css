@@ -107,7 +107,9 @@ body {
     url("campus.png");
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
+  /* Changed from 'fixed' to 'scroll' — background-attachment:fixed breaks
+     position:fixed on Android Chrome (creates a new compositing context) */
+  background-attachment: scroll;
   transition: color 0.3s ease, background-color 0.3s ease;
   display: flex;
   flex-direction: column;
@@ -134,14 +136,18 @@ body.dark {
   top: 16px;
   right: 16px;
   z-index: 9999;
-  /* Force GPU compositing so position:fixed works on Android */
+  width: 38px !important;
+  height: 38px !important;
+  max-width: 38px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: none !important;
+  border: none !important;
+  /* Force GPU compositing — fixes position:fixed on Android WebView */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: transform;
-  /* Prevent the div itself from stretching */
-  width: 38px;
-  height: 38px;
-  pointer-events: auto;
 }
 .theme-toggle button {
   background: var(--card-bg);
@@ -152,6 +158,8 @@ body.dark {
   height: 38px !important;
   min-height: unset !important;
   min-width: unset !important;
+  max-width: 38px !important;
+  max-height: 38px !important;
   border-radius: 50% !important;
   font-size: 18px;
   line-height: 1;
@@ -160,9 +168,10 @@ body.dark {
   -webkit-backdrop-filter: blur(8px);
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px var(--shadow);
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .theme-toggle button:hover { background: var(--accent-glow); border-color: var(--accent-primary); transform: translateY(-1px); }
 
@@ -1888,7 +1897,7 @@ img, video, canvas, svg {
 }
 
 /* ── Touch-friendly minimum tap sizes ─────────────────────── */
-button:not(#toggleTheme), [role="button"]:not(#toggleTheme), input, select, a {
+button:not(#toggleTheme), [role="button"], input, select, a {
   min-height: 44px;
 }
 
