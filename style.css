@@ -119,6 +119,12 @@ body.dark {
     url("campus.png");
 }
 
+/* ── Mobile: background-attachment:fixed causes the browser loading bar
+      to linger on Android/iOS — switch to scroll on small screens ── */
+@media (max-width: 768px) {
+  body { background-attachment: scroll; }
+}
+
 /* ── Top accent bar — hidden ─────────────────────────────── */
 .top-accent-bar { display: none !important; }
 
