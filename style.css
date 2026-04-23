@@ -129,15 +129,30 @@ body.dark {
 .top-accent-bar { display: none !important; }
 
 /* ── Theme toggle ────────────────────────────────────────── */
-.theme-toggle { position: fixed; top: 16px; right: 16px; z-index: 100; }
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  /* Force GPU compositing so position:fixed works on Android */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  /* Prevent the div itself from stretching */
+  width: 38px;
+  height: 38px;
+  pointer-events: auto;
+}
 .theme-toggle button {
   background: var(--card-bg);
   border: 1px solid var(--border);
   color: var(--accent-primary);
-  padding: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
+  padding: 0 !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-height: unset !important;
+  min-width: unset !important;
+  border-radius: 50% !important;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -820,7 +835,7 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .uni-header { padding: 36px 0 16px; }
   .uni-header h1, body:not(.dark) .uni-header h1 { font-size: 19px; }
   .theme-toggle { top: 12px; right: 12px; }
-  .theme-toggle button { padding: 7px 11px; font-size: 11px; }
+  .theme-toggle button { font-size: 15px; }
   section { padding: 16px 14px 20px; border-radius: 14px; }
   .search-bar input { max-width: 100%; font-size: 16px; /* prevent iOS zoom */ }
   /* 2 columns on mobile for cards */
@@ -903,7 +918,7 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .borrower-avatar { width: 40px; height: 40px; font-size: 14px; }
   .stat-card h3 { font-size: 18px; }
   .stat-card p { font-size: 8px; }
-  .theme-toggle button { font-size: 10px; padding: 6px 10px; }
+  .theme-toggle button { font-size: 14px; }
   .profile-stat-value { font-size: 14px; }
   .profile-name { font-size: 14px; }
   .profile-stat-label { font-size: 7.5px; }
@@ -1873,7 +1888,7 @@ img, video, canvas, svg {
 }
 
 /* ── Touch-friendly minimum tap sizes ─────────────────────── */
-button, [role="button"], input, select, a {
+button:not(#toggleTheme), [role="button"]:not(#toggleTheme), input, select, a {
   min-height: 44px;
 }
 
