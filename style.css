@@ -2495,3 +2495,400 @@ textarea {
   .confirm-box   { border-radius: 18px; max-height: 90vh; overflow-y: auto; }
   .pin-box       { border-radius: 18px; }
 }
+/* ════════════════════════════════════════════════════════════
+   USER DASHBOARD — MOBILE POLISH
+   Targeted fixes for the profile card, stats, borrowed items,
+   overdue alert, and history section on small screens.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Remove global min-height from non-button elements ─────── */
+input, select, a {
+  min-height: unset;
+}
+
+/* ── Profile card: clean vertical stack ────────────────────── */
+.profile-card {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ── Stats row: ensure dividers always show ────────────────── */
+.profile-stat-divider {
+  display: block !important;
+  width: 1px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background: var(--border);
+}
+
+/* ── Summary stats: always 2-column grid ──────────────────── */
+#summaryStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Borrowed list: no overflow ────────────────────────────── */
+#borrowedList {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#borrowedList li {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ── Borrow flow card: contain everything ──────────────────── */
+.borrow-flow-card {
+  overflow: hidden;
+}
+
+/* ── Stepper: no overflow, proper wrapping ─────────────────── */
+.borrow-flow-stepper {
+  overflow: hidden;
+}
+
+.flow-step:not(:last-child)::after {
+  width: calc(100% + 1px);
+}
+
+/* ── History section: full width ───────────────────────────── */
+.history-section {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE — 640px: User Dashboard deep fixes
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* ── User dashboard page padding ── */
+  #userDashboardPage {
+    padding: 14px 10px 18px;
+  }
+
+  /* ── Profile card ── */
+  .profile-card {
+    padding: 18px 12px 16px;
+    border-radius: 14px;
+    margin-bottom: 14px;
+  }
+
+  .profile-avatar {
+    width: 58px;
+    height: 58px;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .profile-name {
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+
+  .profile-id {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .profile-info {
+    margin-bottom: 14px;
+    width: 100%;
+  }
+
+  /* Stats row — 3 equal columns, always visible dividers */
+  .profile-stats-row {
+    border-radius: 10px;
+    width: 100%;
+  }
+
+  .profile-stat {
+    padding: 11px 4px;
+    gap: 3px;
+  }
+
+  .profile-stat-value {
+    font-size: 19px;
+    line-height: 1;
+  }
+
+  .profile-stat-label {
+    font-size: 8.5px;
+    letter-spacing: 0.1px;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  /* ── Overdue alert ── */
+  #overdueAlert {
+    margin-bottom: 12px;
+  }
+
+  .overdue-alert-inner {
+    padding: 12px 12px;
+    gap: 10px;
+    border-radius: 11px;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .overdue-alert-body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .overdue-alert-title {
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+
+  .overdue-alert-item {
+    font-size: 11px;
+    padding: 4px 8px;
+    word-break: break-word;
+  }
+
+  /* ── Summary stat cards ── */
+  #summaryStats {
+    margin: 10px 0 14px;
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 13px 8px 11px;
+    border-radius: 10px;
+  }
+
+  .stat-card h3 {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  .stat-card p {
+    font-size: 9px;
+    margin-top: 4px;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Section sub-headings in dashboard ── */
+  #userDashboardPage > h2 {
+    font-size: 13px;
+    margin-bottom: 10px;
+    margin-top: 6px;
+  }
+
+  /* ── Borrowed list ── */
+  #borrowedList {
+    margin-bottom: 12px;
+  }
+
+  #borrowedList li {
+    font-size: 13px;
+    padding: 10px 12px 9px;
+    border-radius: 10px;
+    line-height: 1.4;
+  }
+
+  /* ── Borrow flow card ── */
+  .borrow-flow-card {
+    padding: 12px 12px 11px;
+    border-radius: 12px;
+    margin-bottom: 9px;
+  }
+
+  .borrow-flow-top {
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+
+  .borrow-flow-name {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  .borrow-flow-dates {
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+
+  .borrow-flow-stepper {
+    padding: 9px 8px 8px;
+    border-radius: 9px;
+  }
+
+  .flow-dot {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+
+  .flow-label {
+    font-size: 8.5px;
+    max-width: 54px;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .borrow-flow-status-bar {
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-top: 7px;
+  }
+
+  .borrow-flow-status-hint {
+    font-size: 10px;
+  }
+
+  /* ── Due badge ── */
+  .due-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* ── Pending / Return pending sections ── */
+  #pendingSection,
+  #returnPendingSection {
+    margin-bottom: 6px;
+  }
+
+  #pendingSection h2,
+  #returnPendingSection h2 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .pending-user-note {
+    font-size: 12px;
+    padding: 9px 12px;
+    line-height: 1.45;
+  }
+
+  .pending-user-list li {
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    line-height: 1.4;
+  }
+
+  /* ── History section ── */
+  .history-section {
+    padding: 14px 12px 12px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+
+  .history-header {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .history-title-row {
+    gap: 8px;
+  }
+
+  .history-title-row h2 {
+    font-size: 14px;
+  }
+
+  .history-count-badge {
+    font-size: 10.5px;
+    padding: 2px 8px;
+  }
+
+  .history-filter-row {
+    gap: 5px;
+  }
+
+  .history-filter-btn {
+    font-size: 11.5px;
+    padding: 7px 13px;
+    min-height: 36px;
+    border-radius: 18px;
+  }
+
+  .history-table-wrap {
+    border-radius: 9px;
+  }
+
+  .history-table {
+    font-size: 12px;
+    min-width: 300px;
+  }
+
+  .history-table th {
+    padding: 9px 10px;
+    font-size: 9.5px;
+  }
+
+  .history-table td {
+    padding: 9px 10px;
+  }
+
+  .history-date { font-size: 10px; }
+
+  .history-pill {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
+  /* ── Pagination ── */
+  .history-pagination {
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .history-page-btn {
+    min-height: 40px;
+    font-size: 13px;
+    padding: 6px 16px;
+  }
+
+  /* ── Action buttons ── */
+  .actions {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .actions button {
+    font-size: 15px;
+    min-height: 50px;
+    padding: 14px 18px;
+    border-radius: 12px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   TINY PHONES — 400px: User Dashboard
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 400px) {
+  .profile-avatar { width: 50px; height: 50px; font-size: 17px; }
+  .profile-name   { font-size: 15px; }
+  .profile-stat-value { font-size: 16px; }
+  .profile-stat-label { font-size: 7.5px; }
+
+  .stat-card h3   { font-size: 20px; }
+  .stat-card p    { font-size: 8.5px; }
+
+  .borrow-flow-name { font-size: 13px; }
+  .flow-label { font-size: 7.5px; max-width: 44px; }
+  .flow-dot   { width: 20px; height: 20px; font-size: 9px; }
+
+  .actions button { font-size: 14px; min-height: 48px; }
+
+  .history-table { min-width: 280px; }
+}
