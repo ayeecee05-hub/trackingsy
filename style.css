@@ -112,6 +112,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
 }
 body.dark {
   background-image:
@@ -152,7 +154,7 @@ body.dark {
 .theme-toggle button:hover { background: var(--accent-glow); border-color: var(--accent-primary); transform: translateY(-1px); }
 
 /* ── Container ───────────────────────────────────────────── */
-.container { max-width: 880px; margin: 0 auto; padding: 28px 16px 40px; flex: 1; }
+.container { max-width: 880px; width: 100%; margin: 0 auto; padding: 28px 16px 40px; flex: 1; box-sizing: border-box; overflow-x: hidden; }
 
 /* ── University header ───────────────────────────────────── */
 .uni-header { text-align: center; padding: 44px 0 22px; margin-bottom: 20px; }
@@ -204,6 +206,9 @@ section {
   box-shadow: 0 4px 20px var(--shadow);
   animation: fadeUp 0.3s ease;
   margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -236,10 +241,11 @@ section {
 /* ── Card grid ───────────────────────────────────────────── */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(148px, 45%), 1fr));
   gap: 14px;
   max-height: 480px; overflow-y: auto; padding: 6px 4px 10px;
   scrollbar-width: thin; scrollbar-color: var(--accent-primary) transparent;
+  width: 100%; box-sizing: border-box;
 }
 .card-grid::-webkit-scrollbar { width: 6px; }
 .card-grid::-webkit-scrollbar-track { background: transparent; }
@@ -297,7 +303,7 @@ body:not(.dark) .card-badge-pending  { background: #fff8e1; color: #e65100; bord
 body:not(.dark) .card-overdue-ring   { border-color: rgba(198,40,40,0.5) !important; }
 
 /* ── Summary stats ───────────────────────────────────────── */
-#summaryStats { display: flex; justify-content: space-around; gap: 10px; margin: 14px 0 18px; }
+#summaryStats { display: flex; justify-content: space-around; gap: 10px; margin: 14px 0 18px; flex-wrap: wrap; }
 .stat-card {
   flex: 1; background: var(--card-bg); border: 1px solid var(--border);
   color: var(--text-primary); padding: 16px 8px 12px; border-radius: 12px;
@@ -815,136 +821,186 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
    MOBILE RESPONSIVE
    ════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-  .container { padding: 20px 12px 40px; }
-  .uni-header { padding: 36px 0 16px; }
-  .uni-header h1, body:not(.dark) .uni-header h1 { font-size: 19px; }
-  .theme-toggle { top: 12px; right: 12px; }
-  .theme-toggle button { padding: 7px 11px; font-size: 11px; }
-  section { padding: 16px 14px 20px; border-radius: 14px; }
+  /* ── Base layout ── */
+  html, body { overflow-x: hidden; width: 100%; }
+  .container { padding: 16px 10px 40px; width: 100%; box-sizing: border-box; }
+  .uni-header { padding: 32px 0 14px; }
+  .uni-header h1, body:not(.dark) .uni-header h1 { font-size: 18px; }
+  .uni-header p { font-size: 12px; }
+  .uni-logo { width: 58px; height: 58px; }
+  .theme-toggle { top: 10px; right: 10px; }
+  .theme-toggle button { width: 34px; height: 34px; font-size: 16px; }
+
+  /* ── Section panels ── */
+  section { padding: 14px 12px 18px; border-radius: 14px; width: 100%; box-sizing: border-box; }
+
+  /* ── Search bar ── */
   .search-bar input { max-width: 100%; font-size: 16px; /* prevent iOS zoom */ }
-  /* 2 columns on mobile for cards */
+
+  /* ── Borrower cards ── */
   .card-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 10px;
     max-height: 520px;
+    padding: 4px 2px 8px;
   }
-  .borrower-card { padding: 18px 12px 14px; }
-  .borrower-avatar { width: 46px; height: 46px; font-size: 16px; margin-bottom: 10px; }
-  .borrower-card h3 { font-size: 13px; font-weight: 800; }
-  #summaryStats { gap: 6px; }
-  .stat-card { padding: 12px 4px 10px; }
-  .stat-card h3 { font-size: 20px; }
+  .borrower-card { padding: 16px 10px 13px; }
+  .borrower-avatar { width: 44px; height: 44px; font-size: 15px; margin-bottom: 9px; }
+  .borrower-card h3 { font-size: 13px; font-weight: 800; line-height: 1.25; }
+  .borrower-card p  { font-size: 10px; }
+  .card-status-badge { font-size: 9.5px; padding: 2px 6px; }
+
+  /* ── Summary stats — 2×2 grid on phone ── */
+  #summaryStats { gap: 8px; margin: 10px 0 14px; }
+  .stat-card {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    padding: 12px 6px 10px;
+    border-radius: 10px;
+  }
+  .stat-card h3 { font-size: 22px; }
   .stat-card p  { font-size: 9px; letter-spacing: 0; }
-  .stat-icon { font-size: 14px; margin-bottom: 4px; }
-  .borrow-item-row { flex-wrap: wrap; gap: 6px; }
-  .due-badge { font-size: 10px; }
-  .stock-panel { padding: 12px; }
-  .stock-item { grid-template-columns: auto 1fr; grid-template-rows: auto auto; padding: 10px 12px; }
-  .stock-tag  { grid-column: 2; justify-self: start; margin-top: 3px; }
-  .stock-name { font-size: 13px; }
-  .actions { flex-direction: column; align-items: stretch; }
-  .actions button { width: 100%; text-align: center; padding: 13px 18px; font-size: 15px; }
-  .admin-main-grid { grid-template-columns: 1fr; }
-  .admin-login-card { padding: 28px 20px 22px; }
-  .admin-login-fields input, .admin-login-fields button { font-size: 14px; }
-  .confirm-box { padding: 24px 18px 20px; }
-  .confirm-box h3 { font-size: 16px; }
-  .confirm-box p  { font-size: 13px; }
-  .confirm-actions { flex-direction: column; align-items: stretch; }
-  .confirm-actions button { max-width: 100%; }
-  #notification { font-size: 13px; padding: 10px 16px; }
-  .modal-content { border-radius: 14px; }
-  .modal-header h2 { font-size: 1rem; }
-  .profile-card { padding: 18px 12px 16px; border-radius: 14px; }
-  .profile-avatar { width: 52px; height: 52px; font-size: 17px; }
+
+  /* ── Profile card ── */
+  .profile-card { padding: 16px 12px 14px; border-radius: 14px; }
+  .profile-avatar { width: 50px; height: 50px; font-size: 16px; }
   .profile-name { font-size: 15px; }
   .profile-id { font-size: 11px; }
   .profile-info { margin-bottom: 12px; }
   .profile-stats-row { border-radius: 10px; }
-  .profile-stat { padding: 10px 3px; }
+  .profile-stat { padding: 10px 2px; }
   .profile-stat-value { font-size: 16px; }
-  .profile-stat-label { font-size: 8.5px; letter-spacing: 0.1px; }
+  .profile-stat-label { font-size: 8px; letter-spacing: 0; }
   .profile-stat-divider { display: none; }
-  .admin-tabs { gap: 2px; }
-  .admin-tab  { font-size: 12px !important; padding: 7px 8px 9px !important; }
-  .item-mgmt-add { flex-direction: column; align-items: stretch; }
-  .item-mgmt-add input[type="number"] { width: 100% !important; }
-  .qr-student-list { max-height: 180px; }
-  .install-banner { flex-wrap: wrap; justify-content: center; text-align: center; font-size: 12px; gap: 8px; }
-  .pending-panel-header { flex-direction: column; }
-  .site-footer { font-size: 11px; gap: 4px; padding: 14px 12px; }
-  .how-it-works-steps { gap: 5px; }
-  .how-step-label { font-size: 9px; }
-  /* ── User Dashboard mobile improvements ── */
-  #userDashboardPage { padding: 14px 12px 20px; }
-  #summaryStats { flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
-  .stat-card { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 12px 6px 10px; border-radius: 10px; }
-  .stat-card h3 { font-size: 22px; }
-  #borrowedList li { font-size: 13px; padding: 10px 12px 9px; }
-  .borrow-item-name { font-size: 13px; }
-  .borrow-item-dates { font-size: 10px; }
+
+  /* ── Overdue alert ── */
+  #overdueAlert { margin-bottom: 12px; }
   .overdue-alert-inner { padding: 10px 12px; gap: 8px; }
   .overdue-alert-title { font-size: 12px; }
   .overdue-alert-item { font-size: 10px; }
-  #pendingSection h2, #returnPendingSection h2 { font-size: 15px; }
-  .pending-user-list li { font-size: 12px; padding: 9px 12px; flex-wrap: wrap; }
-  .users-page-btn { font-size: 14px !important; padding: 10px 18px !important; min-width: 80px; }
-  .users-page-label { font-size: 12px; }
-  .stock-page-btn { font-size: 12px !important; padding: 8px 14px !important; min-width: 70px; }
-  .stock-page-label { font-size: 12px; }
 
-  /* ── History section mobile ── */
-  .history-section { padding: 14px 12px; border-radius: 12px; }
-  .history-header { gap: 8px; margin-bottom: 12px; }
-  .history-title-row h2 { font-size: 0.9rem; }
-  .history-filter-row { gap: 4px; }
-  .history-filter-btn { font-size: 10px; padding: 3px 9px; }
-  .history-table { min-width: 0; font-size: 12px; }
-  .history-table th { font-size: 9.5px; padding: 8px 8px; }
-  .history-table td { padding: 7px 8px; }
-  .history-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-  /* ── Borrow / Return form pages mobile ── */
-  #borrowPage, #returnPage { padding: 14px 12px 20px; }
-  #borrowPage h1, #returnPage h1 { font-size: 18px; }
-  #borrowPage h2, #returnPage h2 { font-size: 12px; }
-  .how-it-works-box { padding: 10px 12px; }
-  .how-it-works-steps { gap: 4px; }
-  .how-step-arrow { font-size: 13px; margin-bottom: 12px; }
-  .how-step-num { width: 24px; height: 24px; font-size: 11px; }
-  #borrowForm label, #returnForm label { font-size: 11px; }
-  #borrowForm input, #borrowForm select,
-  #returnForm input, #returnForm select { font-size: 16px; /* prevent iOS zoom */ padding: 12px; }
-  .field-note { font-size: 10.5px; }
-
-  /* ── Borrow flow cards mobile ── */
+  /* ── Borrowed list ── */
   #borrowedList li { font-size: 12px; padding: 10px 10px 8px; }
+  .borrow-item-name { font-size: 13px; }
+  .borrow-item-dates { font-size: 10px; }
+  .borrow-item-row { flex-wrap: wrap; gap: 6px; }
+  .due-badge { font-size: 10px; }
+
+  /* ── Borrow flow cards ── */
   .borrow-flow-card { padding: 11px 11px 10px; }
+  .borrow-flow-name { font-size: 13px; }
+  .flow-dot { width: 22px; height: 22px; font-size: 10px; }
+  .flow-label { font-size: 8.5px; max-width: 56px; white-space: normal; text-align: center; }
+  .borrow-flow-stepper { padding: 8px 8px 7px; }
+  .borrow-flow-status-bar { font-size: 10.5px; }
+  .borrow-flow-status-hint { font-size: 9.5px; }
 
-  /* ── Pending / return pending section mobile ── */
-  #pendingSection, #returnPendingSection { margin-bottom: 10px; }
+  /* ── Pending sections ── */
+  #pendingSection h2, #returnPendingSection h2 { font-size: 15px; }
   .pending-user-note { font-size: 11px; padding: 8px 10px; }
-  .pending-user-list li { gap: 6px; }
+  .pending-user-list li { font-size: 12px; padding: 9px 12px; flex-wrap: wrap; gap: 6px; }
+  #pendingSection, #returnPendingSection { margin-bottom: 10px; }
 
-  /* ── History pagination mobile ── */
+  /* ── History section ── */
+  .history-section { padding: 12px 10px; border-radius: 12px; }
+  .history-header { gap: 8px; margin-bottom: 10px; }
+  .history-title-row h2 { font-size: 0.9rem; }
+  .history-filter-row { gap: 4px; flex-wrap: wrap; }
+  .history-filter-btn { font-size: 10px; padding: 3px 9px; }
+  .history-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .history-table { min-width: 0; font-size: 12px; }
+  .history-table th { font-size: 9.5px; padding: 8px 6px; white-space: nowrap; }
+  .history-table td { padding: 7px 6px; }
   .history-pagination { gap: 6px; padding-top: 8px; }
   .history-page-btn { font-size: 12px !important; padding: 8px 14px !important; }
   .history-page-label { font-size: 11px; }
+
+  /* ── Stock panel ── */
+  .stock-panel { padding: 12px 10px; }
+  .stock-panel-header { flex-wrap: wrap; gap: 6px; }
+  .stock-item {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    padding: 9px 10px;
+  }
+  .stock-tag  { grid-column: 2; justify-self: start; margin-top: 3px; }
+  .stock-name { font-size: 13px; }
+  .stock-page-btn { font-size: 12px !important; padding: 8px 14px !important; min-width: 70px; }
+  .stock-page-label { font-size: 12px; }
+
+  /* ── Borrow / Return form pages ── */
+  #borrowPage, #returnPage { padding: 14px 12px 18px; }
+  #borrowPage h1, #returnPage h1 { font-size: 17px; }
+  #borrowPage h2, #returnPage h2 { font-size: 12px; }
+  .how-it-works-box { padding: 10px 10px; margin-bottom: 14px; }
+  .how-it-works-steps { gap: 4px; justify-content: space-between; }
+  .how-step-arrow { font-size: 12px; margin-bottom: 12px; }
+  .how-step-num { width: 24px; height: 24px; font-size: 11px; }
+  .how-step-label { font-size: 9px; }
+  #borrowForm label, #returnForm label { font-size: 11px; }
+  #borrowForm input, #borrowForm select,
+  #returnForm input, #returnForm select { font-size: 16px; padding: 12px; }
+  .field-note { font-size: 10.5px; }
+
+  /* ── Action buttons ── */
+  .actions { flex-direction: column; align-items: stretch; gap: 8px; }
+  .actions button { width: 100%; text-align: center; padding: 13px 18px; font-size: 15px; }
+
+  /* ── Users pagination ── */
+  .users-pagination { padding: 8px 2px 2px; gap: 6px; }
+  .users-page-btn { font-size: 13px !important; padding: 10px 16px !important; min-width: 76px; }
+  .users-page-label { font-size: 12px; }
+
+  /* ── Admin ── */
+  .admin-main-grid { grid-template-columns: 1fr; }
+  .admin-login-card { padding: 24px 16px 20px; }
+  .admin-login-fields input, .admin-login-fields button { font-size: 14px; }
+  .admin-tabs { gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .admin-tab  { font-size: 12px !important; padding: 7px 8px 9px !important; flex-shrink: 0; }
+  .item-mgmt-add { flex-direction: column; align-items: stretch; }
+  .item-mgmt-add input[type="number"] { width: 100% !important; }
+  .qr-student-list { max-height: 180px; }
+  .pending-panel-header { flex-direction: column; }
+
+  /* ── Modals ── */
+  .confirm-box { padding: 22px 16px 18px; max-width: calc(100vw - 32px); }
+  .confirm-box h3 { font-size: 16px; }
+  .confirm-box p  { font-size: 13px; }
+  .confirm-actions { flex-direction: column; align-items: stretch; gap: 8px; }
+  .confirm-actions button { max-width: 100%; }
+  .modal-content { border-radius: 14px; max-width: calc(100vw - 16px); }
+  .modal-header h2 { font-size: 1rem; }
+
+  /* ── Misc ── */
+  #notification { font-size: 13px; padding: 10px 16px; max-width: calc(100vw - 24px); }
+  .install-banner { flex-wrap: wrap; justify-content: center; text-align: center; font-size: 12px; gap: 8px; }
+  .site-footer { font-size: 11px; gap: 4px; padding: 14px 12px; flex-direction: column; }
+  .footer-sep { display: none; }
+  h1 { font-size: 19px; }
+  h2 { font-size: 13px; }
 }
 
 @media (max-width: 400px) {
-  .uni-header h1 { font-size: 16px; }
-  .card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .borrower-card { padding: 14px 10px 12px; }
-  .borrower-card h3 { font-size: 12px; }
-  .borrower-avatar { width: 40px; height: 40px; font-size: 14px; }
+  .container { padding: 12px 8px 36px; }
+  .uni-header h1 { font-size: 15px; }
+  .uni-logo { width: 50px; height: 50px; }
+  .card-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .borrower-card { padding: 13px 9px 11px; }
+  .borrower-card h3 { font-size: 11.5px; }
+  .borrower-avatar { width: 38px; height: 38px; font-size: 13px; }
   .stat-card h3 { font-size: 18px; }
   .stat-card p { font-size: 8px; }
-  .theme-toggle button { font-size: 10px; padding: 6px 10px; }
   .profile-stat-value { font-size: 14px; }
-  .profile-name { font-size: 14px; }
-  .profile-stat-label { font-size: 7.5px; }
+  .profile-name { font-size: 13px; }
+  .profile-stat-label { font-size: 7px; }
   .actions button { font-size: 14px; padding: 12px 14px; }
+  .theme-toggle button { width: 32px; height: 32px; font-size: 14px; }
+  section { padding: 12px 10px 16px; }
+  .flow-label { font-size: 8px; max-width: 44px; }
+  .flow-dot   { width: 20px; height: 20px; font-size: 9px; }
+  .stock-page-btn  { font-size: 11px !important; padding: 5px 10px !important; min-width: 60px; }
+  .stock-page-label { font-size: 11px; }
+  .users-page-btn { font-size: 12px !important; padding: 9px 12px !important; min-width: 66px; }
 }
 
 /* ── Stock panel pagination ──────────────────────────────── */
@@ -1852,17 +1908,4 @@ body:not(.dark) .borrow-flow-status-hint { color: #8fa8bf; }
 
 body:not(.dark) .flow-due-track { background: rgba(0,0,0,0.07); }
 
-/* ── Mobile responsive ── */
-@media (max-width: 640px) {
-  .borrow-flow-card { padding: 12px 13px 11px; }
-  .borrow-flow-name { font-size: 13px; }
-  .flow-dot         { width: 22px; height: 22px; font-size: 10px; }
-  .flow-label       { font-size: 8.5px; max-width: 56px; }
-  .borrow-flow-stepper { padding: 8px 8px 7px; gap: 0; }
-  .borrow-flow-status-bar { font-size: 10.5px; }
-}
-
-@media (max-width: 400px) {
-  .flow-label { font-size: 8px; max-width: 46px; }
-  .flow-dot   { width: 20px; height: 20px; }
-}
+/* ── Mobile responsive (borrow flow card — handled in main mobile block above) ── */
