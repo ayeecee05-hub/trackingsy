@@ -2,20 +2,20 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwvcm-aFs0W2e3SahoQym8co0EvZHvU8kAr8yfGZEl4zI-R69kTegyd6zw1S3tmp9PF6A/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxLE6eoXgC4OkS5Id33fNeP7S9QtCKJ-U2NIvTSsyGJC9jbVxOmAWRn9q2S-iZPgNvA/exec";
 
-// ── Philippine Time helpers ──────────────────────────────────────────────────
-function getPHTDate() {
-  const now = new Date();
-  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
-  return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
-}
+// Uses Intl API — always correct regardless of the browser's local timezone.
 function getPHTDateString() {
-  const pht = getPHTDate();
-  const y = pht.getUTCFullYear();
-  const m = String(pht.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(pht.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  // "en-CA" locale gives yyyy-mm-dd format natively
+}
+
+function getPHTTimeString(opts = {}) {
+  return new Date().toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    ...opts
+  });
 }
 
 // ── Admin password (SHA-256) ─────────────────────────────────────────────────
@@ -120,10 +120,15 @@ function refreshAll() {
 function updateSyncTime() {
   const el = document.getElementById("syncTime");
   if (el) {
-    const now = getPHTDate();
-    el.textContent = now.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" });
+    el.textContent = new Date().toLocaleTimeString("en-PH", {
+      timeZone: "Asia/Manila",
+      hour: "2-digit", minute: "2-digit"
+    });
   }
 }
+
+// Tick the sidebar clock every second so it stays live
+setInterval(updateSyncTime, 1000);
 
 // ── Page navigation (sidebar) ────────────────────────────────────────────────
 const pageMeta = {
