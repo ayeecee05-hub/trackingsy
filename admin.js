@@ -220,7 +220,139 @@ function renderDashboard() {
   renderDashPending();
   renderDashOverdue();
   renderDashRecent();
+  renderActiveBorrowers();
   updateKpiCards();
+}
+
+let abFilter = "all";
+
+function setAbFilter(filter, btn) {
+  abFilter = filter;
+  document.querySelectorAll(".ab-filter-btn").forEach(b => {
+    b.classList.remove("active","danger","warn");
+  });
+  if (btn) {
+    btn.classList.add("active");
+    if (filter === "Overdue") btn.classList.add("danger");
+    if (filter === "Return Pending") btn.classList.add("warn");
+  }
+  renderActiveBorrowers();
+}
+
+function renderActiveBorrowers() {
+  const grid = document.getElementById("activeBorrowersGrid");
+  const countBadge = document.getElementById("activeBorrowersCount");
+  if (!grid) return;
+
+  const todayStr = getPHTDateString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  // Active = Borrowed, Overdue, Return Pending
+  const activeStatuses = ["Borrowed", "Overdue", "Return Pending"];
+  let active = allTransactions.filter(tx => activeStatuses.includes(tx.status));
+
+  // Apply filter
+  if (abFilter !== "all") {
+    active = active.filter(tx => tx.status === abFilter);
+  }
+
+  // Update count badge
+  const totalActive = allTransactions.filter(tx => activeStatuses.includes(tx.status)).length;
+  if (countBadge) {
+    countBadge.textContent = `${totalActive} active`;
+    countBadge.style.display = totalActive > 0 ? "inline-block" : "none";
+  }
+
+  grid.innerHTML = "";
+
+  if (active.length === 0) {
+    grid.innerHTML = `
+      <div class="ab-empty" style="grid-column:1/-1;">
+        <span class="empty-icon">${abFilter === "all" ? "🎉" : "🔍"}</span>
+        ${abFilter === "all"
+          ? "No active borrowers right now."
+          : `No <strong>${abFilter}</strong> borrowers right now.`}
+      </div>`;
+    return;
+  }
+
+  // Sort: Overdue first, then Return Pending, then Borrowed; within each group by due date asc
+  const order = { "Overdue": 0, "Return Pending": 1, "Borrowed": 2 };
+  active.sort((a, b) => {
+    const so = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+    if (so !== 0) return so;
+    return (a.dueDate || "").localeCompare(b.dueDate || "");
+  });
+
+  active.forEach(tx => {
+    let daysLabel = "";
+    let daysCls   = "ab-days-ok";
+    let cardCls   = "";
+    let dueCls    = "";
+
+    if (tx.dueDate) {
+      const p   = tx.dueDate.split("-");
+      const due = new Date(+p[0], +p[1] - 1, +p[2]);
+      const diff = Math.round((due - today) / 86400000); // positive = days left, negative = overdue
+
+      if (tx.status === "Overdue") {
+        const over = Math.abs(diff);
+        daysLabel = `${over}d overdue`;
+        daysCls   = "ab-days-overdue";
+        cardCls   = "ab-overdue";
+        dueCls    = "overdue";
+      } else if (tx.status === "Return Pending") {
+        daysLabel = "Return pending";
+        daysCls   = "ab-days-retpend";
+        cardCls   = "ab-return-pending";
+        dueCls    = diff < 0 ? "overdue" : diff <= 2 ? "due-soon" : "";
+      } else if (diff <= 0) {
+        daysLabel = "Due today";
+        daysCls   = "ab-days-soon";
+        cardCls   = "ab-due-soon";
+        dueCls    = "due-soon";
+      } else if (diff <= 2) {
+        daysLabel = `${diff}d left`;
+        daysCls   = "ab-days-soon";
+        cardCls   = "ab-due-soon";
+        dueCls    = "due-soon";
+      } else {
+        daysLabel = `${diff}d left`;
+        daysCls   = "ab-days-ok";
+        dueCls    = "";
+      }
+    }
+
+    const card = document.createElement("div");
+    card.className = `ab-card ${cardCls}`;
+    card.innerHTML = `
+      <div class="ab-top">
+        <div class="ab-student">
+          <div class="ab-name">${tx.studentName || "—"}</div>
+          <div class="ab-id">${tx.studentId}</div>
+        </div>
+        ${statusPill(tx.status)}
+      </div>
+      <div class="ab-item">
+        <span class="ab-item-icon">📦</span>
+        <span>${tx.item}</span>
+      </div>
+      <div class="ab-dates">
+        <div class="ab-dates-left">
+          <div class="ab-date-row">
+            <span class="ab-date-label">Borrowed</span>
+            <span class="ab-date-val">${tx.borrowDate || "—"}</span>
+          </div>
+          <div class="ab-date-row">
+            <span class="ab-date-label">Due</span>
+            <span class="ab-date-val ${dueCls}">${tx.dueDate || "—"}</span>
+          </div>
+        </div>
+        ${daysLabel ? `<span class="ab-days-badge ${daysCls}">${daysLabel}</span>` : ""}
+      </div>`;
+    grid.appendChild(card);
+  });
 }
 
 function renderDashPending() {
