@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxLE6eoXgC4OkS5Id33fNeP7S9QtCKJ-U2NIvTSsyGJC9jbVxOmAWRn9q2S-iZPgNvA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxX5c-ZH1Od-WRst2L8xmCMnaFM2Yf2EIgkuUixQ__j0DtxKvZX1K4QB67XvNHXKyzuUQ/exec";
 
 // Uses Intl API — always correct regardless of the browser's local timezone.
 function getPHTDateString() {
@@ -935,11 +935,23 @@ function addItem() {
 }
 
 function adjustQty(name, currentQty, delta) {
-  const newQty = currentQty + delta;
-  if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty }) })
+  // Re-fetch live items first to avoid stale-closure overwrite (e.g. after
+  // a borrow confirmation already deducted stock in the Sheet).
+  fetch(scriptURL + "?action=getItems")
     .then(r => r.json())
+    .then(items => {
+      const live = items.find(it => it.name.toLowerCase() === name.toLowerCase());
+      const liveQty = live ? Number(live.quantity) : currentQty;
+      const newQty  = liveQty + delta;
+      if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
+      return fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty })
+      });
+    })
+    .then(r => r && r.json())
     .then(data => {
+      if (!data) return;
       if (data.success) loadItemsTable();
       else showNotification(data.message || "Failed to update.", "error");
     })
@@ -1183,8 +1195,9 @@ function updateAnalyticsKpis(transactions) {
   const onTime   = returned.filter(tx => !tx.isLate).length;
   const pct      = returned.length > 0 ? ((onTime / returned.length) * 100).toFixed(1) + "%" : "N/A";
 
+  const normalize = s => String(s).trim().replace(/\s+/g, " ");
   const counts = {};
-  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
+  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => { const k = normalize(tx.item); counts[k] = (counts[k] || 0) + 1; });
   const topItem = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
 
   const el1 = document.getElementById("aKpiTotal");
@@ -1275,8 +1288,14 @@ function drawMostBorrowedChart(transactions) {
   if (!container) return;
   container.innerHTML = "";
 
+  // Normalize item names: trim whitespace + title-case so "keyboard" and
+  // "Keyboard " are not counted as separate items.
+  const normalize = s => String(s).trim().replace(/\s+/g, " ");
   const counts = {};
-  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => { counts[tx.item] = (counts[tx.item] || 0) + 1; });
+  transactions.filter(tx => tx.status !== "Rejected").forEach(tx => {
+    const key = normalize(tx.item);
+    counts[key] = (counts[key] || 0) + 1;
+  });
   const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
   if (sorted.length === 0) { container.innerHTML = "<p class='chart-empty'>No borrow data yet.</p>"; return; }
 

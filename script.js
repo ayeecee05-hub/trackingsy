@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxLE6eoXgC4OkS5Id33fNeP7S9QtCKJ-U2NIvTSsyGJC9jbVxOmAWRn9q2S-iZPgNvA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxX5c-ZH1Od-WRst2L8xmCMnaFM2Yf2EIgkuUixQ__j0DtxKvZX1K4QB67XvNHXKyzuUQ/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
@@ -644,15 +644,22 @@ function populateBorrowSelect() {
     .then(items => {
       const select    = document.getElementById("borrowItem");
       select.innerHTML = "";
-      const available = items.filter(it => it.quantity > 0);
+      // Normalize names: trim & collapse spaces; merge duplicates by name
+      const normalized = {};
+      items.forEach(it => {
+        const key = it.name.trim().replace(/\s+/g, " ");
+        if (!normalized[key]) normalized[key] = 0;
+        normalized[key] += Number(it.quantity) || 0;
+      });
+      const available = Object.entries(normalized).filter(([, qty]) => qty > 0);
       if (available.length === 0) {
         select.innerHTML = `<option disabled selected>No items available</option>`;
         return;
       }
-      available.forEach(it => {
+      available.forEach(([name, qty]) => {
         const opt = document.createElement("option");
-        opt.value       = it.name;
-        opt.textContent = `${it.name} (${it.quantity} available)`;
+        opt.value       = name;
+        opt.textContent = `${name} (${qty} available)`;
         select.appendChild(opt);
       });
     })
@@ -821,7 +828,14 @@ function loadStockPanel() {
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      allStockItems = items || [];
+      // Normalize: trim & collapse whitespace; merge any duplicate names
+      const normalized = {};
+      (items || []).forEach(it => {
+        const key = it.name.trim().replace(/\s+/g, " ");
+        if (!normalized[key]) normalized[key] = 0;
+        normalized[key] += Number(it.quantity) || 0;
+      });
+      allStockItems = Object.entries(normalized).map(([name, quantity]) => ({ name, quantity }));
       stockPage     = 1;
       renderStockPage();
     })
