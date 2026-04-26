@@ -4,6 +4,10 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbxpJIOYbFW5aG0lKv3KehImRLMcRfliJ9LyGVEPZoM5FhyCXI0FS5mGR_Cgp9N0AuU/exec";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CTU Danao Borrowing System — admin.js (redesigned)
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Uses Intl API — always correct regardless of the browser's local timezone.
 function getPHTDateString() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
@@ -70,14 +74,26 @@ let searchTimeout;
 let qrInstance       = null;
 
 // ── Toast notification ───────────────────────────────────────────────────────
+let _toastTimer = null;
 function showNotification(message, type = "info") {
   const toast = document.getElementById("toast");
-  toast.innerText     = message;
-  toast.className     = type;
-  toast.style.top     = "20px";
-  setTimeout(() => {
-    toast.style.top = "-80px";
-  }, 3000);
+  if (!toast) return;
+
+  // Clear any existing timer so rapid calls don't overlap
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+
+  toast.innerText      = message;
+  toast.className      = type;
+  toast.style.display  = "block";
+  toast.style.opacity  = "1";
+  toast.style.top      = "20px";
+
+  // Auto-dismiss after 3.5s
+  _toastTimer = setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.top     = "-80px";
+    setTimeout(() => { toast.style.display = "none"; toast.style.opacity = "1"; }, 500);
+  }, 3500);
 }
 
 // ── Login ────────────────────────────────────────────────────────────────────
@@ -649,7 +665,8 @@ function confirmHandover(index) {
 
 function executeHandover(req) {
   showNotification("Processing hand-over…", "info");
-  document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success").forEach(b => { b.disabled = true; });
+  const btns = document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success, #dashPendingBody .btn-success");
+  btns.forEach(b => { b.disabled = true; b.textContent = "Processing…"; });
 
   fetch(scriptURL, {
     method: "POST",
@@ -663,12 +680,14 @@ function executeHandover(req) {
       loadTransactions();
       loadItemsTable();
     } else {
-      showNotification(data.message || "Hand-over failed.", "error");
+      showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
+      btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
       loadPendingRequests();
     }
   })
   .catch(() => {
-    showNotification("Network error during hand-over.", "error");
+    showNotification("❌ Network error during hand-over. Please try again.", "error");
+    btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
     loadPendingRequests();
   });
 }
