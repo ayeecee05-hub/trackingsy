@@ -34,6 +34,18 @@ function addDaysToPHTString(dateStr, days) {
 let currentUser      = null;
 let allBorrowers     = [];
 
+// ── Restore session on page refresh ──────────────────────────────────────────
+(function restoreSession() {
+  try {
+    const saved = sessionStorage.getItem("currentUser");
+    if (saved) {
+      currentUser = JSON.parse(saved);
+      // Use a flag so showPage knows this is a restore (not a fresh login)
+      window._restoringSession = true;
+    }
+  } catch(e) { sessionStorage.removeItem("currentUser"); }
+})();
+
 // ── Borrower session timeout (10 minutes of inactivity) ──────────────────────
 const BORROWER_SESSION_MS = 10 * 60 * 1000;
 let   borrowerSessionTimer = null;
@@ -57,6 +69,7 @@ function logoutUser(timedOut = false) {
   clearTimeout(borrowerSessionTimer);
   stopDashboardPoll();
   currentUser = null;
+  sessionStorage.removeItem("currentUser");
   showPage("dashboardPage");
   showNotification(timedOut ? "Session expired. Please select your name again." : "Logged out.", "info");
 }
@@ -258,6 +271,7 @@ function verifyPin(user) {
   if (entered === expected) {
     document.getElementById("pinModal").style.display = "none";
     currentUser = user;
+    sessionStorage.setItem("currentUser", JSON.stringify(user));
     resetBorrowerSession();
     showPage("userDashboardPage");
   } else {
@@ -955,6 +969,7 @@ function handleDeepLink(users) {
     // QR deep-link = no PIN — go straight to the user's dashboard
     showNotification(`Welcome, ${user.name}! 👋`, "success");
     currentUser = user;
+    sessionStorage.setItem("currentUser", JSON.stringify(user));
     resetBorrowerSession();
     showPage("userDashboardPage");
   } else {
@@ -964,3 +979,9 @@ function handleDeepLink(users) {
 
 loadBorrowers();
 loadStockPanel();
+
+// ── On-load session restore: jump straight to user dashboard if session saved ─
+if (window._restoringSession && currentUser) {
+  showPage("userDashboardPage");
+  resetBorrowerSession();
+}

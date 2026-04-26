@@ -730,7 +730,7 @@ function executeReject(req) {
 // ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
   const tbody = document.getElementById("returnsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getReturnRequests")
     .then(r => r.json())
@@ -740,7 +740,7 @@ function loadReturnRequests() {
       updateNavBadge("navBadgeReturns", allReturnRequests.length);
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
     });
 }
 
@@ -750,11 +750,12 @@ function renderReturnsTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
     return;
   }
 
   requests.forEach((req, index) => {
+    const today = getPHTDateString();
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${req.studentId}</span></td>
@@ -762,6 +763,7 @@ function renderReturnsTable(requests) {
       <td style="font-weight:600;">${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
+      <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
       <td>
         <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm Return</button>
       </td>`;
