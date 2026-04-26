@@ -1,18 +1,26 @@
-// CTU Danao Borrowing System — Service Worker
-const CACHE_NAME = "ctu-borrow-v1";
+// CTU Danao Borrowing System — Service Worker (Fixed)
+const CACHE_NAME = "ctu-borrow-v3";
+
+// Only cache files you're 100% sure exist on the server
+// Removed icon-192.png and icon-512.png — add them back once you upload them
 const STATIC_ASSETS = [
   "/index.html",
   "/style.css",
   "/script.js",
-  "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png"
+  "/manifest.json"
 ];
 
-// Install: cache all static assets
+// Install: cache static assets individually so one missing file doesn't break everything
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache => {
+      // Use individual adds so a missing file doesn't abort the whole cache
+      return Promise.allSettled(
+        STATIC_ASSETS.map(url =>
+          cache.add(url).catch(err => console.warn("Could not cache:", url, err))
+        )
+      );
+    })
   );
   self.skipWaiting();
 });
@@ -27,11 +35,13 @@ self.addEventListener("activate", e => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API calls, cache-first for static assets
+// Fetch strategy:
+// - Google Apps Script API → always network (never cache)
+// - Everything else → network first, fall back to cache
 self.addEventListener("fetch", e => {
   const url = e.request.url;
 
-  // Always go network-first for Google Apps Script API calls
+  // Always go to network for Google Apps Script API calls
   if (url.includes("script.google.com")) {
     e.respondWith(
       fetch(e.request).catch(() =>
@@ -43,8 +53,25 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Cache-first for everything else (static files)
+  // Network-first for everything else (guarantees fresh content on load)
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(networkResponse => {
+        // Update cache with fresh response
+        const clone = networkResponse.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        return networkResponse;
+      })
+      .catch(() => {
+        // Network failed — try to serve from cache
+        return caches.match(e.request).then(cached => {
+          if (cached) return cached;
+          // Final fallback for navigation requests
+          if (e.request.mode === "navigate") {
+            return caches.match("/index.html");
+          }
+          return new Response("Offline", { status: 503 });
+        });
+      })
   );
 });

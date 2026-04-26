@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxX5c-ZH1Od-WRst2L8xmCMnaFM2Yf2EIgkuUixQ__j0DtxKvZX1K4QB67XvNHXKyzuUQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxpJIOYbFW5aG0lKv3KehImRLMcRfliJ9LyGVEPZoM5FhyCXI0FS5mGR_Cgp9N0AuU/exec";
 
 // Uses Intl API — always correct regardless of the browser's local timezone.
 function getPHTDateString() {
