@@ -1035,30 +1035,6 @@ function updateDashboardStatsBar() {
   if (el("dashStatPending"))  el("dashStatPending").textContent  = pending;
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// UNI HEADER — collapse on scroll
-// ══════════════════════════════════════════════════════════════════════════════
-(function initHeaderCollapse() {
-  const header = document.getElementById("uniHeader");
-  if (!header) return;
-  const SCROLL_THRESHOLD = 80;
-  let ticking = false;
-  function onScroll() {
-    if (!ticking) {
-      requestAnimationFrame(() => {
-        if (window.scrollY > SCROLL_THRESHOLD) {
-          header.classList.add("scrolled");
-        } else {
-          header.classList.remove("scrolled");
-        }
-        ticking = false;
-      });
-      ticking = true;
-    }
-  }
-  window.addEventListener("scroll", onScroll, { passive: true });
-})();
-
 loadBorrowers();
 loadStockPanel();
 

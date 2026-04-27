@@ -158,8 +158,7 @@ body.dark {
 
 /* ── University header ───────────────────────────────────── */
 /* (positioning & collapse handled by the "UNI HEADER — COLLAPSE" block below) */
-.uni-header-base { text-align: center; padding: 44px 0 22px; margin-bottom: 20px; }
-.uni-logo-row { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 14px; }
+
 .uni-logo, .uni-seal {
   width: 72px; height: 72px;
   object-fit: contain; border-radius: 50%;
@@ -559,107 +558,26 @@ body:not(.dark) .dash-stat-amber .dash-stat-value { color: #e65100; }
 }
 
 /* ════════════════════════════════════════════════════════════
-   UNI HEADER — COLLAPSE ON SCROLL
+   UNI HEADER — STATIC / CLEAN
    ════════════════════════════════════════════════════════════ */
 .uni-header {
-  position: sticky;
-  top: 0;
-  z-index: 90;
-  /* Use the container's card background so it doesn't look transparent */
-  background: var(--bg-primary);
-  border-bottom: 1px solid transparent;
-  transition: padding 0.35s ease, border-color 0.3s ease, background 0.3s ease;
-  /* Cancel the default bottom margin when sticky so it doesn't leave a gap */
-  margin-bottom: 0;
-  /* Override section styles so it's not a glass card */
+  text-align: center;
+  padding: 40px 20px 28px;
+  margin-bottom: 20px;
   box-shadow: none;
   border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  padding: 0;
+  border: none;
+  background: transparent;
 }
 
-/* Full content — visible by default */
-.uni-header-full {
-  text-align: center;
-  padding: 44px 0 22px;
-  overflow: hidden;
-  max-height: 220px;
-  opacity: 1;
-  transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.35s ease;
+/* Full content */
+.uni-header .uni-logo {
+  display: block;
+  margin: 0 auto 14px;
 }
 
-/* Slim bar — hidden by default */
-.uni-header-slim {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: height 0.35s ease, opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.uni-logo-slim {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: contain;
-  background: rgba(255,255,255,0.1);
-  padding: 2px;
-  flex-shrink: 0;
-}
-
-.uni-slim-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-body:not(.dark) .uni-slim-title { color: #0d1b2a; }
-
-/* ── Scrolled state ── */
-.uni-header.scrolled {
-  border-bottom-color: var(--border);
-  background: var(--bg-secondary);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 12px var(--shadow);
-  border-radius: 0;
-  padding: 0;
-  margin-bottom: 16px;
-}
-
-body.dark .uni-header.scrolled { background: rgba(15,20,25,0.9); }
-body:not(.dark) .uni-header.scrolled { background: rgba(255,255,255,0.92); }
-
-.uni-header.scrolled .uni-header-full {
-  max-height: 0;
-  opacity: 0;
-  padding: 0;
-}
-
-.uni-header.scrolled .uni-header-slim {
-  height: 48px;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Keep margin when NOT in dashboardPage (other pages don't scroll the header the same way) */
-
-/* Restore bottom spacing from the section styles only for the non-sticky state */
-.uni-header:not(.scrolled) + section,
-.uni-header:not(.scrolled) + #dashboardPage section:first-child {
-  margin-top: 16px;
+@media (max-width: 480px) {
+  .uni-header { padding: 28px 16px 20px; }
 }
 
 /* ── Overdue Alert ───────────────────────────────────────── */
