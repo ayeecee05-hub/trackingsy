@@ -184,6 +184,9 @@ function renderBorrowerPage() {
 
   container.innerHTML = "";
 
+  // ── Update dashboard stats bar ────────────────────────────────────────────
+  updateDashboardStatsBar();
+
   if (!filteredBorrowers || filteredBorrowers.length === 0) {
     container.innerHTML = `
       <div class="empty-state-full">
@@ -976,6 +979,51 @@ function handleDeepLink(users) {
     showNotification(`ID "${userId}" is not registered. Ask an admin.`, "error");
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD STATS BAR — live counts from allBorrowers + borrowerStatusMap
+// ══════════════════════════════════════════════════════════════════════════════
+function updateDashboardStatsBar() {
+  const totalStudents = allBorrowers.length;
+  let borrowed = 0, overdue = 0, pending = 0;
+
+  allBorrowers.forEach(u => {
+    const status = borrowerStatusMap[u.id];
+    if (status === "Overdue")         overdue++;
+    else if (status === "Borrowed")   borrowed++;
+    else if (status === "Pending" || status === "Return Pending") pending++;
+  });
+
+  const el = id => document.getElementById(id);
+  if (el("dashStatStudents")) el("dashStatStudents").textContent = totalStudents;
+  if (el("dashStatBorrowed")) el("dashStatBorrowed").textContent = borrowed;
+  if (el("dashStatOverdue"))  el("dashStatOverdue").textContent  = overdue;
+  if (el("dashStatPending"))  el("dashStatPending").textContent  = pending;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UNI HEADER — collapse on scroll
+// ══════════════════════════════════════════════════════════════════════════════
+(function initHeaderCollapse() {
+  const header = document.getElementById("uniHeader");
+  if (!header) return;
+  const SCROLL_THRESHOLD = 80;
+  let ticking = false;
+  function onScroll() {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        if (window.scrollY > SCROLL_THRESHOLD) {
+          header.classList.add("scrolled");
+        } else {
+          header.classList.remove("scrolled");
+        }
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+})();
 
 loadBorrowers();
 loadStockPanel();
