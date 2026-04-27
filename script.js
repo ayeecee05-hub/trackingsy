@@ -136,6 +136,7 @@ function refreshStatusBadges() {
 const USERS_PER_PAGE    = 10;
 let   usersPage         = 1;
 let   filteredBorrowers = [];
+let   borrowerActiveFilter = "all";  // "all" | "Overdue" | "Borrowed" | "Pending" | "az"
 
 // Map of studentId → worst active status (used to badge cards)
 let borrowerStatusMap = {};
@@ -206,14 +207,26 @@ function renderBorrowerPage() {
 
   pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    const status   = borrowerStatusMap[user.id];
+    const badgeMap = {
+      "Overdue":        ["card-badge-overdue",  "Overdue"],
+      "Borrowed":       ["card-badge-borrowed", "Borrowed"],
+      "Return Pending": ["card-badge-return",   "Returning"],
+      "Pending":        ["card-badge-pending",  "Pending"],
+    };
+    const [badgeClass, badgeLabel] = badgeMap[status] || [];
+    const badgeHTML = badgeClass
+      ? `<span class="card-status-badge ${badgeClass}">${badgeLabel}</span>`
+      : "";
     const card = document.createElement("div");
-    card.className = "borrower-card";
+    card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
     card.setAttribute("aria-label", `Select ${user.name}`);
     card.innerHTML = `
       <div class="borrower-avatar">${initials}</div>
-      <h3>${user.name}</h3>`;
+      <h3>${user.name}</h3>
+      ${badgeHTML}`;
     card.addEventListener("click",  () => openPinModal(user));
     card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
     container.appendChild(card);
@@ -240,14 +253,35 @@ function changeUsersPage(delta) {
 }
 
 // ── Borrower search ───────────────────────────────────────────────────────────
-document.getElementById("borrowerSearch").addEventListener("input", e => {
-  const q = e.target.value.toLowerCase();
-  filteredBorrowers = allBorrowers.filter(u =>
+// ── Shared helper: apply search + status filter ──────────────────────────────
+function applyBorrowerFilter() {
+  const q = (document.getElementById("borrowerSearch").value || "").toLowerCase();
+  let list = allBorrowers.filter(u =>
     u.name.toLowerCase().includes(q) ||
     String(u.id).toLowerCase().includes(q)
   );
+
+  if (borrowerActiveFilter === "az") {
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+  } else if (borrowerActiveFilter !== "all") {
+    list = list.filter(u => borrowerStatusMap[u.id] === borrowerActiveFilter);
+  }
+
+  filteredBorrowers = list;
   usersPage = 1;
   renderBorrowerPage();
+}
+
+// ── Filter strip button handler ──────────────────────────────────────────────
+function setBorrowerFilter(filter, btn) {
+  borrowerActiveFilter = filter;
+  document.querySelectorAll(".bfilter-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  applyBorrowerFilter();
+}
+
+document.getElementById("borrowerSearch").addEventListener("input", () => {
+  applyBorrowerFilter();
 });
 
 // ── PIN modal ─────────────────────────────────────────────────────────────────

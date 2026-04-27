@@ -2083,3 +2083,92 @@ body:not(.dark) .borrow-flow-status-hint { color: #8fa8bf; }
 body:not(.dark) .flow-due-track { background: rgba(0,0,0,0.07); }
 
 /* ── Mobile responsive (borrow flow card — handled in main mobile block above) ── */
+/* ════════════════════════════════════════════════════════════
+   BORROWER FILTER STRIP
+   ════════════════════════════════════════════════════════════ */
+.borrower-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 2px 0;
+}
+
+.bfilter-btn {
+  background: var(--input-bg) !important;
+  color: var(--text-muted) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 13px !important;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: 0.2px;
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+
+.bfilter-btn:hover {
+  color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  background: var(--accent-glow) !important;
+  transform: none !important;
+}
+
+/* Default active = blue accent */
+.bfilter-btn.active {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 2px 8px var(--accent-glow) !important;
+}
+
+/* Overdue active = red */
+.bfilter-btn.active[data-filter="Overdue"] {
+  background: var(--highlight) !important;
+  border-color: var(--highlight) !important;
+  box-shadow: 0 2px 8px rgba(255,107,107,0.3) !important;
+}
+
+/* Borrowed active = blue (default, already covered) */
+
+/* Pending active = amber */
+.bfilter-btn.active[data-filter="Pending"] {
+  background: var(--warning) !important;
+  border-color: var(--warning) !important;
+  color: #111 !important;
+  box-shadow: 0 2px 8px rgba(255,183,77,0.3) !important;
+}
+
+/* Light mode overrides */
+body:not(.dark) .bfilter-btn {
+  background: #fff !important;
+  color: #5a7a96 !important;
+  border-color: rgba(25,118,210,0.22) !important;
+}
+body:not(.dark) .bfilter-btn:hover {
+  color: #1565c0 !important;
+  border-color: #1565c0 !important;
+  background: #e3f2fd !important;
+}
+body:not(.dark) .bfilter-btn.active {
+  background: #1565c0 !important;
+  color: #fff !important;
+  border-color: #1565c0 !important;
+}
+body:not(.dark) .bfilter-btn.active[data-filter="Overdue"] {
+  background: #c62828 !important;
+  border-color: #c62828 !important;
+}
+body:not(.dark) .bfilter-btn.active[data-filter="Pending"] {
+  background: #e65100 !important;
+  border-color: #e65100 !important;
+  color: #fff !important;
+}
+
+@media (max-width: 640px) {
+  .borrower-filter-strip { gap: 5px; }
+  .bfilter-btn { font-size: 11px !important; padding: 4px 10px !important; }
+}

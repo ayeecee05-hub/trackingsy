@@ -22,7 +22,7 @@
   <div class="container">
 
     <div class="uni-header" id="uniHeader">
-      <div class="uni-header-full">
+      <div class="uni-header-full uni-header-base">
         <div class="uni-logo-row" style="justify-content:center;">
           <img src="logo.png" alt="CTU Danao Logo" class="uni-logo" aria-label="CTU Danao Campus Logo">
         </div>
@@ -86,6 +86,15 @@
       <!-- ── Borrower List ────────────────────────────────────────────── -->
       <div class="search-bar">
         <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
+      </div>
+
+      <!-- ── Filter Strip ──────────────────────────────────────── -->
+      <div class="borrower-filter-strip" id="borrowerFilterStrip">
+        <button class="bfilter-btn active" data-filter="all"     onclick="setBorrowerFilter('all',this)">All</button>
+        <button class="bfilter-btn" data-filter="Overdue"  onclick="setBorrowerFilter('Overdue',this)">Overdue</button>
+        <button class="bfilter-btn" data-filter="Borrowed" onclick="setBorrowerFilter('Borrowed',this)">Borrowed</button>
+        <button class="bfilter-btn" data-filter="Pending"  onclick="setBorrowerFilter('Pending',this)">Pending</button>
+        <button class="bfilter-btn" data-filter="az"       onclick="setBorrowerFilter('az',this)">A–Z</button>
       </div>
 
       <!-- Cards grid — filled by JS -->
