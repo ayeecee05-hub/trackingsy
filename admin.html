@@ -633,8 +633,35 @@
       .menu-toggle { display: flex !important; }
       .kpi-row { grid-template-columns: repeat(2, 1fr); }
       .analytics-kpi-row { grid-template-columns: 1fr 1fr; }
+      .sidebar-close { display: flex !important; }
     }
-    .menu-toggle { display: none; align-items: center; justify-content: center; width: 32px; height: 32px; background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; }
+    .menu-toggle {
+      display: none; align-items: center; justify-content: center;
+      width: 36px; height: 36px; background: none; border: none;
+      color: var(--text2); font-size: 22px; cursor: pointer;
+      border-radius: 8px; transition: background 0.15s;
+    }
+    .menu-toggle:hover { background: rgba(255,255,255,0.07); }
+
+    /* Close button inside sidebar (mobile only) */
+    .sidebar-close {
+      display: none; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 7px;
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      color: var(--text2); font-size: 16px; cursor: pointer;
+      margin-left: auto; flex-shrink: 0; transition: background 0.15s;
+    }
+    .sidebar-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+    /* Backdrop overlay when drawer is open */
+    #sidebarBackdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 49;
+      animation: fadeIn 0.2s ease;
+    }
+    #sidebarBackdrop.visible { display: block; }
   </style>
 </head>
 <body>
@@ -659,6 +686,9 @@
 ═════════════════════════════════════════════ -->
 <div id="appShell">
 
+  <!-- Sidebar backdrop (mobile) -->
+  <div id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -667,6 +697,7 @@
         <div class="sidebar-brand-title">CTU Danao</div>
         <div class="sidebar-brand-sub">Borrowing System · Admin</div>
       </div>
+      <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">✕</button>
     </div>
 
     <div class="sidebar-section-label">Overview</div>

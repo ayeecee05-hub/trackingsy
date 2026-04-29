@@ -180,12 +180,25 @@ function switchPage(pageId) {
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
-    document.getElementById("sidebar").classList.remove("open");
+    closeSidebar();
   }
 }
 
 function toggleSidebar() {
-  document.getElementById("sidebar").classList.toggle("open");
+  const sidebar   = document.getElementById("sidebar");
+  const backdrop  = document.getElementById("sidebarBackdrop");
+  const isOpen    = sidebar.classList.toggle("open");
+  if (backdrop) backdrop.classList.toggle("visible", isOpen);
+  // Prevent body scroll while drawer is open on mobile
+  document.body.style.overflow = isOpen ? "hidden" : "";
+}
+
+function closeSidebar() {
+  const sidebar  = document.getElementById("sidebar");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  sidebar.classList.remove("open");
+  if (backdrop) backdrop.classList.remove("visible");
+  document.body.style.overflow = "";
 }
 
 // ── KPI cards ────────────────────────────────────────────────────────────────
