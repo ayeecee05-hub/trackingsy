@@ -594,6 +594,102 @@ body:not(.dark) .overdue-alert-item { background: rgba(198,40,40,0.07); color: #
 .overdue-alert-close { background: none !important; border: none !important; color: var(--highlight) !important; font-size: 15px !important; padding: 0 !important; cursor: pointer; opacity: 0.7; box-shadow: none !important; flex-shrink: 0; }
 .overdue-alert-close:hover { opacity: 1 !important; }
 
+/* ════════════════════════════════════════════════════════════
+   DUE-SOON REMINDER BANNER
+   ════════════════════════════════════════════════════════════ */
+.due-soon-banner {
+  margin-bottom: 16px;
+  animation: fadeUp 0.4s ease;
+}
+
+.due-soon-banner-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--due-soon-bg);
+  border: 1.5px solid var(--due-soon-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  position: relative;
+}
+
+body:not(.dark) .due-soon-banner-inner {
+  background: #fff8e1;
+  border-color: rgba(230, 81, 0, 0.35);
+}
+
+.due-soon-banner-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  animation: pulse-reminder 2s ease-in-out infinite;
+}
+
+@keyframes pulse-reminder {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.due-soon-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.due-soon-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--due-soon-text);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+body:not(.dark) .due-soon-banner-title {
+  color: #e65100;
+}
+
+.due-soon-banner-msg {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.due-soon-banner-msg strong {
+  color: var(--due-soon-text);
+  font-weight: 700;
+}
+
+body:not(.dark) .due-soon-banner-msg strong {
+  color: #bf360c;
+}
+
+.due-soon-banner-close {
+  background: none !important;
+  border: none !important;
+  color: var(--due-soon-text) !important;
+  font-size: 15px !important;
+  padding: 0 !important;
+  cursor: pointer;
+  opacity: 0.6;
+  box-shadow: none !important;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+
+.due-soon-banner-close:hover {
+  opacity: 1 !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .due-soon-banner-inner { padding: 10px 12px; gap: 8px; }
+  .due-soon-banner-icon { font-size: 18px; }
+  .due-soon-banner-title { font-size: 11px; }
+  .due-soon-banner-msg { font-size: 12px; }
+}
+
 /* ── Borrow item row ─────────────────────────────────────── */
 .borrow-item-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .borrow-item-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

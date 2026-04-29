@@ -559,6 +559,43 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
+      // ── Due-soon reminder banner ────────────────────────────────────────
+      // Show a prominent yellow banner for items due within 2 days (but not overdue)
+      const dueSoonBanner = document.getElementById("dueSoonBanner");
+      if (dueSoon.length > 0) {
+        const reminderText = dueSoon.map(tx => {
+          const p = tx.dueDate.split("-");
+          const due = new Date(+p[0], +p[1] - 1, +p[2]);
+          const diff = Math.ceil((due - today) / 86400000);
+          const when = diff === 0 ? "today" : diff === 1 ? "tomorrow" : `in ${diff} days`;
+          return `<strong>${tx.item}</strong> is due ${when}!`;
+        }).join(" · ");
+
+        if (!dueSoonBanner) {
+          // Create banner if it doesn't exist yet
+          const banner = document.createElement("div");
+          banner.id = "dueSoonBanner";
+          banner.className = "due-soon-banner";
+          banner.innerHTML = `
+            <div class="due-soon-banner-inner">
+              <span class="due-soon-banner-icon">⏰</span>
+              <div class="due-soon-banner-body">
+                <div class="due-soon-banner-title">Reminder</div>
+                <div class="due-soon-banner-msg">${reminderText}</div>
+              </div>
+              <button class="due-soon-banner-close" onclick="this.parentElement.parentElement.style.display='none'" aria-label="Dismiss reminder">✕</button>
+            </div>`;
+          // Insert before the borrowed items list
+          const borrowedList = document.getElementById("borrowedList");
+          borrowedList.parentNode.insertBefore(banner, borrowedList);
+        } else {
+          dueSoonBanner.style.display = "block";
+          dueSoonBanner.querySelector(".due-soon-banner-msg").innerHTML = reminderText;
+        }
+      } else if (dueSoonBanner) {
+        dueSoonBanner.style.display = "none";
+      }
+
       // ── Active items — unified borrow flow stepper list ──────────────────
       // Combines borrowed + pending + return-pending into one visual tracker.
       // Each card shows a 4-step progress stepper so the student always knows
