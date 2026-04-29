@@ -138,12 +138,13 @@ let   usersPage         = 1;
 let   filteredBorrowers = [];
 let   borrowerActiveFilter = "all";  // "all" | "Overdue" | "Borrowed" | "Pending" | "az"
 
-// Map of studentId → worst active status (used to badge cards)
+// Map of studentId → array of all active statuses (used to badge cards)
 let borrowerStatusMap = {};
 
 function computeStatusMap(history) {
   const priority = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
-  const map = {};
+  const map = {};        // studentId → worst single status (for card badge)
+  const allMap = {};     // studentId → Set of all active statuses
   const todayStr = getPHTDateString();
   const [ty, tm, td] = todayStr.split("-").map(Number);
   const today = new Date(ty, tm - 1, td);
@@ -154,9 +155,15 @@ function computeStatusMap(history) {
       if (new Date(+p[0], +p[1] - 1, +p[2]) < today) status = "Overdue";
     }
     if (!priority[status]) return;
+    // Track worst status for card badge
     const cur = map[tx.studentId];
     if (!cur || priority[status] > priority[cur]) map[tx.studentId] = status;
+    // Track all active statuses for stats bar
+    if (!allMap[tx.studentId]) allMap[tx.studentId] = new Set();
+    allMap[tx.studentId].add(status);
   });
+  // Attach allMap to map object so stats bar can use it
+  map._allMap = allMap;
   return map;
 }
 
@@ -207,17 +214,28 @@ function renderBorrowerPage() {
 
   pageUsers.forEach(user => {
     const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-    const status   = borrowerStatusMap[user.id];
+    const status   = borrowerStatusMap[user.id];                       // worst status (for ring)
+    const allStatuses = (borrowerStatusMap._allMap && borrowerStatusMap._allMap[user.id])
+                          ? [...borrowerStatusMap._allMap[user.id]]
+                          : (status ? [status] : []);
     const badgeMap = {
       "Overdue":        ["card-badge-overdue",  "Overdue"],
       "Borrowed":       ["card-badge-borrowed", "Borrowed"],
       "Return Pending": ["card-badge-return",   "Returning"],
       "Pending":        ["card-badge-pending",  "Pending"],
     };
-    const [badgeClass, badgeLabel] = badgeMap[status] || [];
-    const badgeHTML = badgeClass
-      ? `<span class="card-status-badge ${badgeClass}">${badgeLabel}</span>`
-      : "";
+    // Show a badge for every distinct active status (e.g. both Overdue + Borrowed)
+    const badgeHTML = allStatuses
+      .filter(s => badgeMap[s])
+      .sort((a, b) => {
+        const pri = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
+        return (pri[b] || 0) - (pri[a] || 0);
+      })
+      .map(s => {
+        const [cls, label] = badgeMap[s];
+        return `<span class="card-status-badge ${cls}">${label}</span>`;
+      })
+      .join("");
     const card = document.createElement("div");
     card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
     card.setAttribute("role", "button");
@@ -264,7 +282,12 @@ function applyBorrowerFilter() {
   if (borrowerActiveFilter === "az") {
     list = [...list].sort((a, b) => a.name.localeCompare(b.name));
   } else if (borrowerActiveFilter !== "all") {
-    list = list.filter(u => borrowerStatusMap[u.id] === borrowerActiveFilter);
+    // Match if the student has the filtered status among ANY of their active transactions
+    list = list.filter(u => {
+      const allStatuses = borrowerStatusMap._allMap && borrowerStatusMap._allMap[u.id];
+      if (allStatuses) return allStatuses.has(borrowerActiveFilter);
+      return borrowerStatusMap[u.id] === borrowerActiveFilter;
+    });
   }
 
   filteredBorrowers = list;
@@ -544,8 +567,10 @@ function loadUserDashboard() {
       borrowedList.innerHTML = "";
 
       // Gather all active transactions (not yet returned/rejected)
+      // Include "Overdue" explicitly — the spreadsheet sets this status server-side
+      // via the daily checkOverdue trigger, so we must handle it here too.
       const activeItems = history.filter(tx =>
-        ["Borrowed", "Pending", "Return Pending"].includes(tx.status)
+        ["Borrowed", "Overdue", "Pending", "Return Pending"].includes(tx.status)
       );
 
       if (activeItems.length === 0) {
@@ -727,9 +752,9 @@ function populateReturnSelect() {
   fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
     .then(res => res.json())
     .then(history => {
-      // Only show items with status exactly "Borrowed"
+      // Show items with status "Borrowed" OR "Overdue"
       // "Return Pending" items are already submitted and awaiting admin
-      const eligible = history.filter(tx => tx.status === "Borrowed");
+      const eligible = history.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue");
       const select   = document.getElementById("returnItem");
       select.innerHTML = "";
 
@@ -1021,11 +1046,16 @@ function updateDashboardStatsBar() {
   const totalStudents = allBorrowers.length;
   let borrowed = 0, overdue = 0, pending = 0;
 
+  const allMap = (borrowerStatusMap && borrowerStatusMap._allMap) || {};
   allBorrowers.forEach(u => {
-    const status = borrowerStatusMap[u.id];
-    if (status === "Overdue")         overdue++;
-    else if (status === "Borrowed")   borrowed++;
-    else if (status === "Pending" || status === "Return Pending") pending++;
+    const statuses = allMap[u.id] || new Set();
+    // Count each active status independently — a student can contribute to
+    // multiple buckets if they have both a Borrowed and an Overdue item
+    statuses.forEach(s => {
+      if (s === "Overdue")                                   overdue++;
+      else if (s === "Borrowed")                             borrowed++;
+      else if (s === "Pending" || s === "Return Pending")   pending++;
+    });
   });
 
   const el = id => document.getElementById(id);
