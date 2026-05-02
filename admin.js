@@ -1218,8 +1218,23 @@ function showStudentHistory(studentId, studentName) {
   document.getElementById("studentHistoryTitle").innerText = `${studentName} (${studentId})`;
   document.getElementById("historyFilter").value = "all";
   document.getElementById("historySearch").value = "";
-  renderStudentHistory(studentId);
+  document.getElementById("studentHistoryBody").innerHTML = `<tr><td colspan="6" class="table-empty">Loading history…</td></tr>`;
   document.getElementById("studentHistoryModal").classList.add("open");
+
+  if (allTransactions.length === 0) {
+    fetch(scriptURL + "?action=getAllHistory")
+      .then(r => r.json())
+      .then(history => {
+        allTransactions = Array.isArray(history) ? history : [];
+        renderStudentHistory(studentId);
+      })
+      .catch(() => {
+        const tbody = document.getElementById("studentHistoryBody");
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load history.</td></tr>`;
+      });
+  } else {
+    renderStudentHistory(studentId);
+  }
 }
 
 function renderStudentHistory(studentId) {

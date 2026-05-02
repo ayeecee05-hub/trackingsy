@@ -470,6 +470,7 @@
       border-radius: 18px; padding: 28px 24px 22px;
       max-width: 380px; width: 100%; text-align: center;
       box-shadow: var(--shadow-lg); animation: slideUp 0.2s ease;
+      color: var(--text);
     }
     .modal-icon { font-size: 36px; display: block; margin-bottom: 12px; }
     .modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
@@ -478,8 +479,15 @@
     .modal-actions .btn { flex: 1; max-width: 140px; justify-content: center; padding: 9px 14px; }
 
     /* Edit student modal */
-    .modal-box.wide { max-width: 400px; }
+    .modal-box.wide { max-width: 760px; }
     .modal-form { text-align: left; margin: 16px 0; }
+    .modal-body { margin-bottom: 16px; }
+    .modal-body table { width: 100%; border-collapse: collapse; }
+    .modal-body th, .modal-body td { color: var(--text); padding: 10px 12px; }
+    .modal-body thead { background: rgba(255,255,255,0.03); }
+    .modal-body tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+    .modal-body th { text-align: left; font-size: 12px; letter-spacing: 0.3px; }
+    .modal-body td { font-size: 13px; }
 
     /* ═══════════════════════════════════════════════
        NOTIFICATION TOAST
