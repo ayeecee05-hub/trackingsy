@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwLMk4IPiNUv04cZNjEw1pjeLkvTcWHi8mgTVwuNzeZVHBVzsSfO4Hli9PI-uQ7P0KuUQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycby7yup2itpPfGgsszh4x2B4blJ931Pq6y1aZc5GWgHNfJF1OjxjdyodUAZO_7Lss3b85g/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -239,7 +239,7 @@ function isDateStringOlderThan(dateStr, days) {
 }
 
 function isArchivedTransaction(tx) {
-  const archiveStatuses = ["Returned", "Returned (Late)", "Rejected"];
+  const archiveStatuses = ["Returned", "Returned (Late)", "Rejected"];  // keep both
   if (!archiveStatuses.includes(tx.status)) return false;
   const compareDate = tx.returnDate || tx.dueDate;
   return compareDate ? isDateStringOlderThan(compareDate, ARCHIVE_DAYS) : false;
@@ -972,15 +972,10 @@ function loadTransactions() {
           const p = tx.dueDate.split("-");
           if (new Date(+p[0], +p[1]-1, +p[2]) < today) result.status = "Overdue";
         }
-        if (tx.status === "Returned" && tx.returnDate && tx.dueDate) {
-          const rp = tx.returnDate.split("-");
-          const dp = tx.dueDate.split("-");
-          const returnDate = new Date(+rp[0], +rp[1]-1, +rp[2]);
-          const dueDate = new Date(+dp[0], +dp[1]-1, +dp[2]);
-          if (returnDate > dueDate) {
-            result.status = "Returned (Late)";
-            result.isLate = true;
-          }
+        // "Returned (Late)" is now written directly by the sheet backend.
+        // Ensure isLate flag is consistent with the stored status.
+        if (tx.status === "Returned (Late)") {
+          result.isLate = true;
         }
         return result;
       });
@@ -1502,11 +1497,13 @@ function loadCharts() {
         const [ty, tm, td] = todayStr.split("-").map(Number);
         const today = new Date(ty, tm - 1, td);
         const processed = (Array.isArray(history) ? history : []).map(tx => {
+          const result = { ...tx };
           if (tx.status === "Borrowed" && tx.dueDate) {
             const p = tx.dueDate.split("-");
-            if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...tx, status: "Overdue" };
+            if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...result, status: "Overdue" };
           }
-          return tx;
+          if (tx.status === "Returned (Late)") result.isLate = true;
+          return result;
         });
         renderAllCharts(processed);
         updateAnalyticsKpis(processed);
@@ -1517,8 +1514,8 @@ function loadCharts() {
 
 function updateAnalyticsKpis(transactions) {
   const total    = transactions.length;
-  const returned = transactions.filter(tx => tx.status === "Returned");
-  const onTime   = returned.filter(tx => !tx.isLate).length;
+  const returned = transactions.filter(tx => tx.status === "Returned" || tx.status === "Returned (Late)");
+  const onTime   = returned.filter(tx => !tx.isLate && tx.status !== "Returned (Late)").length;
   const pct      = returned.length > 0 ? ((onTime / returned.length) * 100).toFixed(1) + "%" : "N/A";
 
   const normalize = s => String(s).trim().replace(/\s+/g, " ");
@@ -1660,7 +1657,7 @@ function drawStatusChart(transactions) {
   const data   = labels.map(l => counts[l]);
   if (labels.length === 0) { container.innerHTML = "<p class='chart-empty'>No transaction data yet.</p>"; return; }
 
-  const colorMap = { "Borrowed":"#4fc3f7","Pending":"#d29922","Returned":"#3fb950","Overdue":"#f85149","Rejected":"#484f58","Return Pending":"#a371f7" };
+  const colorMap = { "Borrowed":"#4fc3f7","Pending":"#d29922","Returned":"#3fb950","Returned (Late)":"#ff8a65","Overdue":"#f85149","Rejected":"#484f58","Return Pending":"#a371f7" };
   const colors = labels.map(l => colorMap[l] || "#7986cb");
 
   const { textColor, fontFamily } = chartDefaults();
@@ -1687,9 +1684,9 @@ function drawOnTimeChart(transactions) {
   if (!container) return;
   container.innerHTML = "";
 
-  const returned = transactions.filter(tx => tx.status === "Returned");
-  const onTime   = returned.filter(tx => !tx.isLate).length;
-  const late     = returned.filter(tx => tx.isLate).length;
+  const returned = transactions.filter(tx => tx.status === "Returned" || tx.status === "Returned (Late)");
+  const onTime   = returned.filter(tx => !tx.isLate && tx.status !== "Returned (Late)").length;
+  const late     = returned.filter(tx => tx.isLate  || tx.status === "Returned (Late)").length;
   if (returned.length === 0) { container.innerHTML = "<p class='chart-empty'>No completed returns yet.</p>"; return; }
 
   const { textColor, fontFamily } = chartDefaults();

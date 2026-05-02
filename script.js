@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwLMk4IPiNUv04cZNjEw1pjeLkvTcWHi8mgTVwuNzeZVHBVzsSfO4Hli9PI-uQ7P0KuUQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycby7yup2itpPfGgsszh4x2B4blJ931Pq6y1aZc5GWgHNfJF1OjxjdyodUAZO_7Lss3b85g/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
@@ -404,7 +404,7 @@ function changeHistoryPage(delta) {
 
 function getFilteredHistory() {
   // Only show "terminal" statuses in history — exclude active/pending items
-  const terminalStatuses = ["Returned", "Rejected"];
+  const terminalStatuses = ["Returned", "Returned (Late)", "Rejected"];
   let records = allHistoryRecords.filter(tx => terminalStatuses.includes(tx.status));
   if (historyFilter !== "all") records = records.filter(tx => tx.status === historyFilter);
   // Most recent first (sort by borrowDate desc)
@@ -420,7 +420,7 @@ function renderHistoryTable() {
   const countBadge = document.getElementById("historyCount");
 
   const records    = getFilteredHistory();
-  const total      = allHistoryRecords.filter(tx => ["Returned", "Rejected"].includes(tx.status)).length;
+  const total      = allHistoryRecords.filter(tx => ["Returned", "Returned (Late)", "Rejected"].includes(tx.status)).length;
   if (countBadge) countBadge.textContent = total + " record" + (total !== 1 ? "s" : "");
 
   if (records.length === 0) {
@@ -436,8 +436,9 @@ function renderHistoryTable() {
 
   const pillClass = s => {
     switch(s) {
-      case "Returned":       return "returned";
-      case "Rejected":       return "rejected";
+      case "Returned":         return "returned";
+      case "Returned (Late)":  return "returned-late";
+      case "Rejected":         return "rejected";
       case "Borrowed":       return "borrowed";
       case "Overdue":        return "overdue";
       case "Pending":        return "pending";
@@ -539,8 +540,8 @@ function loadUserDashboard() {
       document.getElementById("profileTotal").textContent = totalBorrows;
 
       // On-time rate based ONLY on completed returns (status === "Returned")
-      const completedReturns = history.filter(tx => tx.status === "Returned");
-      const lateReturns      = completedReturns.filter(tx => tx.isLate === true || tx.isLate === "TRUE");
+      const completedReturns = history.filter(tx => tx.status === "Returned" || tx.status === "Returned (Late)");
+      const lateReturns      = completedReturns.filter(tx => tx.isLate === true || tx.isLate === "TRUE" || tx.status === "Returned (Late)");
       const onTimeRate = completedReturns.length > 0
         ? Math.round(((completedReturns.length - lateReturns.length) / completedReturns.length) * 100) + "%"
         : "—";
@@ -713,11 +714,12 @@ function getDueBadge(daysLeft) {
 function buildFlowSteps(status) {
   // step state: "done" | "active" | ""
   const stateMap = {
-    "Pending":        ["active", "",       "",       ""],
-    "Borrowed":       ["done",   "active", "",       ""],
-    "Overdue":        ["done",   "active", "",       ""],
-    "Return Pending": ["done",   "done",   "active", ""],
-    "Returned":       ["done",   "done",   "done",   "done"]
+    "Pending":             ["active", "",       "",       ""],
+    "Borrowed":            ["done",   "active", "",       ""],
+    "Overdue":             ["done",   "active", "",       ""],
+    "Return Pending":      ["done",   "done",   "active", ""],
+    "Returned":            ["done",   "done",   "done",   "done"],
+    "Returned (Late)":     ["done",   "done",   "done",   "done"]
   };
   const states = stateMap[status] || ["active", "", "", ""];
 
