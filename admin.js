@@ -834,8 +834,10 @@ function loadTransactions() {
         }
         // Check if returned late (returnDate > dueDate)
         if (tx.status === "Returned" && tx.returnDate && tx.dueDate) {
-          const returnDate = new Date(tx.returnDate.split("-").map(Number).concat(0));
-          const dueDate = new Date(tx.dueDate.split("-").map(Number).concat(0));
+          const rp = tx.returnDate.split("-");
+          const dp = tx.dueDate.split("-");
+          const returnDate = new Date(+rp[0], +rp[1]-1, +rp[2]);
+          const dueDate = new Date(+dp[0], +dp[1]-1, +dp[2]);
           if (returnDate > dueDate) return { ...tx, status: "Returned (Late)", isLate: true };
         }
         return tx;
