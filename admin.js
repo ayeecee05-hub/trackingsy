@@ -769,13 +769,14 @@ function renderReturnsTable(requests) {
 
   requests.forEach((req, index) => {
     const today = getPHTDateString();
+    const isOverdue = req.dueDate && req.dueDate < today;
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
-      <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
+      <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
       <td>
         <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm Return</button>
