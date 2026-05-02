@@ -69,9 +69,11 @@ let allTransactions  = [];
 let allUsers         = [];
 let allPending       = [];
 let allReturnRequests = [];
+let selectedReturns   = new Set();
 let filteredTx       = [];
 let searchTimeout;
 let qrInstance       = null;
+let studentPenalties = {};
 
 // ── Toast notification ───────────────────────────────────────────────────────
 let _toastTimer = null;
@@ -177,6 +179,7 @@ function switchPage(pageId) {
   if (pageId === "pageTransactions") renderTransactions(allTransactions);
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
+  if (pageId === "pageStudents")     loadStudentsPage();
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
@@ -199,6 +202,21 @@ function closeSidebar() {
   sidebar.classList.remove("open");
   if (backdrop) backdrop.classList.remove("visible");
   document.body.style.overflow = "";
+}
+
+// ── Students Page ────────────────────────────────────────────────────────────
+function loadStudentsPage() {
+  // Load users if not already loaded
+  if (allUsers.length === 0) {
+    fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
+      allUsers = Array.isArray(u) ? u : [];
+      renderStudentsTable(allUsers);
+      const scb = document.getElementById("studentCountBadge");
+      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+    }).catch(() => showNotification("Error loading students.", "error"));
+  } else {
+    renderStudentsTable(allUsers);
+  }
 }
 
 // ── KPI cards ────────────────────────────────────────────────────────────────
@@ -360,6 +378,8 @@ function renderActiveBorrowers() {
 
     const card = document.createElement("div");
     card.className = `ab-card ${cardCls}`;
+    const penalties = studentPenalties[tx.studentId] || 0;
+    const penaltyHtml = penalties > 0 ? `<span style="font-size:10px;background:rgba(255,107,107,0.2);color:#ff6b6b;padding:2px 6px;border-radius:4px;font-weight:700;">⚠️ ${penalties} late return${penalties !== 1 ? 's' : ''}</span>` : "";
     card.innerHTML = `
       <div class="ab-top">
         <div class="ab-student">
@@ -368,6 +388,7 @@ function renderActiveBorrowers() {
         </div>
         ${statusPill(tx.status)}
       </div>
+      ${penaltyHtml}
       <div class="ab-item">
         <span class="ab-item-icon">📦</span>
         <span>${tx.item}</span>
@@ -764,7 +785,7 @@ function renderReturnsTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
     return;
   }
 
@@ -773,6 +794,7 @@ function renderReturnsTable(requests) {
     const isOverdue = req.dueDate && req.dueDate < today;
     const row = document.createElement("tr");
     row.innerHTML = `
+      <td><input type="checkbox" class="return-checkbox" data-index="${index}" onchange="updateReturnSelection()"></td>
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
@@ -784,6 +806,10 @@ function renderReturnsTable(requests) {
       </td>`;
     tbody.appendChild(row);
   });
+  
+  selectedReturns.clear();
+  document.getElementById("selectAllReturns").checked = false;
+  document.getElementById("bulkConfirmBtn").style.display = "none";
 }
 
 function confirmReturnRequest(index) {
@@ -793,30 +819,117 @@ function confirmReturnRequest(index) {
   document.getElementById("adminReturnMessage").innerHTML =
     `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br>
      <small style="color:var(--text3);">Return date: <strong>${today}</strong> · Stock +1</small>`;
+  document.getElementById("returnCondition").value = "Good";
   const modal = document.getElementById("adminReturnModal");
   modal.classList.add("open");
-  document.getElementById("adminReturnYes").onclick = () => { modal.classList.remove("open"); executeConfirmReturn(req, today); };
+  document.getElementById("adminReturnYes").onclick = () => { 
+    modal.classList.remove("open"); 
+    const condition = document.getElementById("returnCondition").value;
+    executeConfirmReturn(req, today, condition); 
+  };
   document.getElementById("adminReturnNo").onclick  = () => { modal.classList.remove("open"); };
 }
 
-function executeConfirmReturn(req, returnDate) {
+function executeConfirmReturn(req, returnDate, condition = "Good") {
   showNotification("Confirming return…", "info");
+  
+  // Check if return is late and add penalty
+  let isLate = false;
+  if (req.dueDate && returnDate > req.dueDate) {
+    isLate = true;
+    if (!studentPenalties[req.studentId]) studentPenalties[req.studentId] = 0;
+    studentPenalties[req.studentId]++;
+  }
+  
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "confirmReturn", studentId: req.studentId, item: req.item, returnDate, rowIndex: req.rowIndex })
+    body: JSON.stringify({ 
+      action: "confirmReturn", 
+      studentId: req.studentId, 
+      item: req.item, 
+      returnDate, 
+      rowIndex: req.rowIndex,
+      condition: condition,
+      isLate: isLate
+    })
   })
   .then(r => r.json())
   .then(data => {
     if (data.success) {
-      showNotification(`✅ "${req.item}" return confirmed.`, "success");
+      const conditionIcon = condition === "Good" ? "✅" : condition === "Damaged" ? "⚠️" : "❌";
+      const lateText = isLate ? " [LATE]" : "";
+      showNotification(`${conditionIcon} "${req.item}" return confirmed${lateText}.`, "success");
       loadReturnRequests();
       loadTransactions();
       loadItemsTable();
+      renderActiveBorrowers();
     } else {
       showNotification(data.message || "Confirmation failed.", "error");
     }
   })
   .catch(() => showNotification("Network error during return confirmation.", "error"));
+}
+
+// ── Bulk Return Confirmation ────────────────────────────────────────────────
+function updateReturnSelection() {
+  selectedReturns.clear();
+  document.querySelectorAll(".return-checkbox:checked").forEach(cb => {
+    selectedReturns.add(parseInt(cb.dataset.index));
+  });
+  const bulkBtn = document.getElementById("bulkConfirmBtn");
+  if (selectedReturns.size > 0) {
+    bulkBtn.style.display = "block";
+    bulkBtn.textContent = `✅ Confirm Selected (${selectedReturns.size})`;
+  } else {
+    bulkBtn.style.display = "none";
+  }
+}
+
+function toggleSelectAllReturns() {
+  const isChecked = document.getElementById("selectAllReturns").checked;
+  document.querySelectorAll(".return-checkbox").forEach(cb => {
+    cb.checked = isChecked;
+  });
+  updateReturnSelection();
+}
+
+function bulkConfirmReturns() {
+  if (selectedReturns.size === 0) {
+    showNotification("No items selected.", "error");
+    return;
+  }
+  
+  const today = getPHTDateString();
+  const condition = document.getElementById("returnCondition")?.value || "Good";
+  const itemsToConfirm = Array.from(selectedReturns).map(idx => allReturnRequests[idx]);
+  
+  let confirmed = 0;
+  showNotification(`Confirming ${itemsToConfirm.length} items…`, "info");
+  
+  Promise.all(itemsToConfirm.map(req => {
+    const isLate = req.dueDate && today > req.dueDate;
+    if (isLate && !studentPenalties[req.studentId]) studentPenalties[req.studentId] = 0;
+    if (isLate) studentPenalties[req.studentId]++;
+    
+    return fetch(scriptURL, {
+      method: "POST",
+      body: JSON.stringify({ 
+        action: "confirmReturn", 
+        studentId: req.studentId, 
+        item: req.item, 
+        returnDate: today, 
+        rowIndex: req.rowIndex,
+        condition: condition,
+        isLate: isLate
+      })
+    }).then(r => r.json()).then(data => { if (data.success) confirmed++; });
+  })).then(() => {
+    showNotification(`✅ ${confirmed}/${itemsToConfirm.length} items confirmed.`, "success");
+    loadReturnRequests();
+    loadTransactions();
+    loadItemsTable();
+    renderActiveBorrowers();
+  }).catch(() => showNotification("Error during bulk confirmation.", "error"));
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────
@@ -1063,17 +1176,26 @@ function renderStudentsTable(users) {
   if (!tbody) return;
   tbody.innerHTML = "";
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No students registered.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No students registered.</td></tr>`;
     return;
   }
   users.forEach(u => {
+    // Calculate borrowing stats for this student
+    const studentTx = allTransactions.filter(tx => tx.studentId === u.id);
+    const totalBorrows = studentTx.length;
+    const currentItems = studentTx.filter(tx => ["Borrowed", "Overdue", "Return Pending"].includes(tx.status)).length;
+    const lateReturns = studentTx.filter(tx => tx.status === "Returned (Late)").length;
+    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${u.id}</span></td>
       <td style="font-weight:600;">${u.name}</td>
-      <td style="font-size:12px;color:var(--text3);">${u.email || "—"}</td>
+      <td style="text-align:center;font-family:var(--mono);">${totalBorrows}</td>
+      <td style="text-align:center;font-family:var(--mono);">${currentItems}</td>
+      <td style="text-align:center;font-family:var(--mono);${lateReturns > 0 ? 'color:var(--danger);font-weight:600;' : ''}">${lateReturns}</td>
       <td>
         <div style="display:flex;gap:4px;">
+          <button class="btn btn-primary btn-sm" onclick="showStudentHistory('${u.id}','${u.name.replace(/'/g,"\\'")}')">📋 History</button>
           <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
           <button class="btn btn-ghost btn-sm" onclick="openEditStudentModal('${u.id}','${u.name.replace(/'/g,"\\'")}','${(u.email||"").replace(/'/g,"\\'")}')">✏️ Edit</button>
           <button class="btn btn-danger btn-sm" onclick="confirmDeleteStudent('${u.id}','${u.name.replace(/'/g,"\\'")}')">🗑</button>
@@ -1089,6 +1211,72 @@ function filterStudentTable() {
     String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
   );
   renderStudentsTable(filtered);
+}
+
+// ── Student History ──────────────────────────────────────────────────────────
+function showStudentHistory(studentId, studentName) {
+  document.getElementById("studentHistoryTitle").innerText = `${studentName} (${studentId})`;
+  document.getElementById("historyFilter").value = "all";
+  document.getElementById("historySearch").value = "";
+  renderStudentHistory(studentId);
+  document.getElementById("studentHistoryModal").classList.add("open");
+}
+
+function renderStudentHistory(studentId) {
+  const tbody = document.getElementById("studentHistoryBody");
+  if (!tbody) return;
+  
+  const studentTx = allTransactions.filter(tx => tx.studentId === studentId);
+  if (!studentTx || studentTx.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No borrowing history found.</td></tr>`;
+    return;
+  }
+  
+  // Sort by borrow date descending (most recent first)
+  studentTx.sort((a, b) => b.borrowDate.localeCompare(a.borrowDate));
+  
+  tbody.innerHTML = "";
+  studentTx.forEach(tx => {
+    const row = document.createElement("tr");
+    const isLate = tx.status === "Returned (Late)";
+    const conditionIcon = tx.condition ? 
+      (tx.condition === "Good" ? "✅" : tx.condition === "Damaged" ? "⚠️" : tx.condition === "Broken" ? "❌" : "🔴") : "—";
+    
+    row.innerHTML = `
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip">${tx.borrowDate}</span></td>
+      <td><span class="date-chip">${tx.dueDate || "—"}</span></td>
+      <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
+      <td>${statusPill(tx.status)}</td>
+      <td style="text-align:center;">${conditionIcon}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function filterStudentHistory() {
+  const filter = document.getElementById("historyFilter").value;
+  const search = (document.getElementById("historySearch").value || "").toLowerCase();
+  const tbody = document.getElementById("studentHistoryBody");
+  const rows = tbody.querySelectorAll("tr");
+  
+  rows.forEach(row => {
+    if (row.cells.length < 6) return; // Skip empty rows
+    
+    const item = row.cells[0].textContent.toLowerCase();
+    const status = row.cells[4].textContent.toLowerCase();
+    
+    let show = true;
+    
+    // Apply status filter
+    if (filter === "returned" && !status.includes("returned")) show = false;
+    else if (filter === "late" && !status.includes("late")) show = false;
+    else if (filter === "current" && (status.includes("returned") || status.includes("rejected"))) show = false;
+    
+    // Apply search filter
+    if (search && !item.includes(search)) show = false;
+    
+    row.style.display = show ? "" : "none";
+  });
 }
 
 // ── QR Code ──────────────────────────────────────────────────────────────────

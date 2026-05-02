@@ -875,12 +875,16 @@
         <div class="panel one-col">
           <div class="panel-header">
             <span class="panel-title"><span class="panel-title-icon">↩</span> Pending Return Requests</span>
-            <button class="btn btn-ghost btn-sm" onclick="loadReturnRequests()">↻ Refresh</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-success btn-sm" id="bulkConfirmBtn" onclick="bulkConfirmReturns()" style="display:none;">✅ Confirm Selected</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadReturnRequests()">↻ Refresh</button>
+            </div>
           </div>
           <div class="panel-body-flush">
             <div class="table-wrap scrollable-table" style="max-height:500px;">
               <table class="data-table" id="returnsTable">
                 <thead><tr>
+                  <th style="width:30px;"><input type="checkbox" id="selectAllReturns" onchange="toggleSelectAllReturns()"></th>
                   <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Actual Return Date</th><th>Action</th>
                 </tr></thead>
                 <tbody id="returnsTableBody"></tbody>
@@ -1025,7 +1029,7 @@
 
           <div class="panel">
             <div class="panel-header">
-              <span class="panel-title"><span class="panel-title-icon">👥</span> Registered Students</span>
+              <span class="panel-title"><span class="panel-title-icon">👥</span> Student Borrowing History</span>
               <span id="studentCountBadge" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
             </div>
             <div class="filter-bar">
@@ -1035,7 +1039,7 @@
               <div class="table-wrap scrollable-table" style="max-height:440px;">
                 <table class="data-table" id="studentsTable">
                   <thead><tr>
-                    <th>Student ID</th><th>Name</th><th>Email</th><th>Actions</th>
+                    <th>Student ID</th><th>Name</th><th>Total Borrows</th><th>Current Items</th><th>Late Returns</th><th>Actions</th>
                   </tr></thead>
                   <tbody id="studentsTableBody"></tbody>
                 </table>
@@ -1137,6 +1141,15 @@
     <span class="modal-icon">↩</span>
     <div class="modal-title">Confirm Return</div>
     <div class="modal-msg" id="adminReturnMessage">Mark this item as returned?</div>
+    <div class="modal-form" style="margin:12px 0;">
+      <label class="form-label">Item Condition</label>
+      <select class="form-input" id="returnCondition" style="margin-bottom:12px;">
+        <option value="Good">✅ Good - No issues</option>
+        <option value="Damaged">⚠️ Damaged - Minor damage</option>
+        <option value="Broken">❌ Broken - Cannot use</option>
+        <option value="Lost">🔴 Lost - Item not returned</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="adminReturnYes">Yes, Confirm</button>
       <button class="btn btn-ghost" id="adminReturnNo">Cancel</button>
@@ -1164,6 +1177,36 @@
     <div class="modal-actions">
       <button class="btn btn-primary" id="editStudentSaveBtn" onclick="saveEditStudent()">Save Changes</button>
       <button class="btn btn-ghost" onclick="closeEditStudentModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student History Modal -->
+<div class="modal-overlay" id="studentHistoryModal">
+  <div class="modal-box wide">
+    <span class="modal-icon">📋</span>
+    <div class="modal-title" id="studentHistoryTitle">Student Borrowing History</div>
+    <div class="modal-form" style="margin:12px 0;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <select class="form-input" id="historyFilter" onchange="filterStudentHistory()" style="flex:1;">
+          <option value="all">All Transactions</option>
+          <option value="returned">Completed</option>
+          <option value="late">Late Returns</option>
+          <option value="current">Current Items</option>
+        </select>
+        <input type="text" class="form-input" id="historySearch" placeholder="Search items…" oninput="filterStudentHistory()" style="flex:2;">
+      </div>
+    </div>
+    <div class="modal-body" style="max-height:400px;overflow-y:auto;">
+      <table class="data-table" id="studentHistoryTable">
+        <thead><tr>
+          <th>Item</th><th>Borrow Date</th><th>Due Date</th><th>Return Date</th><th>Status</th><th>Condition</th>
+        </tr></thead>
+        <tbody id="studentHistoryBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('studentHistoryModal').classList.remove('open')">Close</button>
     </div>
   </div>
 </div>
