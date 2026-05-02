@@ -65,15 +65,19 @@ function stopAutoRefresh() {
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
-let allTransactions  = [];
-let allUsers         = [];
-let allPending       = [];
-let allReturnRequests = [];
-let selectedReturns   = new Set();
-let filteredTx       = [];
+let allTransactions       = [];
+let allHistoryTransactions = [];
+let archivedTransactions  = [];
+let allUsers              = [];
+let allPending            = [];
+let allReturnRequests     = [];
+let selectedReturns       = new Set();
+let filteredTx            = [];
+let archiveFilteredTx     = [];
 let searchTimeout;
-let qrInstance       = null;
-let studentPenalties = {};
+let qrInstance            = null;
+let studentPenalties      = {};
+const ARCHIVE_DAYS = 30;
 
 // ── Toast notification ───────────────────────────────────────────────────────
 let _toastTimer = null;
@@ -156,6 +160,7 @@ const pageMeta = {
   pageTransactions: { title: "Transaction Log",    desc: "Full history of all borrow events" },
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
   pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
+  pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
   pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
 };
 
@@ -177,6 +182,7 @@ function switchPage(pageId) {
   if (pageId === "pagePending")      loadPendingRequests();
   if (pageId === "pageReturns")      loadReturnRequests();
   if (pageId === "pageTransactions") renderTransactions(allTransactions);
+  if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
@@ -217,6 +223,26 @@ function loadStudentsPage() {
   } else {
     renderStudentsTable(allUsers);
   }
+  if (allHistoryTransactions.length === 0 && allTransactions.length === 0) {
+    loadTransactions();
+  }
+}
+
+function isDateStringOlderThan(dateStr, days) {
+  if (!dateStr) return false;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const cutoff = new Date(date);
+  cutoff.setDate(cutoff.getDate() + days);
+  const today = new Date(getPHTDateString());
+  return cutoff < today;
+}
+
+function isArchivedTransaction(tx) {
+  const archiveStatuses = ["Returned", "Returned (Late)", "Rejected"];
+  if (!archiveStatuses.includes(tx.status)) return false;
+  const compareDate = tx.returnDate || tx.dueDate;
+  return compareDate ? isDateStringOlderThan(compareDate, ARCHIVE_DAYS) : false;
 }
 
 // ── KPI cards ────────────────────────────────────────────────────────────────
@@ -940,23 +966,31 @@ function loadTransactions() {
       const todayStr = getPHTDateString();
       const [ty, tm, td] = todayStr.split("-").map(Number);
       const today = new Date(ty, tm - 1, td);
-      allTransactions = (Array.isArray(history) ? history : []).map(tx => {
+      const processed = (Array.isArray(history) ? history : []).map(tx => {
+        let result = { ...tx };
         if (tx.status === "Borrowed" && tx.dueDate) {
           const p = tx.dueDate.split("-");
-          if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...tx, status: "Overdue" };
+          if (new Date(+p[0], +p[1]-1, +p[2]) < today) result.status = "Overdue";
         }
-        // Check if returned late (returnDate > dueDate)
         if (tx.status === "Returned" && tx.returnDate && tx.dueDate) {
           const rp = tx.returnDate.split("-");
           const dp = tx.dueDate.split("-");
           const returnDate = new Date(+rp[0], +rp[1]-1, +rp[2]);
           const dueDate = new Date(+dp[0], +dp[1]-1, +dp[2]);
-          if (returnDate > dueDate) return { ...tx, status: "Returned (Late)", isLate: true };
+          if (returnDate > dueDate) {
+            result.status = "Returned (Late)";
+            result.isLate = true;
+          }
         }
-        return tx;
+        return result;
       });
+      allHistoryTransactions = processed;
+      archivedTransactions = allHistoryTransactions.filter(isArchivedTransaction);
+      allTransactions = allHistoryTransactions.filter(tx => !isArchivedTransaction(tx));
       filteredTx = allTransactions;
+      archiveFilteredTx = archivedTransactions;
       renderTransactions(allTransactions);
+      renderArchiveTransactions(archivedTransactions);
       updateKpiCards();
       renderDashboard();
     })
@@ -986,6 +1020,30 @@ function renderTransactions(transactions) {
   });
 }
 
+function renderArchiveTransactions(transactions) {
+  const tbody = document.querySelector("#archiveTable tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!transactions || transactions.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No archived transactions yet.</td></tr>`;
+    return;
+  }
+  transactions.forEach(tx => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${tx.studentId}</span></td>
+      <td>${tx.studentName || "—"}</td>
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip">${tx.borrowDate}</span></td>
+      <td><span class="date-chip">${tx.dueDate}</span></td>
+      <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
+      <td>${statusPill(tx.status)}</td>
+      <td>${tx.condition || "—"}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
 function filterTransactions() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
@@ -1007,6 +1065,26 @@ function resetFilter() {
   if (si) si.value = "";
   if (sf) sf.value = "";
   renderTransactions(allTransactions);
+}
+
+function filterArchiveTransactions() {
+  const query  = (document.getElementById("archiveSearch")?.value || "").toLowerCase();
+  const status = document.getElementById("archiveStatusFilter")?.value || "";
+  archiveFilteredTx = archivedTransactions.filter(tx =>
+    (!query  || String(tx.studentId).toLowerCase().includes(query) ||
+                String(tx.item).toLowerCase().includes(query) ||
+                String(tx.studentName || "").toLowerCase().includes(query)) &&
+    (!status || tx.status === status)
+  );
+  renderArchiveTransactions(archiveFilteredTx);
+}
+
+function resetArchiveFilter() {
+  const si = document.getElementById("archiveSearch");
+  const sf = document.getElementById("archiveStatusFilter");
+  if (si) si.value = "";
+  if (sf) sf.value = "";
+  renderArchiveTransactions(archivedTransactions);
 }
 
 function exportTransactionsCSV() {
@@ -1181,7 +1259,8 @@ function renderStudentsTable(users) {
   }
   users.forEach(u => {
     // Calculate borrowing stats for this student
-    const studentTx = allTransactions.filter(tx => tx.studentId === u.id);
+    const historySource = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
+    const studentTx = historySource.filter(tx => tx.studentId === u.id);
     const totalBorrows = studentTx.length;
     const currentItems = studentTx.filter(tx => ["Borrowed", "Overdue", "Return Pending"].includes(tx.status)).length;
     const lateReturns = studentTx.filter(tx => tx.status === "Returned (Late)").length;

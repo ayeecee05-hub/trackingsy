@@ -731,6 +731,9 @@
     <button class="nav-item" data-page="pageTransactions" onclick="switchPage('pageTransactions')">
       <span class="nav-icon">📋</span> Transaction Log
     </button>
+    <button class="nav-item" data-page="pageArchive" onclick="switchPage('pageArchive')">
+      <span class="nav-icon">🗄️</span> Archive
+    </button>
     <button class="nav-item" data-page="pageItems" onclick="switchPage('pageItems')">
       <span class="nav-icon">📦</span> Inventory
     </button>
@@ -954,6 +957,38 @@
             <button class="ab-filter-btn" data-abfilter="Return Pending" onclick="setAbFilter('Return Pending',this)">↩ Return Pending</button>
           </div>
           <div id="activeBorrowersGrid" class="active-borrowers-grid"></div>
+        </div>
+      </div>
+
+      <!-- ─── ARCHIVE ─────────────────────────────── -->
+      <div class="page" id="pageArchive">
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">🗄️</span> Archive</span>
+            <div class="panel-actions">
+              <button class="btn btn-ghost btn-sm" onclick="loadTransactions()">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" class="filter-input" id="archiveSearch" placeholder="🔍  Search archived transactions…" oninput="filterArchiveTransactions()">
+            <select class="filter-select" id="archiveStatusFilter" onchange="filterArchiveTransactions()">
+              <option value="">All Statuses</option>
+              <option value="Returned">Returned</option>
+              <option value="Returned (Late)">Returned (Late)</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetArchiveFilter()">Reset</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:520px;">
+              <table class="data-table" id="archiveTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th><th>Condition</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
