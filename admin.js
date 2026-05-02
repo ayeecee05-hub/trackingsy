@@ -463,6 +463,7 @@ function statusPill(status) {
     "Borrowed":       "s-borrowed",
     "Pending":        "s-pending",
     "Returned":       "s-returned",
+    "Returned (Late)": "s-returned-late",
     "Overdue":        "s-overdue",
     "Return Pending": "s-return-pending",
     "Rejected":       "s-rejected"
@@ -830,6 +831,12 @@ function loadTransactions() {
         if (tx.status === "Borrowed" && tx.dueDate) {
           const p = tx.dueDate.split("-");
           if (new Date(+p[0], +p[1]-1, +p[2]) < today) return { ...tx, status: "Overdue" };
+        }
+        // Check if returned late (returnDate > dueDate)
+        if (tx.status === "Returned" && tx.returnDate && tx.dueDate) {
+          const returnDate = new Date(tx.returnDate.split("-").map(Number).concat(0));
+          const dueDate = new Date(tx.dueDate.split("-").map(Number).concat(0));
+          if (returnDate > dueDate) return { ...tx, status: "Returned (Late)", isLate: true };
         }
         return tx;
       });
