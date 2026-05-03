@@ -425,15 +425,36 @@ button:active { transform: scale(0.97); }
 #notification {
   position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
   background: var(--accent-primary); color: #fff;
-  padding: 12px 20px; border-radius: 20px;
+  padding: 11px 16px; border-radius: 20px;
   box-shadow: 0 4px 16px var(--accent-glow);
-  transition: top 0.3s ease; z-index: 999;
-  font-size: 14px; font-weight: 500; white-space: nowrap;
-  max-width: calc(100vw - 32px); text-align: center;
+  transition: top 0.3s ease; z-index: 9998;
+  font-size: 14px; font-weight: 500;
+  max-width: calc(100vw - 32px);
+  display: flex; align-items: center; gap: 10px;
+  white-space: nowrap;
 }
 #notification.success { background: var(--success); }
 #notification.error   { background: var(--highlight); }
 #notification.info    { background: var(--accent-primary); }
+
+/* Toast message span */
+.toast-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+/* Undo button inside the toast */
+.toast-undo-btn {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.45);
+  border-radius: 12px;
+  padding: 3px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.toast-undo-btn:hover { background: rgba(255,255,255,0.38); }
 
 /* ════════════════════════════════════════════════════════════
    STOCK PANEL

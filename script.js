@@ -74,7 +74,106 @@ function logoutUser(timedOut = false) {
   showNotification(timedOut ? "Session expired. Please select your name again." : "Logged out.", "info");
 }
 
-// ── Theme toggle ──────────────────────────────────────────────────────────────
+// ── Pull-to-refresh (PWA native feel) ─────────────────────────────────────────
+(function initPullToRefresh() {
+  const THRESHOLD   = 72;  // px of pull needed to trigger
+  const MAX_PULL    = 110; // max visual drag
+  let startY        = 0;
+  let pulling       = false;
+  let pullDistance  = 0;
+
+  // Create the PTR indicator element
+  const ptr = document.createElement("div");
+  ptr.id = "ptrIndicator";
+  ptr.innerHTML = `<div class="ptr-arrow">↓</div><span class="ptr-label">Pull to refresh</span>`;
+  ptr.style.cssText = [
+    "position:fixed","top:0","left:0","right:0","z-index:9999",
+    "display:flex","align-items:center","justify-content:center","gap:8px",
+    "height:0px","overflow:hidden","transition:none",
+    "background:var(--surface,#161b22)","border-bottom:1px solid var(--border,rgba(255,255,255,0.08))",
+    "font-size:12px","color:var(--text3,rgba(230,237,243,0.42))",
+    "pointer-events:none","will-change:height"
+  ].join(";");
+  document.body.prepend(ptr);
+
+  function canPull() {
+    // Only pull on the main dashboard pages (not login/modals)
+    const userDash = document.getElementById("userDashboardPage");
+    const mainDash = document.getElementById("dashboardPage");
+    const isUserDash  = userDash && userDash.style.display !== "none";
+    const isMainDash  = mainDash && mainDash.style.display !== "none";
+    return (isUserDash || isMainDash) && window.scrollY <= 4;
+  }
+
+  document.addEventListener("touchstart", e => {
+    if (!canPull()) return;
+    startY = e.touches[0].clientY;
+    pulling = false;
+    pullDistance = 0;
+  }, { passive: true });
+
+  document.addEventListener("touchmove", e => {
+    if (!canPull()) return;
+    const deltaY = e.touches[0].clientY - startY;
+    if (deltaY < 8) return; // ignore tiny movements
+    pulling = true;
+    pullDistance = Math.min(deltaY * 0.55, MAX_PULL); // dampen drag
+    const h = Math.round(pullDistance);
+    ptr.style.height = h + "px";
+
+    const arrow = ptr.querySelector(".ptr-arrow");
+    const label = ptr.querySelector(".ptr-label");
+    if (pullDistance >= THRESHOLD) {
+      if (arrow) { arrow.textContent = "↺"; arrow.style.transform = "rotate(180deg)"; }
+      if (label) label.textContent = "Release to refresh";
+      ptr.style.color = "var(--accent,#4fc3f7)";
+    } else {
+      if (arrow) { arrow.textContent = "↓"; arrow.style.transform = "none"; }
+      if (label) label.textContent = "Pull to refresh";
+      ptr.style.color = "var(--text3,rgba(230,237,243,0.42))";
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchend", () => {
+    if (!pulling) return;
+    pulling = false;
+    ptr.style.transition = "height 0.25s ease";
+    ptr.style.height = "0px";
+
+    if (pullDistance >= THRESHOLD) {
+      const arrow = ptr.querySelector(".ptr-arrow");
+      const label = ptr.querySelector(".ptr-label");
+      if (arrow) arrow.textContent = "↺";
+      if (label) label.textContent = "Refreshing…";
+      ptr.style.height = "48px";
+      ptr.style.color  = "var(--accent,#4fc3f7)";
+
+      // Determine which page is active and refresh accordingly
+      const userDash = document.getElementById("userDashboardPage");
+      const isUserDash = userDash && userDash.style.display !== "none";
+
+      if (isUserDash && currentUser) {
+        loadUserDashboard();
+        loadStockPanel();
+      } else {
+        loadBorrowers();
+        loadStockPanel();
+      }
+      showNotification("Refreshed!", "success");
+
+      // Collapse PTR bar after a moment
+      setTimeout(() => {
+        ptr.style.transition = "height 0.3s ease";
+        ptr.style.height = "0px";
+        if (arrow) arrow.style.transform = "none";
+      }, 900);
+    }
+
+    setTimeout(() => { ptr.style.transition = "none"; pullDistance = 0; }, 400);
+  });
+})();
+
+
 (function initTheme() {
   const saved = localStorage.getItem("theme");
   if (saved === "light") {
@@ -92,17 +191,46 @@ document.getElementById("toggleTheme").addEventListener("click", () => {
   document.getElementById("toggleTheme").textContent = isDark ? "☀️" : "🌙";
 });
 
-// ── Notification ──────────────────────────────────────────────────────────────
-function showNotification(message, type = "info") {
+// ── Toast notification (with optional undo action) ────────────────────────────
+let _toastTimer = null;
+let _toastUndoFn = null;
+
+function showNotification(message, type = "info", undoLabel = null, undoFn = null) {
   const banner = document.getElementById("notification");
-  banner.innerText     = message;
+  if (!banner) return;
+
+  // Clear any existing timer
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+  _toastUndoFn = undoFn || null;
+
+  // Build inner HTML
+  if (undoLabel && undoFn) {
+    banner.innerHTML = `
+      <span class="toast-msg">${message}</span>
+      <button class="toast-undo-btn" id="toastUndoBtn">${undoLabel}</button>`;
+  } else {
+    banner.innerHTML = `<span class="toast-msg">${message}</span>`;
+  }
+
   banner.className     = type;
-  banner.style.display = "block";
+  banner.style.display = "flex";
   banner.style.top     = "20px";
-  setTimeout(() => {
+
+  const undoBtn = document.getElementById("toastUndoBtn");
+  if (undoBtn && undoFn) {
+    undoBtn.addEventListener("click", () => {
+      clearTimeout(_toastTimer);
+      banner.style.top = "-100px";
+      setTimeout(() => { banner.style.display = "none"; banner.innerHTML = ""; }, 400);
+      undoFn();
+      _toastUndoFn = null;
+    });
+  }
+
+  _toastTimer = setTimeout(() => {
     banner.style.top = "-100px";
-    setTimeout(() => (banner.style.display = "none"), 500);
-  }, 3000);
+    setTimeout(() => { banner.style.display = "none"; banner.innerHTML = ""; }, 500);
+  }, undoFn ? 6000 : 3000);
 }
 
 // ── Page navigation ───────────────────────────────────────────────────────────
@@ -838,6 +966,45 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
        Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
      </small>`,
     () => {
+      // Immediately go to dashboard and show an undo-capable toast
+      showPage("userDashboardPage");
+
+      let wasCancelled = false;
+      // We need a reference to the pending request to cancel it
+      let submittedTx = null;
+
+      showNotification(`📋 Borrow request for "${item}" submitted!`, "success",
+        "Cancel", () => {
+          wasCancelled = true;
+          if (submittedTx) {
+            // Cancel by calling rejectBorrow on our own pending request
+            fetch(scriptURL, {
+              method: "POST",
+              body: JSON.stringify({
+                action: "rejectBorrow",
+                studentId: currentUser.id,
+                item: submittedTx.item,
+                rowIndex: submittedTx.rowIndex
+              })
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.success) {
+                showNotification(`Request for "${item}" cancelled.`, "info");
+                loadUserDashboard();
+              } else {
+                showNotification("Could not cancel — the admin may have already processed it.", "error");
+                loadUserDashboard();
+              }
+            })
+            .catch(() => showNotification("Network error. Request may still be active.", "error"));
+          } else {
+            // Request hasn't come back yet — flag it for cancellation on arrival
+            showNotification(`Cancelling request for "${item}"…`, "info");
+          }
+        }
+      );
+
       fetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
@@ -845,8 +1012,40 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          showNotification("Request submitted! Proceed to the admin for hand-over. ⏳", "success");
-          showPage("userDashboardPage");
+          if (wasCancelled) {
+            // Undo was tapped before the request came back — cancel immediately
+            fetch(scriptURL + "?action=getPendingRequests")
+              .then(r => r.json())
+              .then(pending => {
+                const match = Array.isArray(pending) && pending.find(p =>
+                  String(p.studentId) === String(currentUser.id) &&
+                  p.item.toLowerCase() === item.toLowerCase()
+                );
+                if (match) {
+                  return fetch(scriptURL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "rejectBorrow", studentId: currentUser.id, item: match.item, rowIndex: match.rowIndex })
+                  }).then(r => r.json());
+                }
+              })
+              .then(() => {
+                showNotification(`Request for "${item}" cancelled.`, "info");
+                loadUserDashboard();
+              })
+              .catch(() => loadUserDashboard());
+          } else {
+            // Store for potential undo
+            fetch(scriptURL + "?action=getPendingRequests")
+              .then(r => r.json())
+              .then(pending => {
+                submittedTx = Array.isArray(pending) && pending.find(p =>
+                  String(p.studentId) === String(currentUser.id) &&
+                  p.item.toLowerCase() === item.toLowerCase()
+                );
+              })
+              .catch(() => {});
+            loadUserDashboard();
+          }
         } else {
           showNotification(data.message || "Request failed.", "error");
         }

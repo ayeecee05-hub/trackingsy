@@ -74,6 +74,10 @@ let allReturnRequests     = [];
 let selectedReturns       = new Set();
 let filteredTx            = [];
 let archiveFilteredTx     = [];
+
+// ── Transaction log pagination ───────────────────────────────────────────────
+const TX_PER_PAGE    = 20;
+let   txCurrentPage  = 1;
 let searchTimeout;
 let qrInstance            = null;
 let studentPenalties      = {};
@@ -181,7 +185,7 @@ function switchPage(pageId) {
   // Load data when switching to specific pages
   if (pageId === "pagePending")      loadPendingRequests();
   if (pageId === "pageReturns")      loadReturnRequests();
-  if (pageId === "pageTransactions") renderTransactions(allTransactions);
+  if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
@@ -997,16 +1001,35 @@ function loadTransactions() {
     .catch(() => showNotification("Error loading transactions.", "error"));
 }
 
-function renderTransactions(transactions) {
-  const tbody = document.querySelector("#transactionsTable tbody");
+function renderTransactions(transactions, resetPage = false) {
+  if (resetPage) txCurrentPage = 1;
+  filteredTx = transactions;
+
+  const tbody        = document.querySelector("#transactionsTable tbody");
+  const paginationEl = document.getElementById("txPagination");
+  const pageLabel    = document.getElementById("txPageLabel");
+  const prevBtn      = document.getElementById("txPrevBtn");
+  const nextBtn      = document.getElementById("txNextBtn");
+  const countEl      = document.getElementById("txCount");
+
   if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No transactions found.</td></tr>`;
+    if (paginationEl) paginationEl.style.display = "none";
+    if (countEl) countEl.textContent = "";
     return;
   }
-  transactions.forEach(tx => {
+
+  const totalPages = Math.ceil(transactions.length / TX_PER_PAGE);
+  if (txCurrentPage > totalPages) txCurrentPage = totalPages;
+  if (txCurrentPage < 1) txCurrentPage = 1;
+
+  const start = (txCurrentPage - 1) * TX_PER_PAGE;
+  const page  = transactions.slice(start, start + TX_PER_PAGE);
+
+  page.forEach(tx => {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
@@ -1014,10 +1037,37 @@ function renderTransactions(transactions) {
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
-      <td><span class="date-chip ${tx.returnDate ? "" : ""}">${tx.returnDate || "—"}</span></td>
+      <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>`;
     tbody.appendChild(row);
   });
+
+  // Count label
+  const showing = `${start + 1}–${Math.min(start + TX_PER_PAGE, transactions.length)} of ${transactions.length}`;
+  if (countEl) countEl.textContent = showing;
+
+  // Pagination controls
+  if (paginationEl) {
+    if (totalPages > 1) {
+      paginationEl.style.display = "flex";
+      if (prevBtn)   prevBtn.disabled      = txCurrentPage === 1;
+      if (nextBtn)   nextBtn.disabled      = txCurrentPage === totalPages;
+      if (pageLabel) pageLabel.textContent = `Page ${txCurrentPage} of ${totalPages}`;
+    } else {
+      paginationEl.style.display = "none";
+    }
+  }
+}
+
+function changeTxPage(delta) {
+  const totalPages = Math.ceil(filteredTx.length / TX_PER_PAGE);
+  const next = txCurrentPage + delta;
+  if (next < 1 || next > totalPages) return;
+  txCurrentPage = next;
+  renderTransactions(filteredTx);
+  // Scroll table into view smoothly
+  const panel = document.getElementById("pageTransactions");
+  if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderArchiveTransactions(transactions) {
@@ -1055,7 +1105,7 @@ function filterTransactions() {
                   String(tx.studentName || "").toLowerCase().includes(query)) &&
       (!status || tx.status === status)
     );
-    renderTransactions(filtered);
+    renderTransactions(filtered, true);
   }, 300);
 }
 
@@ -1064,7 +1114,7 @@ function resetFilter() {
   const sf = document.getElementById("statusFilter");
   if (si) si.value = "";
   if (sf) sf.value = "";
-  renderTransactions(allTransactions);
+  renderTransactions(allTransactions, true);
 }
 
 function filterArchiveTransactions() {
