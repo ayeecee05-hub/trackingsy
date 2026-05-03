@@ -491,7 +491,9 @@ function renderDashRecent() {
   const tbody = document.getElementById("dashRecentBody");
   if (!tbody) return;
   tbody.innerHTML = "";
-  const recent = [...allTransactions].reverse().slice(0, 10);
+  const recent = [...allTransactions]
+    .sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""))
+    .slice(0, 10);
   if (recent.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No transactions yet.</td></tr>`;
     return;
