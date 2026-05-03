@@ -943,6 +943,71 @@ body:not(.dark) .pending-user-list li { background: #fffde7; }
 .pending-user-list li .pending-pill { font-size: 10px; font-weight: 700; background: rgba(255,183,77,0.18); color: var(--warning); border: 1px solid rgba(255,183,77,0.4); border-radius: 10px; padding: 2px 8px; white-space: nowrap; margin-left: auto; flex-shrink: 0; }
 body:not(.dark) .pending-user-list li .pending-pill { background: #fff3e0; color: #bf360c; }
 
+/* ── Pending/Return Pending Card Sections ────────────────────────────────── */
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0 16px; opacity: 0.6; }
+
+.pending-section-wrapper, .return-pending-section-wrapper {
+  margin-top: 24px;
+  animation: fadeUp 0.3s ease;
+}
+
+.pending-cards-list, .return-pending-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pending-card-item, .return-pending-item {
+  background: rgba(255,183,77,0.06);
+  border: 1px solid rgba(255,183,77,0.25);
+  border-left: 3px solid var(--warning);
+  border-radius: 12px;
+  padding: 14px 16px;
+  animation: slideUp 0.25s ease;
+}
+body:not(.dark) .pending-card-item,
+body:not(.dark) .return-pending-item { background: #fffef5; border-color: rgba(230,81,0,0.15); }
+
+.pending-card-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.pending-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pending-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+body:not(.dark) .pending-card-name { color: #0d1b2a; }
+
+.pending-card-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+body:not(.dark) .pending-card-meta { color: #5a7a96; }
+
+.return-pending-item {
+  border-left-color: #ab47bc;
+  background: rgba(171,71,188,0.06);
+  border-color: rgba(171,71,188,0.25);
+}
+body:not(.dark) .return-pending-item { background: #faf5ff; border-color: rgba(106,27,154,0.15); }
+
+.return-pending-item .pending-card-name { color: #ab47bc; }
+body:not(.dark) .return-pending-item .pending-card-name { color: #6a1b9a; }
+
 .how-it-works-box { background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }
 .how-it-works-steps { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .how-step { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0.5; }
@@ -1118,8 +1183,13 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
 
   /* ── Pending sections ── */
   #pendingSection h2, #returnPendingSection h2 { font-size: 15px; }
+  .section-divider { margin: 18px 0 12px; }
   .pending-user-note { font-size: 11px; padding: 8px 10px; }
   .pending-user-list li { font-size: 12px; padding: 9px 12px; flex-wrap: wrap; gap: 6px; }
+  .pending-card-item, .return-pending-item { padding: 12px 13px; }
+  .pending-card-content { gap: 10px; flex-wrap: wrap; }
+  .pending-card-name { font-size: 13px; }
+  .pending-card-meta { font-size: 11px; }
   #pendingSection, #returnPendingSection { margin-bottom: 10px; }
 
   /* ── History section ── */
@@ -1133,6 +1203,14 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .history-table th { font-size: 9.5px; padding: 8px 6px; white-space: nowrap; }
   .history-table td { padding: 7px 6px; }
   .history-pagination { gap: 6px; padding-top: 8px; }
+
+  /* ── Mobile pending cards ── */
+  .pending-card-item, .return-pending-item { padding: 11px 12px; margin-bottom: 8px; }
+  .pending-card-content { flex-direction: column; align-items: stretch; gap: 10px; }
+  .pending-card-info { flex: 1; }
+  .pending-card-name { font-size: 13px; }
+  .pending-card-meta { font-size: 10px; }
+  .pending-card-item button, .return-pending-item button { align-self: flex-start; }
   .history-page-btn { font-size: 12px !important; padding: 8px 14px !important; }
   .history-page-label { font-size: 11px; }
 

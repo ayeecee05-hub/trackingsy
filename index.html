@@ -166,17 +166,19 @@
       <ul id="borrowedList"></ul>
 
       <!-- Pending requests sub-section -->
-      <div id="pendingSection" style="display:none;">
+      <div id="pendingSection" style="display:none;" class="pending-section-wrapper">
+        <div class="section-divider"></div>
         <h2>⏳ Pending Requests</h2>
         <p class="pending-user-note">Your request has been submitted. Please proceed to the equipment cabinet — the admin will hand over the item and confirm it.</p>
-        <ul id="pendingList" class="pending-user-list"></ul>
+        <ul id="pendingList" class="pending-cards-list"></ul>
       </div>
 
       <!-- Return Pending sub-section — shown when student has submitted a return -->
-      <div id="returnPendingSection" style="display:none;">
+      <div id="returnPendingSection" style="display:none;" class="return-pending-section-wrapper">
+        <div class="section-divider"></div>
         <h2>↩ Awaiting Return Confirmation</h2>
         <p class="pending-user-note" style="border-color:rgba(79,195,247,0.3);background:rgba(79,195,247,0.07);">You have submitted a return request. Please hand the item to the admin — they will confirm receipt and mark it as returned.</p>
-        <ul id="returnPendingList" class="pending-user-list"></ul>
+        <ul id="returnPendingList" class="return-pending-list"></ul>
       </div>
 
       <!-- Borrow History Section -->

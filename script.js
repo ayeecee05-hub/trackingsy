@@ -654,26 +654,25 @@ function loadUserDashboard() {
             if (userPending.length > 0) {
               userPending.forEach(tx => {
                 const li = document.createElement("li");
-                li.className = "pending-user-item";
-                const info = document.createElement("span");
-                info.innerHTML = `<strong>${tx.item}</strong> — requested ${tx.borrowDate} · due ${tx.dueDate || "—"}`;
-                const btn = document.createElement("button");
-                btn.type = "button";
-                btn.className = "btn btn-secondary btn-sm";
-                btn.textContent = "Cancel request";
-                btn.onclick = () => cancelPendingRequest(tx.rowIndex, tx.item);
-                li.appendChild(info);
-                li.appendChild(btn);
+                li.className = "pending-card-item";
+                li.innerHTML = `
+                  <div class="pending-card-content">
+                    <div class="pending-card-info">
+                      <div class="pending-card-name">📋 ${tx.item}</div>
+                      <div class="pending-card-meta">Requested ${tx.borrowDate} · Due ${tx.dueDate || "—"}</div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="cancelPendingRequest(${tx.rowIndex}, '${tx.item.replace(/'/g, "\\'")}')">Cancel</button>
+                  </div>`;
                 pendingList.appendChild(li);
               });
               pendingSection.style.display = "block";
             } else {
-              pendingList.innerHTML = `<li style='color:var(--text-muted);'>No cancellable pending requests found.</li>`;
-              pendingSection.style.display = "block";
+              pendingList.innerHTML = `<li style='color:var(--text-muted);text-align:center;border-left:none;background:none;padding:12px 0;'>No cancellable pending requests found.</li>`;
+              pendingSection.style.display = "none";
             }
           })
           .catch(() => {
-            pendingSection.style.display = "block";
+            pendingSection.style.display = "none";
             pendingList.innerHTML = `<li style='color:var(--text-muted);'>Unable to load pending request actions right now.</li>`;
           });
       } else {
@@ -852,11 +851,28 @@ function loadUserDashboard() {
         });
       }
 
-      // Hide the old separate sections — they are now unified above
-      const pendingSection = document.getElementById("pendingSection");
-      if (pendingSection) pendingSection.style.display = "none";
+      // Show return pending items as a separate card section if any exist
       const returnPendingSection = document.getElementById("returnPendingSection");
-      if (returnPendingSection) returnPendingSection.style.display = "none";
+      const returnPendingList = document.getElementById("returnPendingList");
+      if (returnPending.length > 0 && returnPendingList) {
+        returnPendingList.innerHTML = "";
+        returnPending.forEach(tx => {
+          const li = document.createElement("li");
+          li.className = "return-pending-item";
+          li.innerHTML = `
+            <div class="pending-card-content">
+              <div class="pending-card-info">
+                <div class="pending-card-name">↩ ${tx.item}</div>
+                <div class="pending-card-meta">Returning ${tx.returnDate || "today"} · Borrowed ${tx.borrowDate}</div>
+              </div>
+            </div>`;
+          returnPendingList.appendChild(li);
+        });
+        if (returnPendingSection) returnPendingSection.style.display = "block";
+      } else {
+        if (returnPendingSection) returnPendingSection.style.display = "none";
+      }
+
       // ── Auto-poll logic ───────────────────────────────────────────────────
       const needsPoll = pending.length > 0 || returnPending.length > 0;
       if (needsPoll) {
