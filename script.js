@@ -639,6 +639,47 @@ function loadUserDashboard() {
       const pending       = history.filter(tx => tx.status === "Pending");
       const returnPending = history.filter(tx => tx.status === "Return Pending");
 
+      // Build cancel buttons for pending requests in the borrower dashboard
+      const pendingSection = document.getElementById("pendingSection");
+      const pendingList = document.getElementById("pendingList");
+      if (pending.length > 0) {
+        fetch(scriptURL + "?action=getPendingRequests")
+          .then(res => res.json())
+          .then(allPending => {
+            const userPending = Array.isArray(allPending)
+              ? allPending.filter(p => String(p.studentId) === String(currentUser.id))
+              : [];
+
+            pendingList.innerHTML = "";
+            if (userPending.length > 0) {
+              userPending.forEach(tx => {
+                const li = document.createElement("li");
+                li.className = "pending-user-item";
+                const info = document.createElement("span");
+                info.innerHTML = `<strong>${tx.item}</strong> — requested ${tx.borrowDate} · due ${tx.dueDate || "—"}`;
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn btn-secondary btn-sm";
+                btn.textContent = "Cancel request";
+                btn.onclick = () => cancelPendingRequest(tx.rowIndex, tx.item);
+                li.appendChild(info);
+                li.appendChild(btn);
+                pendingList.appendChild(li);
+              });
+              pendingSection.style.display = "block";
+            } else {
+              pendingList.innerHTML = `<li style='color:var(--text-muted);'>No cancellable pending requests found.</li>`;
+              pendingSection.style.display = "block";
+            }
+          })
+          .catch(() => {
+            pendingSection.style.display = "block";
+            pendingList.innerHTML = `<li style='color:var(--text-muted);'>Unable to load pending request actions right now.</li>`;
+          });
+      } else {
+        pendingSection.style.display = "none";
+      }
+
       // Reclassify any "Borrowed" item whose due date has passed as overdue
       // (the spreadsheet only updates via the admin; this keeps the borrower view accurate)
       const overdue = borrowed.filter(tx => {
@@ -1054,6 +1095,31 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
     }
   );
 });
+
+function cancelPendingRequest(rowIndex, item) {
+  if (!currentUser) return;
+  if (!confirm(`Cancel borrow request for "${item}"?`)) return;
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "rejectBorrow",
+      studentId: currentUser.id,
+      item: item,
+      rowIndex: rowIndex
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`Request for "${item}" cancelled.`, "info");
+      loadUserDashboard();
+    } else {
+      showNotification(data.message || "Unable to cancel request.", "error");
+    }
+  })
+  .catch(() => showNotification("Network error. Unable to cancel request.", "error"));
+}
 
 // ── Return form — submits a "Return Pending" request ─────────────────────────
 // This sets the item status to "Return Pending" in the spreadsheet.

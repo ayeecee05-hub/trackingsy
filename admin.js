@@ -988,6 +988,8 @@ function loadTransactions() {
         }
         return result;
       });
+      // Sort transaction log newest first by borrow date
+      processed.sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""));
       allHistoryTransactions = processed;
       archivedTransactions = allHistoryTransactions.filter(isArchivedTransaction);
       allTransactions = allHistoryTransactions.filter(tx => !isArchivedTransaction(tx));

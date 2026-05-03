@@ -401,6 +401,20 @@ button.back {
 }
 button.back:hover { background: var(--bg-accent); color: var(--text-primary); }
 
+button.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+button.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+button.btn-secondary:hover {
+  background: var(--bg-accent);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+button.btn-sm { padding: 8px 14px; font-size: 12px; border-radius: 10px; }
+
 button:active { transform: scale(0.97); }
 .actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 
@@ -924,6 +938,7 @@ body:not(.dark) .date-chip.due { background: #fff3e0; color: #bf360c; }
 body:not(.dark) .pending-user-note { background: #fff8e1; border-color: rgba(230,81,0,0.2); color: #5d3a00; }
 .pending-user-list { list-style: none; padding: 0; margin: 0 0 10px; }
 .pending-user-list li { padding: 10px 14px; margin-bottom: 6px; background: rgba(255,183,77,0.08); border-radius: 10px; border-left: 3px solid var(--warning); font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.pending-user-list li button { margin-left: auto; flex-shrink: 0; }
 body:not(.dark) .pending-user-list li { background: #fffde7; }
 .pending-user-list li .pending-pill { font-size: 10px; font-weight: 700; background: rgba(255,183,77,0.18); color: var(--warning); border: 1px solid rgba(255,183,77,0.4); border-radius: 10px; padding: 2px 8px; white-space: nowrap; margin-left: auto; flex-shrink: 0; }
 body:not(.dark) .pending-user-list li .pending-pill { background: #fff3e0; color: #bf360c; }
