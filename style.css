@@ -2186,3 +2186,35 @@ body:not(.dark) .bfilter-btn.active[data-filter="Pending"] {
   .borrower-filter-strip { gap: 5px; }
   .bfilter-btn { font-size: 11px !important; padding: 4px 10px !important; }
 }
+/* ── Borrower Group Headers (classification view) ─────────────────────────── */
+.borrower-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 14px;
+  margin: 14px 0 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.borrower-group-header:first-child { margin-top: 4px; }
+.borrower-group-icon { font-size: 14px; }
+
+.borrower-group-overdue   { background: rgba(198,40,40,0.13);  color: #ef9a9a; border-left: 3px solid #c62828; }
+.borrower-group-borrowed  { background: rgba(21,101,192,0.12); color: #90caf9; border-left: 3px solid #1565c0; }
+.borrower-group-return    { background: rgba(2,119,189,0.12);  color: #81d4fa; border-left: 3px solid #0277bd; }
+.borrower-group-pending   { background: rgba(230,81,0,0.12);   color: #ffcc80; border-left: 3px solid #e65100; }
+.borrower-group-available { background: rgba(46,125,50,0.12);  color: #a5d6a7; border-left: 3px solid #2e7d32; }
+
+body:not(.dark) .borrower-group-overdue   { background: #ffebee; color: #b71c1c; }
+body:not(.dark) .borrower-group-borrowed  { background: #e3f2fd; color: #1565c0; }
+body:not(.dark) .borrower-group-return    { background: #e1f5fe; color: #0277bd; }
+body:not(.dark) .borrower-group-pending   { background: #fff3e0; color: #e65100; }
+body:not(.dark) .borrower-group-available { background: #e8f5e9; color: #2e7d32; }
+
+.borrower-group-grid {
+  margin-bottom: 4px;
+}

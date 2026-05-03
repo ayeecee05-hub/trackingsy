@@ -183,6 +183,52 @@ function loadBorrowers() {
   .catch(() => showNotification("Error loading users.", "error"));
 }
 
+// ── Helper: build a single borrower card element ─────────────────────────────
+function buildBorrowerCard(user) {
+  const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const status   = borrowerStatusMap[user.id];
+  const allStatuses = (borrowerStatusMap._allMap && borrowerStatusMap._allMap[user.id])
+                        ? [...borrowerStatusMap._allMap[user.id]]
+                        : (status ? [status] : []);
+  const badgeMap = {
+    "Overdue":        ["card-badge-overdue",  "Overdue"],
+    "Borrowed":       ["card-badge-borrowed", "Borrowed"],
+    "Return Pending": ["card-badge-return",   "Returning"],
+    "Pending":        ["card-badge-pending",  "Pending"],
+  };
+  const badgeHTML = allStatuses
+    .filter(s => badgeMap[s])
+    .sort((a, b) => {
+      const pri = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
+      return (pri[b] || 0) - (pri[a] || 0);
+    })
+    .map(s => {
+      const [cls, label] = badgeMap[s];
+      return `<span class="card-status-badge ${cls}">${label}</span>`;
+    })
+    .join("");
+  const card = document.createElement("div");
+  card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", `Select ${user.name}`);
+  card.innerHTML = `
+    <div class="borrower-avatar">${initials}</div>
+    <h3>${user.name}</h3>
+    ${badgeHTML}`;
+  card.addEventListener("click",  () => openPinModal(user));
+  card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
+  return card;
+}
+
+// ── Helper: render a classification group header ──────────────────────────────
+function buildGroupHeader(label, icon, colorClass) {
+  const header = document.createElement("div");
+  header.className = "borrower-group-header borrower-group-" + colorClass;
+  header.innerHTML = `<span class="borrower-group-icon">${icon}</span><span>${label}</span>`;
+  return header;
+}
+
 function renderBorrowerPage() {
   const container  = document.getElementById("usersContainer");
   const pagination = document.getElementById("usersPagination");
@@ -206,49 +252,63 @@ function renderBorrowerPage() {
     return;
   }
 
+  const searchQuery = (document.getElementById("borrowerSearch").value || "").trim();
+
+  // ── GROUPED VIEW — shown when search is empty and filter is "all" ─────────
+  if (!searchQuery && borrowerActiveFilter === "all") {
+    if (pagination) pagination.style.display = "none";
+
+    const groups = [
+      { key: "Overdue",        label: "⚠️ Overdue",         icon: "🔴", color: "overdue"  },
+      { key: "Borrowed",       label: "📦 Currently Borrowed", icon: "🔵", color: "borrowed" },
+      { key: "Return Pending", label: "↩ Returning",         icon: "🔷", color: "return"   },
+      { key: "Pending",        label: "⏳ Pending Approval",  icon: "🟠", color: "pending"  },
+      { key: "available",      label: "✅ No Active Borrows", icon: "🟢", color: "available"},
+    ];
+
+    const pri = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
+    const allMap = (borrowerStatusMap && borrowerStatusMap._allMap) || {};
+
+    // Classify each user into their highest-priority group
+    const buckets = { "Overdue": [], "Borrowed": [], "Return Pending": [], "Pending": [], "available": [] };
+    filteredBorrowers.forEach(user => {
+      const statuses = allMap[user.id] ? [...allMap[user.id]] : [];
+      const worstStatus = statuses.reduce((best, s) => (pri[s] || 0) > (pri[best] || 0) ? s : best, "");
+      if (worstStatus && buckets[worstStatus] !== undefined) {
+        buckets[worstStatus].push(user);
+      } else {
+        buckets["available"].push(user);
+      }
+    });
+
+    let hasAny = false;
+    groups.forEach(({ key, label, icon, color }) => {
+      const users = buckets[key];
+      if (!users || users.length === 0) return;
+      hasAny = true;
+
+      container.appendChild(buildGroupHeader(`${label} (${users.length})`, icon, color));
+
+      const grid = document.createElement("div");
+      grid.className = "card-grid borrower-group-grid";
+      users.sort((a, b) => a.name.localeCompare(b.name)).forEach(u => grid.appendChild(buildBorrowerCard(u)));
+      container.appendChild(grid);
+    });
+
+    if (!hasAny) {
+      container.innerHTML = `<div class="empty-state-full"><div class="empty-icon">👤</div><p>No borrowers found.</p></div>`;
+    }
+    return;
+  }
+
+  // ── FLAT / FILTERED VIEW — shown when searching or a status filter is active ─
   const totalPages = Math.ceil(filteredBorrowers.length / USERS_PER_PAGE);
   if (usersPage > totalPages) usersPage = totalPages;
 
   const start     = (usersPage - 1) * USERS_PER_PAGE;
   const pageUsers = filteredBorrowers.slice(start, start + USERS_PER_PAGE);
 
-  pageUsers.forEach(user => {
-    const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-    const status   = borrowerStatusMap[user.id];                       // worst status (for ring)
-    const allStatuses = (borrowerStatusMap._allMap && borrowerStatusMap._allMap[user.id])
-                          ? [...borrowerStatusMap._allMap[user.id]]
-                          : (status ? [status] : []);
-    const badgeMap = {
-      "Overdue":        ["card-badge-overdue",  "Overdue"],
-      "Borrowed":       ["card-badge-borrowed", "Borrowed"],
-      "Return Pending": ["card-badge-return",   "Returning"],
-      "Pending":        ["card-badge-pending",  "Pending"],
-    };
-    // Show a badge for every distinct active status (e.g. both Overdue + Borrowed)
-    const badgeHTML = allStatuses
-      .filter(s => badgeMap[s])
-      .sort((a, b) => {
-        const pri = { "Overdue": 4, "Borrowed": 3, "Return Pending": 2, "Pending": 1 };
-        return (pri[b] || 0) - (pri[a] || 0);
-      })
-      .map(s => {
-        const [cls, label] = badgeMap[s];
-        return `<span class="card-status-badge ${cls}">${label}</span>`;
-      })
-      .join("");
-    const card = document.createElement("div");
-    card.className = "borrower-card" + (status === "Overdue" ? " card-overdue-ring" : "");
-    card.setAttribute("role", "button");
-    card.setAttribute("tabindex", "0");
-    card.setAttribute("aria-label", `Select ${user.name}`);
-    card.innerHTML = `
-      <div class="borrower-avatar">${initials}</div>
-      <h3>${user.name}</h3>
-      ${badgeHTML}`;
-    card.addEventListener("click",  () => openPinModal(user));
-    card.addEventListener("keydown", e => { if (e.key === "Enter") openPinModal(user); });
-    container.appendChild(card);
-  });
+  pageUsers.forEach(user => container.appendChild(buildBorrowerCard(user)));
 
   if (pagination) {
     if (totalPages > 1) {
