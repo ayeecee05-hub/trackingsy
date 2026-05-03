@@ -487,7 +487,7 @@ function renderDashRecent() {
   const tbody = document.getElementById("dashRecentBody");
   if (!tbody) return;
   tbody.innerHTML = "";
-  const recent = [...allTransactions].sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || "")).slice(0, 10);
+  const recent = [...allTransactions].reverse().slice(0, 10);
   if (recent.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No transactions yet.</td></tr>`;
     return;
@@ -984,9 +984,6 @@ function loadTransactions() {
         }
         return result;
       });
-      // Sort newest borrow date first
-      const byBorrowDateDesc = (a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || "");
-      processed.sort(byBorrowDateDesc);
       allHistoryTransactions = processed;
       archivedTransactions = allHistoryTransactions.filter(isArchivedTransaction);
       allTransactions = allHistoryTransactions.filter(tx => !isArchivedTransaction(tx));
@@ -1009,8 +1006,7 @@ function renderTransactions(transactions) {
     tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No transactions found.</td></tr>`;
     return;
   }
-  const sorted = [...transactions].sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""));
-  sorted.forEach(tx => {
+  transactions.forEach(tx => {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
@@ -1033,8 +1029,7 @@ function renderArchiveTransactions(transactions) {
     tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No archived transactions yet.</td></tr>`;
     return;
   }
-  const sortedArchive = [...transactions].sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""));
-  sortedArchive.forEach(tx => {
+  transactions.forEach(tx => {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
