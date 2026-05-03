@@ -613,6 +613,19 @@ body:not(.dark) .dash-stat-amber .dash-stat-value { color: #e65100; }
 
 @media (max-width: 480px) {
   .uni-header { padding: 28px 16px 20px; }
+
+  /* ── Extra-tight card styling for very small screens ── */
+  .borrow-flow-card { padding: 12px 12px; margin-bottom: 10px; gap: 9px; }
+  .flow-card-header { gap: 8px; }
+  .borrow-flow-name { font-size: 12px; }
+  .borrow-flow-dates { font-size: 10px; }
+  .due-badge { font-size: 10px; padding: 3px 6px; }
+  .flow-dot { width: 16px; height: 16px; font-size: 8px; }
+  .flow-label { font-size: 6.5px; max-width: 45px; }
+  .flow-stepper-compact { gap: 2px; }
+  .flow-card-footer { gap: 7px; padding-top: 7px; }
+  .borrow-flow-status-bar { font-size: 10px; gap: 4px; }
+  .borrow-flow-status-hint { font-size: 9px; }
 }
 
 /* ── Overdue Alert ───────────────────────────────────────── */
@@ -1173,13 +1186,16 @@ body:not(.dark) .site-footer { background: rgba(255,255,255,0.85); backdrop-filt
   .due-badge { font-size: 10px; }
 
   /* ── Borrow flow cards ── */
-  .borrow-flow-card { padding: 11px 11px 10px; }
+  .borrow-flow-card { padding: 14px 14px; gap: 10px; }
+  .flow-card-header { gap: 10px; }
   .borrow-flow-name { font-size: 13px; }
-  .flow-dot { width: 22px; height: 22px; font-size: 10px; }
-  .flow-label { font-size: 8.5px; max-width: 56px; white-space: normal; text-align: center; }
-  .borrow-flow-stepper { padding: 8px 8px 7px; }
-  .borrow-flow-status-bar { font-size: 10.5px; }
-  .borrow-flow-status-hint { font-size: 9.5px; }
+  .borrow-flow-dates { font-size: 11px; }
+  .due-badge { font-size: 11px; padding: 4px 8px; }
+  .flow-dot { width: 18px; height: 18px; font-size: 9px; border-width: 1px; }
+  .flow-label { font-size: 7px; max-width: 50px; }
+  .flow-card-footer { gap: 8px; padding-top: 8px; }
+  .borrow-flow-status-bar { font-size: 11px; }
+  .borrow-flow-status-hint { font-size: 10px; }
 
   /* ── Pending sections ── */
   #pendingSection h2, #returnPendingSection h2 { font-size: 15px; }
@@ -1926,21 +1942,24 @@ body:not(.dark) .qr-delete-btn {
 .borrow-flow-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 16px 13px;
-  margin-bottom: 10px;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .borrow-flow-card::before {
   content: '';
   position: absolute;
   top: 0; left: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
-  border-radius: 14px 0 0 14px;
+  border-radius: 12px 0 0 12px;
   background: var(--accent-primary);
 }
 
@@ -1965,63 +1984,71 @@ body:not(.dark) .borrow-flow-card.flow-overdue   { border-color: rgba(183,28,28,
 body:not(.dark) .borrow-flow-card.flow-ret-pending { border-color: rgba(106,27,154,0.22); background: #fdf6ff; }
 
 .borrow-flow-card:hover {
-  box-shadow: 0 4px 18px var(--shadow);
+  box-shadow: 0 6px 24px var(--shadow);
   border-color: var(--accent-primary);
+  transform: translateY(-2px);
 }
 
-/* Top row: item name + due badge */
-.borrow-flow-top {
+/* Header: item name on left, countdown badge on right */
+.flow-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
 }
 
-.borrow-flow-meta {
+.flow-card-left {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
+  flex: 1;
   min-width: 0;
 }
 
 .borrow-flow-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
 }
 
 body:not(.dark) .borrow-flow-name { color: #0d1b2a; }
 
 .borrow-flow-dates {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--mono);
-  letter-spacing: 0.1px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 body:not(.dark) .borrow-flow-dates { color: #5a7a96; }
 
-/* ── The stepper track ── */
-.borrow-flow-stepper {
+/* Footer: stepper + status bar */
+.flow-card-footer {
   display: flex;
-  align-items: flex-start;
-  gap: 0;
-  margin-top: 10px;
-  padding: 10px 12px 8px;
-  background: var(--input-bg);
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  position: relative;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
 
-body:not(.dark) .borrow-flow-stepper {
-  background: #f4f8fc;
-  border-color: rgba(25,118,210,0.12);
+/* ── Compact stepper at bottom ── */
+.flow-stepper-compact {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  position: relative;
+  justify-content: space-between;
+}
+
+body:not(.dark) .flow-stepper-compact {
+  background: transparent;
+  border: none;
 }
 
 /* Each step node */
@@ -2039,10 +2066,10 @@ body:not(.dark) .borrow-flow-stepper {
 .flow-step:not(:last-child)::after {
   content: '';
   position: absolute;
-  top: 12px;
+  top: 11px;
   left: 50%;
   width: 100%;
-  height: 2px;
+  height: 1.5px;
   background: var(--border);
   z-index: 0;
   transition: background 0.4s ease;
@@ -2058,16 +2085,16 @@ body:not(.dark) .borrow-flow-stepper {
 
 /* Step circle */
 .flow-dot {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--border);
   background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text-muted);
   transition: all 0.3s ease;
   position: relative;
@@ -2132,15 +2159,15 @@ body:not(.dark) .flow-step.step-done .flow-dot {
 
 /* Step label */
 .flow-label {
-  font-size: 9.5px;
+  font-size: 8px;
   font-weight: 600;
   color: var(--text-muted);
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-  max-width: 68px;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+  max-width: 55px;
 }
 
 body:not(.dark) .flow-label { color: #8fa8bf; }
@@ -2161,39 +2188,30 @@ body:not(.dark) .borrow-flow-card.flow-ret-pending .flow-step.step-active .flow-
 /* ── Status banner below stepper ── */
 .borrow-flow-status-bar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--accent-glow);
-  color: var(--accent-primary);
-  border: 1px solid var(--border);
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
   flex-wrap: wrap;
 }
 
-.borrow-flow-card.flow-pending   .borrow-flow-status-bar { background: rgba(255,183,77,0.12); color: var(--warning);       border-color: rgba(255,183,77,0.3); }
-.borrow-flow-card.flow-overdue   .borrow-flow-status-bar { background: rgba(255,107,107,0.1); color: var(--highlight);      border-color: rgba(255,107,107,0.3); }
-.borrow-flow-card.flow-ret-pending .borrow-flow-status-bar { background: rgba(171,71,188,0.1); color: #ce93d8;               border-color: rgba(171,71,188,0.3); }
+.flow-status-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
 
-body:not(.dark) .borrow-flow-card.flow-borrowed   .borrow-flow-status-bar { background: #e3f2fd; color: #1565c0; border-color: rgba(21,101,192,0.25); }
-body:not(.dark) .borrow-flow-card.flow-pending    .borrow-flow-status-bar { background: #fff8e1; color: #7a3b00; border-color: rgba(230,81,0,0.25); }
-body:not(.dark) .borrow-flow-card.flow-overdue    .borrow-flow-status-bar { background: #ffebee; color: #8b0000; border-color: rgba(183,28,28,0.25); }
-body:not(.dark) .borrow-flow-card.flow-ret-pending .borrow-flow-status-bar { background: #f3e5f5; color: #6a1b9a; border-color: rgba(106,27,154,0.25); }
+body:not(.dark) .flow-status-label { color: #0d1b2a; }
 
 .borrow-flow-status-hint {
   font-size: 10px;
   color: var(--text-muted);
-  font-weight: 500;
-  font-style: italic;
-  white-space: normal;
-  overflow: visible;
-  word-break: break-word;
-  flex-shrink: 1;
-  min-width: 0;
+  font-weight: 400;
 }
 
 body:not(.dark) .borrow-flow-status-hint { color: #8fa8bf; }

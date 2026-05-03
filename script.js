@@ -833,18 +833,19 @@ function loadUserDashboard() {
           li.style.cssText = "list-style:none;padding:0;margin:0;border:none;background:none;";
           li.innerHTML = `
             <div class="borrow-flow-card ${cardVariant}">
-              <div class="borrow-flow-top">
-                <div class="borrow-flow-meta">
+              <div class="flow-card-header">
+                <div class="flow-card-left">
                   <span class="borrow-flow-name">${icon} ${tx.item}</span>
                   <span class="borrow-flow-dates">${dateInfo}</span>
-                  ${dueProgressHTML}
                 </div>
-                ${tx.status === "Borrowed" ? `<span class="due-badge ${badgeClass}">${badgeText}</span>` : ""}
+                ${tx.status === "Borrowed" || tx.status === "Overdue" ? `<span class="due-badge ${badgeClass}">${badgeText}</span>` : ""}
               </div>
-              <div class="borrow-flow-stepper">${steps}</div>
-              <div class="borrow-flow-status-bar">
-                <span>${statusLabel}</span>
-                <span class="borrow-flow-status-hint">${hintText}</span>
+              <div class="flow-card-footer">
+                <div class="flow-stepper-compact">${steps}</div>
+                <div class="borrow-flow-status-bar">
+                  <span class="flow-status-label">${statusLabel}</span>
+                  <span class="borrow-flow-status-hint">${hintText}</span>
+                </div>
               </div>
             </div>`;
           borrowedList.appendChild(li);
