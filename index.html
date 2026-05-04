@@ -60,64 +60,84 @@
         </div>
       </div>
 
-      <!-- ── Main Content Area ──────────────────────────────────────────── -->
-      <div class="dashboard-main-grid">
-        
-        <!-- Left Sidebar - Stock & Controls -->
-        <div class="dashboard-sidebar">
-          <!-- ── Stock Availability Panel ──────────────────────────────────── -->
-          <div id="stockPanel" class="stock-panel">
-            <div class="stock-panel-header">
-              <h3>📦 Equipment Stock</h3>
-              <p class="stock-subtitle">Available items</p>
-            </div>
-            <div id="stockList" class="stock-list">
-              <div class="skeleton-row"></div>
-              <div class="skeleton-row"></div>
-              <div class="skeleton-row"></div>
-            </div>
-            <!-- Stock pagination — shown only when > 5 items -->
-            <div id="stockPagination" class="stock-pagination" style="display:none;">
-              <button id="stockPrevBtn" class="stock-page-btn" onclick="changeStockPage(-1)" aria-label="Previous items page">&#8249;</button>
-              <span id="stockPageLabel" class="stock-page-label"></span>
-              <button id="stockNextBtn" class="stock-page-btn" onclick="changeStockPage(1)" aria-label="Next items page">&#8250;</button>
-            </div>
-          </div>
+      <!-- ── HERO SECTIONS WITH INFO CARDS ──────────────────────────────── -->
+      <div class="hero-cards-grid">
+        <div class="hero-card hero-card-equipment">
+          <div class="hero-card-icon">📦</div>
+          <h3>Total Equipment</h3>
+          <div class="hero-card-value" id="totalEquipmentCount">0</div>
+          <p>All items in system</p>
         </div>
-
-        <!-- Right Content - Borrower List -->
-        <div class="dashboard-content">
-          <!-- ── Search & Filter ────────────────────────────────────────────── -->
-          <div class="search-and-filter-section">
-            <div class="search-bar">
-              <input type="text" id="borrowerSearch" placeholder="🔍  Search name or ID…" aria-label="Search borrowers by name or student ID">
-            </div>
-
-            <!-- ── Filter Buttons ──────────────────────────────────────── -->
-            <div class="borrower-filter-strip" id="borrowerFilterStrip">
-              <button class="bfilter-btn active" data-filter="all"     onclick="setBorrowerFilter('all',this)">All</button>
-              <button class="bfilter-btn" data-filter="Overdue"  onclick="setBorrowerFilter('Overdue',this)">⚠️ Overdue</button>
-              <button class="bfilter-btn" data-filter="Borrowed" onclick="setBorrowerFilter('Borrowed',this)">📤 Out</button>
-              <button class="bfilter-btn" data-filter="Pending"  onclick="setBorrowerFilter('Pending',this)">⏳ Pending</button>
-              <button class="bfilter-btn" data-filter="az"       onclick="setBorrowerFilter('az',this)">A–Z</button>
-            </div>
-          </div>
-
-          <!-- Cards grid — filled by JS -->
-          <div id="usersContainer" class="card-grid">
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
+        <div class="hero-card hero-card-available">
+          <div class="hero-card-icon">✅</div>
+          <h3>Available</h3>
+          <div class="hero-card-value" id="availableEquipmentCount">0</div>
+          <p>Ready to borrow</p>
+        </div>
+        <div class="hero-card hero-card-borrowed">
+          <div class="hero-card-icon">🏃</div>
+          <h3>Borrowed</h3>
+          <div class="hero-card-value" id="borrowedEquipmentCount">0</div>
+          <p>Currently in use</p>
+        </div>
+        <div class="hero-card hero-card-maintenance">
+          <div class="hero-card-icon">🔧</div>
+          <h3>Maintenance</h3>
+          <div class="hero-card-value" id="maintenanceEquipmentCount">0</div>
+          <p>Out of service</p>
+        </div>
       </div>
 
-          <!-- Users pagination — shown only when > 10 borrowers -->
-          <div id="usersPagination" class="users-pagination" style="display:none;">
-            <button id="usersPrevBtn" class="users-page-btn" onclick="changeUsersPage(-1)" aria-label="Previous users page">&#8249; Prev</button>
-            <span id="usersPageLabel" class="users-page-label"></span>
-            <button id="usersNextBtn" class="users-page-btn" onclick="changeUsersPage(1)" aria-label="Next users page">Next &#8250;</button>
+      <!-- ── EQUIPMENT INVENTORY SECTION ──────────────────────────────── -->
+      <div class="equipment-section">
+        <div class="section-header">
+          <h2 class="section-title">Equipment Inventory</h2>
+          <p class="section-subtitle">View all available equipment</p>
+        </div>
+        <div id="stockList" class="equipment-grid">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+        <div id="stockPagination" class="pagination-bar" style="display:none;">
+          <button id="stockPrevBtn" class="pagination-btn" onclick="changeStockPage(-1)">← Previous</button>
+          <span id="stockPageLabel" class="pagination-info"></span>
+          <button id="stockNextBtn" class="pagination-btn" onclick="changeStockPage(1)">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── ACTIVE BORROWERS SECTION ──────────────────────────────────── -->
+      <div class="borrowers-section">
+        <div class="section-header">
+          <h2 class="section-title">Active Borrowers</h2>
+          <p class="section-subtitle">Track all student borrowing activity</p>
+        </div>
+
+        <div class="borrowers-controls">
+          <div class="search-bar">
+            <input type="text" id="borrowerSearch" placeholder="🔍 Search by name or ID..." aria-label="Search borrowers">
+          </div>
+          <div class="borrower-filter-strip" id="borrowerFilterStrip">
+            <button class="bfilter-btn active" data-filter="all" onclick="setBorrowerFilter('all',this)">All</button>
+            <button class="bfilter-btn" data-filter="Overdue" onclick="setBorrowerFilter('Overdue',this)">⚠️ Overdue</button>
+            <button class="bfilter-btn" data-filter="Borrowed" onclick="setBorrowerFilter('Borrowed',this)">📤 Out</button>
+            <button class="bfilter-btn" data-filter="Pending" onclick="setBorrowerFilter('Pending',this)">⏳ Pending</button>
           </div>
         </div>
+
+        <div id="usersContainer" class="borrowers-grid">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+
+        <div id="usersPagination" class="pagination-bar" style="display:none;">
+          <button id="usersPrevBtn" class="pagination-btn" onclick="changeUsersPage(-1)">← Previous</button>
+          <span id="usersPageLabel" class="pagination-info"></span>
+          <button id="usersNextBtn" class="pagination-btn" onclick="changeUsersPage(1)">Next →</button>
+        </div>
+      </div>
 
     </section>
 
