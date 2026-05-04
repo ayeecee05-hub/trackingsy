@@ -33,18 +33,22 @@
 
     <!-- Borrower Dashboard -->
     <section id="dashboardPage">
-      <h1>Borrower Dashboard</h1>
-      <h2>Select your name or scan your QR code to borrow equipment.</h2>
+      <div class="dashboard-header">
+        <div class="dashboard-title-block">
+          <h1>Borrower Dashboard</h1>
+          <h2>Select your name or scan QR code to borrow equipment</h2>
+        </div>
+      </div>
 
       <!-- ── Live Stats Bar ───────────────────────────────────────────── -->
       <div id="dashboardStatsBar" class="dashboard-stats-bar">
         <div class="dash-stat-cell">
           <span class="dash-stat-value" id="dashStatStudents">—</span>
-          <span class="dash-stat-label">Students</span>
+          <span class="dash-stat-label">Active Students</span>
         </div>
         <div class="dash-stat-cell dash-stat-blue">
           <span class="dash-stat-value" id="dashStatBorrowed">—</span>
-          <span class="dash-stat-label">Borrowed</span>
+          <span class="dash-stat-label">Currently Out</span>
         </div>
         <div class="dash-stat-cell dash-stat-red">
           <span class="dash-stat-value" id="dashStatOverdue">—</span>
@@ -79,17 +83,19 @@
       </section>
 
       <!-- ── Borrower List ────────────────────────────────────────────── -->
-      <div class="search-bar">
-        <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
-      </div>
+      <div class="search-and-filter-section">
+        <div class="search-bar">
+          <input type="text" id="borrowerSearch" placeholder="🔍  Search by name or ID…" aria-label="Search borrowers by name or student ID">
+        </div>
 
-      <!-- ── Filter Strip ──────────────────────────────────────── -->
-      <div class="borrower-filter-strip" id="borrowerFilterStrip">
-        <button class="bfilter-btn active" data-filter="all"     onclick="setBorrowerFilter('all',this)">All</button>
-        <button class="bfilter-btn" data-filter="Overdue"  onclick="setBorrowerFilter('Overdue',this)">Overdue</button>
-        <button class="bfilter-btn" data-filter="Borrowed" onclick="setBorrowerFilter('Borrowed',this)">Borrowed</button>
-        <button class="bfilter-btn" data-filter="Pending"  onclick="setBorrowerFilter('Pending',this)">Pending</button>
-        <button class="bfilter-btn" data-filter="az"       onclick="setBorrowerFilter('az',this)">A–Z</button>
+        <!-- ── Filter Strip ──────────────────────────────────────── -->
+        <div class="borrower-filter-strip" id="borrowerFilterStrip">
+          <button class="bfilter-btn active" data-filter="all"     onclick="setBorrowerFilter('all',this)">All</button>
+          <button class="bfilter-btn" data-filter="Overdue"  onclick="setBorrowerFilter('Overdue',this)">Overdue</button>
+          <button class="bfilter-btn" data-filter="Borrowed" onclick="setBorrowerFilter('Borrowed',this)">Borrowed</button>
+          <button class="bfilter-btn" data-filter="Pending"  onclick="setBorrowerFilter('Pending',this)">Pending</button>
+          <button class="bfilter-btn" data-filter="az"       onclick="setBorrowerFilter('az',this)">A–Z</button>
+        </div>
       </div>
 
       <!-- Cards grid — filled by JS -->
