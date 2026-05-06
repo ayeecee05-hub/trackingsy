@@ -13,20 +13,15 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbyBKu765NZSFkdlmW0-5d
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
-function getPHTDate() {
-  const now = new Date();
-  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
-  return new Date(now.getTime() + PHT_OFFSET_MS - (now.getTimezoneOffset() * 60 * 1000));
-}
+// Always derive the PHT date from Intl/toLocaleDateString so the result is
+// correct regardless of the device's own timezone (PH phone, UTC server, etc.)
 function getPHTDateString() {
-  const pht = getPHTDate();
-  const y = pht.getUTCFullYear();
-  const m = String(pht.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(pht.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  // en-CA locale gives "YYYY-MM-DD" format natively
 }
 function addDaysToPHTString(dateStr, days) {
   const [y, m, d] = dateStr.split("-").map(Number);
+  // Build as local date (no UTC shift) then add days via UTC to avoid DST jumps
   const date = new Date(Date.UTC(y, m - 1, d + days));
   return date.toISOString().split("T")[0];
 }
@@ -1014,7 +1009,10 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   }
 
   // Calculate days for display in confirm modal
-  const b = new Date(borrowDate), d = new Date(dueDate);
+  // Parse as local date (split "-") to avoid UTC midnight off-by-one
+  const [by, bm, bd] = borrowDate.split("-").map(Number);
+  const [dy, dm, dd] = dueDate.split("-").map(Number);
+  const b = new Date(by, bm - 1, bd), d = new Date(dy, dm - 1, dd);
   const days = Math.round((d - b) / 86400000);
 
   showConfirmModal("📋", "Submit Borrow Request",
