@@ -194,6 +194,14 @@ h2 { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bot
 
 #dashboardPage h1 { letter-spacing: -0.5px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 #dashboardPage h2 { text-transform: uppercase; font-weight: 600; letter-spacing: 0.35em; margin-top: 0; margin-bottom: 22px; }
+#dashboardPage h2.dashboard-subtitle {
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
 
 body:not(.dark) h1 { color: #0d1b2a; }
 body:not(.dark) h2 { color: #3a5068; }
