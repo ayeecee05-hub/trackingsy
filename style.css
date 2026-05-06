@@ -1879,7 +1879,9 @@ body:not(.dark) .qr-delete-btn {
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
-.history-pill.returned   { background: var(--tag-green-bg);  color: var(--tag-green-text);  border: 1px solid var(--tag-green-border); }
+.history-pill.returned        { background: var(--tag-green-bg);  color: var(--tag-green-text);  border: 1px solid var(--tag-green-border); }
+.history-pill.returned-late   { background: rgba(255,183,77,0.18); color: #b45309;                border: 1px solid rgba(245,158,11,0.45); }
+body.dark .history-pill.returned-late { background: rgba(255,183,77,0.13); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
 .history-pill.borrowed   { background: var(--tag-amber-bg);  color: var(--tag-amber-text);  border: 1px solid var(--tag-amber-border); }
 .history-pill.overdue    { background: var(--tag-red-bg);    color: var(--tag-red-text);    border: 1px solid var(--tag-red-border); }
 .history-pill.pending    { background: rgba(255,183,77,0.13); color: var(--warning);        border: 1px solid rgba(255,183,77,0.3); }
