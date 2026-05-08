@@ -164,6 +164,7 @@ const pageMeta = {
   pageTransactions: { title: "Transaction Log",    desc: "Full history of all borrow events" },
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
   pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
+  pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
   pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
 };
@@ -187,6 +188,7 @@ function switchPage(pageId) {
   if (pageId === "pageReturns")      loadReturnRequests();
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
+  if (pageId === "pageAccountability") loadAccountabilityTable();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
@@ -1598,6 +1600,150 @@ function renderAllCharts(transactions) {
 
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+// ── Student Accountability System ───────────────────────────────────────────
+function calculateStudentStatus(studentId) {
+  // Count violations: late returns + damaged items
+  const studentTxs = allTransactions.filter(tx => tx.studentId === studentId);
+  const lateCount = studentTxs.filter(tx => tx.isLate).length;
+  const damagedCount = studentTxs.filter(tx => tx.condition === "Damaged" || tx.condition === "Broken").length;
+  const violations = lateCount + damagedCount;
+
+  // Status badge logic
+  let status = "trusted";
+  if (violations >= 3) status = "suspended";
+  else if (violations >= 1) status = "caution";
+
+  return { status, violations, lateCount, damagedCount };
+}
+
+function getStatusBadge(status) {
+  const badges = {
+    "trusted": "🟢 Trusted",
+    "caution": "🟡 Caution",
+    "suspended": "🔴 Suspended"
+  };
+  return badges[status] || "—";
+}
+
+function openAccountabilityModal(studentId) {
+  const user = allUsers.find(u => u.id === studentId);
+  if (!user) { showNotification("Student not found.", "error"); return; }
+
+  const { status, violations, lateCount, damagedCount } = calculateStudentStatus(studentId);
+  const studentTxs = allTransactions.filter(tx => tx.studentId === studentId);
+  
+  let html = `
+    <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Student Name</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px;">${user.name}</div>
+      
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Status</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:16px;">${getStatusBadge(status)}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);">Total Violations</div>
+          <div style="font-size:18px;font-weight:700;color:${violations > 0 ? 'var(--danger)' : 'var(--success)'}">${violations}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);">Total Transactions</div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent)">${studentTxs.length}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);">Late Returns</div>
+          <div style="font-size:18px;font-weight:700;color:${lateCount > 0 ? 'var(--warning)' : 'var(--text2)'}">${lateCount}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);">Damaged Items</div>
+          <div style="font-size:18px;font-weight:700;color:${damagedCount > 0 ? 'var(--danger)' : 'var(--text2)'}">${damagedCount}</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" style="margin:12px 0;">
+    
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px;">Issue History</div>
+    <div style="max-height:200px;overflow-y:auto;">
+      <table class="data-table" style="font-size:12px;">
+        <thead><tr>
+          <th>Item</th><th>Issue Type</th><th>Date</th>
+        </tr></thead>
+        <tbody>`;
+  
+  studentTxs.filter(tx => tx.isLate || tx.condition === "Damaged" || tx.condition === "Broken").forEach(tx => {
+    const issueType = tx.isLate ? "🕐 Late Return" : (tx.condition === "Broken" ? "❌ Broken" : "⚠️ Damaged");
+    html += `<tr><td>${tx.item}</td><td>${issueType}</td><td>${tx.returnDate || tx.dueDate}</td></tr>`;
+  });
+  
+  if (studentTxs.filter(tx => tx.isLate || tx.condition === "Damaged" || tx.condition === "Broken").length === 0) {
+    html += `<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:20px;">No issues recorded</td></tr>`;
+  }
+  
+  html += `</tbody></table></div>`;
+  
+  document.getElementById("accountabilityContent").innerHTML = html;
+  document.getElementById("studentAccountabilityModal").classList.add("open");
+}
+
+function loadAccountabilityTable() {
+  const tbody = document.getElementById("accountabilityTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  // Calculate status for all users
+  const accountabilityData = allUsers.map(user => {
+    const { status, violations, lateCount, damagedCount } = calculateStudentStatus(user.id);
+    return { ...user, status, violations, lateCount, damagedCount };
+  }).filter(u => u.violations > 0).sort((a,b) => b.violations - a.violations);
+
+  if (accountabilityData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>All students in good standing!</td></tr>`;
+    return;
+  }
+
+  accountabilityData.forEach(user => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${user.id}</span></td>
+      <td>${user.name}</td>
+      <td>${getStatusBadge(user.status)}</td>
+      <td><strong style="color:var(--danger);">${user.violations}</strong></td>
+      <td>${user.lateCount}</td>
+      <td>${user.damagedCount}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="openAccountabilityModal('${user.id}')">📊 View</button>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function filterAccountabilityTable() {
+  const query = (document.getElementById("accountabilitySearch")?.value || "").toLowerCase();
+  const status = document.getElementById("accountabilityStatusFilter")?.value || "";
+  const tbody = document.getElementById("accountabilityTableBody");
+  if (!tbody) return;
+
+  const rows = tbody.querySelectorAll("tr");
+  rows.forEach(row => {
+    const idCell = row.querySelector("td:nth-child(1)")?.textContent.toLowerCase();
+    const nameCell = row.querySelector("td:nth-child(2)")?.textContent.toLowerCase();
+    const statusCell = row.querySelector("td:nth-child(3)")?.textContent.toLowerCase();
+    
+    const matchesQuery = !query || idCell.includes(query) || nameCell.includes(query);
+    const matchesStatus = !status || statusCell.includes(status);
+    
+    row.style.display = matchesQuery && matchesStatus ? "" : "none";
+  });
+}
+
+function resetAccountabilityFilter() {
+  const si = document.getElementById("accountabilitySearch");
+  const sf = document.getElementById("accountabilityStatusFilter");
+  if (si) si.value = "";
+  if (sf) sf.value = "";
+  loadAccountabilityTable();
 }
 
 function chartDefaults() {

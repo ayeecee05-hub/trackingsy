@@ -740,6 +740,9 @@
     <button class="nav-item" data-page="pageStudents" onclick="switchPage('pageStudents')">
       <span class="nav-icon">👥</span> Students
     </button>
+    <button class="nav-item" data-page="pageAccountability" onclick="switchPage('pageAccountability')">
+      <span class="nav-icon">⚠️</span> Accountability
+    </button>
 
     <div class="sidebar-spacer"></div>
     <div class="sidebar-footer">
@@ -1101,6 +1104,38 @@
         </div>
       </div>
 
+      <!-- ─── ACCOUNTABILITY ──────────────────────── -->
+      <div class="page" id="pageAccountability">
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">⚠️</span> Student Accountability</span>
+            <div class="panel-actions">
+              <button class="btn btn-ghost btn-sm" onclick="loadAccountabilityTable()">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" class="filter-input" id="accountabilitySearch" placeholder="🔍  Search students…" oninput="filterAccountabilityTable()">
+            <select class="filter-select" id="accountabilityStatusFilter" onchange="filterAccountabilityTable()">
+              <option value="">All Status</option>
+              <option value="trusted">🟢 Trusted</option>
+              <option value="caution">🟡 Caution</option>
+              <option value="suspended">🔴 Suspended</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetAccountabilityFilter()">Reset</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:520px;">
+              <table class="data-table" id="accountabilityTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Status</th><th>Violations</th><th>Late Returns</th><th>Damaged Items</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="accountabilityTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ─── ANALYTICS ────────────────────────────── -->
       <div class="page" id="pageAnalytics">
         <div class="analytics-kpi-row" id="analyticsKpiRow">
@@ -1199,7 +1234,6 @@
         <option value="Good">✅ Good - No issues</option>
         <option value="Damaged">⚠️ Damaged - Minor damage</option>
         <option value="Broken">❌ Broken - Cannot use</option>
-        <option value="Lost">🔴 Lost - Item not returned</option>
       </select>
     </div>
     <div class="modal-actions">
@@ -1228,7 +1262,22 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="editStudentSaveBtn" onclick="saveEditStudent()">Save Changes</button>
+      <button class="btn btn-warning btn-sm" onclick="openAccountabilityModal(document.getElementById('editStudentId').value)">📊 View Accountability</button>
       <button class="btn btn-ghost" onclick="closeEditStudentModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Accountability Modal -->
+<div class="modal-overlay" id="studentAccountabilityModal">
+  <div class="modal-box wide">
+    <span class="modal-icon">📊</span>
+    <div class="modal-title">Student Accountability</div>
+    <div id="accountabilityContent" class="modal-form" style="margin:12px 0;">
+      <!-- Will be populated by JS -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('studentAccountabilityModal').classList.remove('open')">Close</button>
     </div>
   </div>
 </div>
