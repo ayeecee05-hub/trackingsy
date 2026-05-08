@@ -1020,7 +1020,7 @@ function renderTransactions(transactions, resetPage = false) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No transactions found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions found.</td></tr>`;
     if (paginationEl) paginationEl.style.display = "none";
     if (countEl) countEl.textContent = "";
     return;
@@ -1042,7 +1042,8 @@ function renderTransactions(transactions, resetPage = false) {
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
-      <td>${statusPill(tx.status)}</td>`;
+      <td>${statusPill(tx.status)}</td>
+      <td>${tx.condition || "—"}</td>`;
     tbody.appendChild(row);
   });
 
