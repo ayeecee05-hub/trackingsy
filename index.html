@@ -157,7 +157,7 @@
       </div>
 
       <div id="summaryStats">
-        <div class="stat-card">
+        <div class="stat-card" onclick="showAccountabilityModal();" style="cursor:pointer;">
           <h3 id="statCurrent">0</h3>
           <p>Currently Out</p>
         </div>
@@ -344,6 +344,18 @@
       <div class="confirm-actions">
         <button id="pinSubmitBtn">Confirm</button>
         <button class="back" id="pinCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Accountability Modal -->
+  <div id="accountabilityModal" class="confirm-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="accountabilityTitle">
+    <div class="confirm-box">
+      <div class="confirm-icon" id="accountabilityIcon">🟢</div>
+      <h3 id="accountabilityTitle">Account Status</h3>
+      <div id="accountabilityContent" class="accountability-modal-content"></div>
+      <div class="confirm-actions">
+        <button class="back" onclick="document.getElementById('accountabilityModal').style.display='none'">Close</button>
       </div>
     </div>
   </div>

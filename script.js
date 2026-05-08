@@ -727,47 +727,14 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
-      // ── Accountability Status Alert ────────────────────────────────────────
-      // Calculate student accountability status based on late returns + damaged items
-      const studentId = currentUser.id;
-      const lateReturnCount = history.filter(tx => 
-        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
-      ).length;
-      const damagedCount = history.filter(tx => 
-        tx.condition === "Damaged" || tx.condition === "Broken"
-      ).length;
-      const totalViolations = lateReturnCount + damagedCount;
-
-      let accountabilityStatus = "trusted";
-      if (totalViolations >= 3) accountabilityStatus = "suspended";
-      else if (totalViolations >= 1) accountabilityStatus = "caution";
-
-      const accountabilityAlert = document.getElementById("accountabilityAlert");
-      if (accountabilityStatus !== "trusted") {
-        accountabilityAlert.style.display = "block";
-        const statusBadges = {
-          "caution": { icon: "🟡", title: "Account Caution", color: "#f5a623" },
-          "suspended": { icon: "🔴", title: "Account Suspended", color: "#f05454" }
-        };
-        const statusInfo = statusBadges[accountabilityStatus];
-        document.getElementById("accountabilityAlertIcon").textContent = statusInfo.icon;
-        document.getElementById("accountabilityAlertTitle").textContent = statusInfo.title;
-        document.getElementById("accountabilityAlertTitle").style.color = statusInfo.color;
-        
-        const detailsHtml = `
-          <div class="accountability-stat-row">
-            <span class="accountability-stat-item">Late Returns: <span class="accountability-stat-value">${lateReturnCount}</span></span>
-            <span class="accountability-stat-item">Damaged Items: <span class="accountability-stat-value">${damagedCount}</span></span>
-          </div>
-          <div class="accountability-stat-item" style="font-size: 11px; color: var(--text-muted);">
-            ${accountabilityStatus === "suspended" 
-              ? "⚠️ Your account is suspended due to multiple violations. Please contact the admin." 
-              : "⚠️ Please be more careful with borrowed items and return them on time."}
-          </div>`;
-        document.getElementById("accountabilityAlertDetails").innerHTML = detailsHtml;
-      } else {
-        accountabilityAlert.style.display = "none";
-      }
+      // ── Store accountability data for modal (don't display alert) ────────
+      window._studentAccountability = {
+        studentId,
+        lateReturnCount,
+        damagedCount,
+        totalViolations,
+        status: accountabilityStatus
+      };
 
       // ── Due-soon reminder banner ────────────────────────────────────────
       // Show a prominent yellow banner for items due within 2 days (but not overdue)
@@ -1242,6 +1209,60 @@ function showConfirmModal(icon, title, message, onConfirm) {
   document.getElementById("confirmNo").onclick = () => {
     document.getElementById("confirmModal").style.display = "none";
   };
+}
+
+// ── Student Accountability Modal ──────────────────────────────────────────────
+function showAccountabilityModal() {
+  const acct = window._studentAccountability || {};
+  if (!acct.studentId) {
+    showNotification("Accountability data not available.", "error");
+    return;
+  }
+
+  const { totalViolations, lateReturnCount, damagedCount, status } = acct;
+  
+  // Status icons and colors
+  const statusInfo = {
+    "trusted": { icon: "🟢", title: "Account Trusted", color: "#3cba79" },
+    "caution": { icon: "🟡", title: "Account Caution", color: "#f5a623" },
+    "suspended": { icon: "🔴", title: "Account Suspended", color: "#f05454" }
+  };
+  
+  const info = statusInfo[status] || statusInfo["trusted"];
+  
+  document.getElementById("accountabilityIcon").textContent = info.icon;
+  document.getElementById("accountabilityTitle").textContent = info.title;
+  document.getElementById("accountabilityTitle").style.color = info.color;
+  
+  let contentHtml = `
+    <div style="text-align:left;padding:12px 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:rgba(255,255,255,0.04);padding:10px;border-radius:8px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Late Returns</div>
+          <div style="font-size:18px;font-weight:700;color:${lateReturnCount > 0 ? '#f5a623' : '#3cba79'};">${lateReturnCount}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);padding:10px;border-radius:8px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Damaged Items</div>
+          <div style="font-size:18px;font-weight:700;color:${damagedCount > 0 ? '#f05454' : '#3cba79'};">${damagedCount}</div>
+        </div>
+      </div>
+      
+      <div style="background:rgba(255,255,255,0.04);padding:10px;border-radius:8px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Total Violations</div>
+        <div style="font-size:18px;font-weight:700;color:${totalViolations >= 3 ? '#f05454' : totalViolations > 0 ? '#f5a623' : '#3cba79'};">${totalViolations}</div>
+      </div>
+      
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.5;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+        ${status === "suspended" 
+          ? "🔴 <strong>Your account is suspended.</strong> Please contact the admin to resolve violations." 
+          : status === "caution"
+          ? "🟡 <strong>Please be careful.</strong> Late returns and damaged items can affect your borrowing privileges."
+          : "🟢 <strong>Good standing!</strong> Keep up the great work with borrowing items responsibly."}
+      </div>
+    </div>`;
+  
+  document.getElementById("accountabilityContent").innerHTML = contentHtml;
+  document.getElementById("accountabilityModal").style.display = "flex";
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
