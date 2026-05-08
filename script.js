@@ -727,6 +727,48 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
+      // ── Accountability Status Alert ────────────────────────────────────────
+      // Calculate student accountability status based on late returns + damaged items
+      const studentId = currentUser.id;
+      const lateReturnCount = history.filter(tx => 
+        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
+      ).length;
+      const damagedCount = history.filter(tx => 
+        tx.condition === "Damaged" || tx.condition === "Broken"
+      ).length;
+      const totalViolations = lateReturnCount + damagedCount;
+
+      let accountabilityStatus = "trusted";
+      if (totalViolations >= 3) accountabilityStatus = "suspended";
+      else if (totalViolations >= 1) accountabilityStatus = "caution";
+
+      const accountabilityAlert = document.getElementById("accountabilityAlert");
+      if (accountabilityStatus !== "trusted") {
+        accountabilityAlert.style.display = "block";
+        const statusBadges = {
+          "caution": { icon: "🟡", title: "Account Caution", color: "#f5a623" },
+          "suspended": { icon: "🔴", title: "Account Suspended", color: "#f05454" }
+        };
+        const statusInfo = statusBadges[accountabilityStatus];
+        document.getElementById("accountabilityAlertIcon").textContent = statusInfo.icon;
+        document.getElementById("accountabilityAlertTitle").textContent = statusInfo.title;
+        document.getElementById("accountabilityAlertTitle").style.color = statusInfo.color;
+        
+        const detailsHtml = `
+          <div class="accountability-stat-row">
+            <span class="accountability-stat-item">Late Returns: <span class="accountability-stat-value">${lateReturnCount}</span></span>
+            <span class="accountability-stat-item">Damaged Items: <span class="accountability-stat-value">${damagedCount}</span></span>
+          </div>
+          <div class="accountability-stat-item" style="font-size: 11px; color: var(--text-muted);">
+            ${accountabilityStatus === "suspended" 
+              ? "⚠️ Your account is suspended due to multiple violations. Please contact the admin." 
+              : "⚠️ Please be more careful with borrowed items and return them on time."}
+          </div>`;
+        document.getElementById("accountabilityAlertDetails").innerHTML = detailsHtml;
+      } else {
+        accountabilityAlert.style.display = "none";
+      }
+
       // ── Due-soon reminder banner ────────────────────────────────────────
       // Show a prominent yellow banner for items due within 2 days (but not overdue)
       const dueSoonBanner = document.getElementById("dueSoonBanner");
