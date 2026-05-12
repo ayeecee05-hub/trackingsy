@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyB9luieFgCbBJRsT4O2MzDGTLN0wbDa-eRQXWZcocYdLzk-erSqNhtZxsFIrCF871OTw/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxlbFwNxLvgjey4HM_-l-1gVEOp9tAA04R6D_cveO8Q2zfyRBIwPribGKastC_ZoFSh4A/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
@@ -1031,12 +1031,16 @@ function populateBorrowSelect() {
     .then(items => {
       const select    = document.getElementById("borrowItem");
       select.innerHTML = "";
-      // Normalize names: trim & collapse spaces; merge duplicates by name
+      // Items now use itemName (category) and itemId; count available per category
       const normalized = {};
-      items.forEach(it => {
-        const key = it.name.trim().replace(/\s+/g, " ");
+      (items || []).forEach(it => {
+        // Support both old format {name, quantity} and new format {itemName, itemId}
+        const key = (it.itemName || it.name || "").trim().replace(/\s+/g, " ");
+        if (!key) return;
         if (!normalized[key]) normalized[key] = 0;
-        normalized[key] += Number(it.quantity) || 0;
+        // New format: each record = 1 individual item (no quantity field)
+        // Old format: use quantity if present
+        normalized[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
       const available = Object.entries(normalized).filter(([, qty]) => qty > 0);
       if (available.length === 0) {
@@ -1318,9 +1322,11 @@ function loadStockPanel() {
       // Items are tracked individually by ItemID, so we count how many of each name exist
       const normalized = {};
       (items || []).forEach(it => {
-        const key = it.itemName.trim().replace(/\s+/g, " ");
+        const key = (it.itemName || it.name || "").trim().replace(/\s+/g, " ");
+        if (!key) return;
         if (!normalized[key]) normalized[key] = 0;
-        normalized[key] += 1;  // Count each item individually
+        // New format: each record = 1 unit. Old format: use quantity if present.
+        normalized[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
       allStockItems = Object.entries(normalized).map(([name, quantity]) => ({ name, quantity }));
       stockPage     = 1;

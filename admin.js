@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyB9luieFgCbBJRsT4O2MzDGTLN0wbDa-eRQXWZcocYdLzk-erSqNhtZxsFIrCF871OTw/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxlbFwNxLvgjey4HM_-l-1gVEOp9tAA04R6D_cveO8Q2zfyRBIwPribGKastC_ZoFSh4A/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
