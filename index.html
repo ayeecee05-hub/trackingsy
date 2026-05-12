@@ -13,6 +13,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="overrides.css">
+  <link rel="stylesheet" href="countdown-styles.css">
 </head>
 <body>
 
@@ -111,6 +112,22 @@
 
     <!-- User Dashboard -->
     <section id="userDashboardPage" style="display:none;">
+      <!-- ════════════════════════════════════════════════════════ -->
+      <!-- ✅ BIG ALERT BANNER — OVERDUE/LATE ITEMS                 -->
+      <!-- ════════════════════════════════════════════════════════ -->
+      <div id="bigOverdueAlert" class="big-overdue-alert" style="display:none;">
+        <div class="alert-banner-inner">
+          <div class="alert-icon">🚨</div>
+          <div class="alert-content">
+            <div class="alert-title">You have overdue items!</div>
+            <div class="alert-subtitle" id="overdueAlertSubtitle">
+              <span id="overdueItemCount">1</span> item due — return it now
+            </div>
+          </div>
+          <button class="alert-close" onclick="document.getElementById('bigOverdueAlert').style.display='none'">✕</button>
+        </div>
+      </div>
+
       <div class="profile-card">
         <div class="profile-avatar" id="profileAvatar"></div>
         <div class="profile-info">
@@ -132,6 +149,29 @@
             <span class="profile-stat-value profile-stat-overdue" id="profileOverdue">—</span>
             <span class="profile-stat-label">Overdue</span>
           </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════ -->
+      <!-- ✅ BORROWING LIMIT STATUS CARD                           -->
+      <!-- ════════════════════════════════════════════════════════ -->
+      <div class="borrowing-status-card">
+        <div class="status-col">
+          <span class="status-label">Can Borrow</span>
+          <span class="status-value" id="statusCanBorrow">3</span>
+          <span class="status-unit">more item(s)</span>
+        </div>
+        <div class="status-divider"></div>
+        <div class="status-col">
+          <span class="status-label">Currently Out</span>
+          <span class="status-value" id="statusCurrentOut">1</span>
+          <span class="status-unit">item(s)</span>
+        </div>
+        <div class="status-divider"></div>
+        <div class="status-col">
+          <span class="status-label">Account Status</span>
+          <span class="status-value" id="statusHealth" style="color:var(--success);">✅ Good</span>
+          <span class="status-unit"></span>
         </div>
       </div>
 
@@ -175,8 +215,12 @@
         </div>
       </div>
 
+      <!-- ════════════════════════════════════════════════════════ -->
+      <!-- ✅ CURRENTLY BORROWED ITEMS with QUICK RETURN BUTTONS    -->
+      <!-- ════════════════════════════════════════════════════════ -->
       <h2>Currently Borrowed Items</h2>
       <ul id="borrowedList"></ul>
+      <div id="quickReturnSection" style="display:none;"></div>
 
       <!-- Pending requests sub-section -->
       <div id="pendingSection" style="display:none;" class="pending-section-wrapper">

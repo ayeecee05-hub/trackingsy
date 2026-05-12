@@ -910,7 +910,144 @@ body:not(.dark) .profile-card { background: linear-gradient(135deg, #e3f2fd, #f8
 .profile-stat-overdue-active { color: var(--highlight) !important; }
 
 /* ════════════════════════════════════════════════════════════
-   PIN MODAL
+   BIG OVERDUE ALERT BANNER
+   ════════════════════════════════════════════════════════════ */
+.big-overdue-alert {
+  background: linear-gradient(135deg, rgba(255,107,107,0.15), rgba(255,152,0,0.1));
+  border: 2px solid var(--highlight);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  animation: slideDown 0.3s ease;
+}
+.alert-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+}
+.alert-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.alert-content {
+  flex: 1;
+}
+.alert-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--highlight);
+  margin-bottom: 4px;
+}
+.alert-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.alert-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s ease;
+}
+.alert-close:hover {
+  color: var(--text-primary);
+}
+@keyframes slideDown {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   BORROWING STATUS CARD (How many more can I borrow?)
+   ════════════════════════════════════════════════════════════ */
+.borrowing-status-card {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(135deg, var(--bg-accent), var(--bg-secondary));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+body:not(.dark) .borrowing-status-card {
+  background: linear-gradient(135deg, #f0f4f8, #f8fafc);
+}
+.status-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  text-align: center;
+  gap: 4px;
+}
+.status-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+.status-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent-primary);
+  line-height: 1;
+}
+.status-unit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.status-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+
+/* ════════════════════════════════════════════════════════════
+   QUICK RETURN BUTTON STYLING
+   ════════════════════════════════════════════════════════════ */
+.quick-return-btn {
+  background: linear-gradient(135deg, rgba(102,187,106,0.15), rgba(56,142,60,0.1));
+  border: 1px solid rgba(102,187,106,0.3);
+  color: var(--success);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.quick-return-btn:hover {
+  background: linear-gradient(135deg, rgba(102,187,106,0.25), rgba(56,142,60,0.15));
+  border-color: rgba(102,187,106,0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102,187,106,0.15);
+}
+.quick-return-btn:active {
+  transform: translateY(0);
+}
+
+.borrowed-item-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
    ════════════════════════════════════════════════════════════ */
 .pin-box { padding: 28px 24px 22px; }
 .pin-modal-name { font-size: 17px; margin-bottom: 6px; color: var(--accent-primary); }
@@ -2366,4 +2503,275 @@ body:not(.dark) .borrower-group-available { background: #e8f5e9; color: #2e7d32;
 
 .borrower-group-grid {
   margin-bottom: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS FOR NEW FEATURES
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Big overdue alert — ensure it's visible and properly sized */
+  .big-overdue-alert {
+    margin-bottom: 16px;
+    padding: 14px 12px;
+  }
+  .alert-banner-inner {
+    gap: 12px;
+  }
+  .alert-icon {
+    font-size: 28px;
+  }
+  .alert-title {
+    font-size: 14px;
+  }
+  .alert-subtitle {
+    font-size: 12px;
+  }
+
+  /* Borrowing status card — make columns wrap nicely on mobile */
+  .borrowing-status-card {
+    margin-bottom: 16px;
+  }
+  .status-col {
+    padding: 12px 10px;
+  }
+  .status-value {
+    font-size: 22px;
+  }
+  .status-label {
+    font-size: 10px;
+  }
+
+  /* Profile card adjustments */
+  .profile-card {
+    padding: 16px 12px 14px;
+    margin-bottom: 14px;
+  }
+  .profile-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+  .profile-name {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .profile-stats-row {
+    font-size: 12px;
+  }
+  .profile-stat {
+    padding: 10px 4px;
+  }
+  .profile-stat-value {
+    font-size: 18px;
+  }
+  .profile-stat-label {
+    font-size: 8.5px;
+  }
+
+  /* Borrowed item container — stack on mobile */
+  .borrowed-item-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Quick return button — full width on mobile */
+  .quick-return-btn {
+    width: 100%;
+    padding: 10px;
+  }
+
+  /* Summary stats — 2 columns on mobile */
+  #summaryStats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px;
+  }
+  .stat-card {
+    padding: 12px 10px;
+  }
+  .stat-card h3 {
+    font-size: 22px;
+  }
+  .stat-card p {
+    font-size: 11px;
+  }
+
+  /* Stock panel responsive */
+  .stock-panel {
+    margin-bottom: 14px;
+  }
+  .stock-panel-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Search and filter bar */
+  .search-bar {
+    margin-bottom: 12px;
+  }
+  .search-bar input {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  /* Filter buttons */
+  .borrower-filter-strip {
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+  .bfilter-btn {
+    font-size: 10px;
+    padding: 4px 9px;
+  }
+
+  /* Card grid */
+  .card-grid {
+    gap: 8px;
+  }
+
+  /* Theme toggle position */
+  .theme-toggle {
+    top: 12px;
+    right: 12px;
+  }
+  .theme-toggle button {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  /* Container padding */
+  .container {
+    padding: 12px 14px 24px;
+  }
+
+  /* Headings on mobile */
+  h1 {
+    font-size: 24px;
+  }
+  h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  /* UNI header responsive */
+  .uni-header {
+    padding: 16px 0 20px;
+  }
+  .uni-logo {
+    width: 52px;
+    height: 52px;
+  }
+  .uni-header h1 {
+    font-size: 22px;
+  }
+  .badge {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small devices */
+  .big-overdue-alert {
+    padding: 12px 10px;
+  }
+  .alert-icon {
+    font-size: 24px;
+  }
+  .alert-title {
+    font-size: 13px;
+  }
+  .alert-subtitle {
+    font-size: 11px;
+  }
+
+  /* Borrowing status card - single column layout on very small screens */
+  .borrowing-status-card {
+    flex-direction: column;
+  }
+  .status-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .status-col {
+    padding: 10px 8px;
+  }
+  .status-value {
+    font-size: 20px;
+  }
+
+  /* Actions buttons */
+  .actions {
+    gap: 8px;
+  }
+  .actions button {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  /* Form styling */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .field-note {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 380px) {
+  .container {
+    padding: 10px 12px 20px;
+  }
+  .uni-header {
+    padding: 12px 0 16px;
+  }
+  .uni-header h1 {
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  .uni-header p {
+    font-size: 12px;
+  }
+
+  .profile-card {
+    padding: 12px 10px;
+  }
+  .profile-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 18px;
+  }
+  .profile-name {
+    font-size: 15px;
+  }
+
+  /* Status card - even tighter on small devices */
+  .borrowing-status-card {
+    margin-bottom: 12px;
+  }
+  .status-col {
+    padding: 8px 6px;
+  }
+  .status-value {
+    font-size: 18px;
+  }
+  .status-label {
+    font-size: 9px;
+  }
+  .status-unit {
+    font-size: 11px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+  h2 {
+    font-size: 16px;
+  }
 }

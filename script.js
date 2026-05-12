@@ -727,6 +727,49 @@ function loadUserDashboard() {
         alertBox.style.display = "none";
       }
 
+      // ════════════════════════════════════════════════════════════════════
+      // ✅ BIG OVERDUE ALERT BANNER (new feature)
+      // ════════════════════════════════════════════════════════════════════
+      const bigOverdueAlert = document.getElementById("bigOverdueAlert");
+      if (overdue.length > 0 && bigOverdueAlert) {
+        document.getElementById("overdueItemCount").textContent = overdue.length;
+        bigOverdueAlert.style.display = "block";
+      } else if (bigOverdueAlert) {
+        bigOverdueAlert.style.display = "none";
+      }
+
+      // ════════════════════════════════════════════════════════════════════
+      // ✅ BORROWING STATUS CARD (new feature)
+      // Show how many more items can be borrowed
+      // ════════════════════════════════════════════════════════════════════
+      const MAX_BORROW_LIMIT = 5; // Maximum items a student can have at once
+      const currentlyOut = borrowed.length;
+      const canBorrow = Math.max(0, MAX_BORROW_LIMIT - currentlyOut);
+      
+      const statusCanBorrow = document.getElementById("statusCanBorrow");
+      const statusCurrentOut = document.getElementById("statusCurrentOut");
+      const statusHealth = document.getElementById("statusHealth");
+      
+      if (statusCanBorrow) statusCanBorrow.textContent = canBorrow;
+      if (statusCurrentOut) statusCurrentOut.textContent = currentlyOut;
+      
+      // Determine account health status
+      if (statusHealth) {
+        if (overdue.length > 0) {
+          statusHealth.textContent = "⚠️ Overdue";
+          statusHealth.style.color = "var(--highlight)";
+        } else if (accountabilityStatus === "suspended") {
+          statusHealth.textContent = "🔴 Suspended";
+          statusHealth.style.color = "var(--highlight)";
+        } else if (accountabilityStatus === "caution") {
+          statusHealth.textContent = "🟡 Caution";
+          statusHealth.style.color = "var(--warning)";
+        } else {
+          statusHealth.textContent = "✅ Good";
+          statusHealth.style.color = "var(--success)";
+        }
+      }
+
       // ── Accountability Status Alert ────────────────────────────────────────
       // Calculate student accountability status based on late returns + damaged items
       const studentId = currentUser.id;
@@ -884,9 +927,12 @@ function loadUserDashboard() {
               </div>
               <div class="flow-card-footer">
                 <div class="flow-stepper-compact">${steps}</div>
-                <div class="borrow-flow-status-bar">
-                  <span class="flow-status-label">${statusLabel}</span>
-                  <span class="borrow-flow-status-hint">${hintText}</span>
+                <div class="borrow-flow-status-bar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                  <div>
+                    <span class="flow-status-label">${statusLabel}</span>
+                    <span class="borrow-flow-status-hint">${hintText}</span>
+                  </div>
+                  ${(tx.status === "Borrowed" || tx.status === "Overdue") ? `<button class="quick-return-btn" onclick="showPage('returnPage')">↩ Quick Return</button>` : ""}
                 </div>
               </div>
             </div>`;

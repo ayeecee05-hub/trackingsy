@@ -72,6 +72,7 @@ let allUsers              = [];
 let allPending            = [];
 let allReturnRequests     = [];
 let selectedReturns       = new Set();
+let selectedPending       = new Set();
 let filteredTx            = [];
 let archiveFilteredTx     = [];
 
@@ -286,6 +287,9 @@ function updateKpiCards() {
   // Update nav badges
   updateNavBadge("navBadgePending", pending);
   updateNavBadge("navBadgeReturns", allReturnRequests.length);
+
+  // Update problem alerts
+  updateProblemAlerts();
 }
 
 function updateNavBadge(id, count) {
@@ -296,6 +300,63 @@ function updateNavBadge(id, count) {
     el.style.display = "inline-flex";
   } else {
     el.style.display = "none";
+  }
+}
+
+function updateProblemAlerts() {
+  const todayStr = getPHTDateString();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  // Find URGENT (overdue or due today) and WARNING (due within 2 days)
+  const urgent = [];   // Red — immediate action needed
+  const warning = [];  // Yellow — watch closely
+
+  allTransactions.forEach(tx => {
+    if (tx.status === "Overdue") {
+      const overdueCount = urgent.filter(i => i.includes(tx.item)).length;
+      if (overdueCount === 0) {
+        urgent.push(`${tx.item} (${tx.studentName || tx.studentId}) is overdue`);
+      }
+    } else if (tx.status === "Borrowed" && tx.dueDate) {
+      const daysDiff = Math.ceil((new Date(tx.dueDate.split("-")[0], tx.dueDate.split("-")[1] - 1, tx.dueDate.split("-")[2]) - today) / 86400000);
+      if (daysDiff <= 0) {
+        urgent.push(`${tx.item} from ${tx.studentName || tx.studentId} due today!`);
+      } else if (daysDiff <= 2) {
+        warning.push(`${tx.item} due in ${daysDiff} day${daysDiff !== 1 ? "s" : ""} (${tx.studentName || tx.studentId})`);
+      }
+    }
+  });
+
+  // Check for pending requests at risk
+  const pendingRisk = allPending.filter(p => p.dueDate && p.dueDate <= todayStr);
+  pendingRisk.forEach(p => {
+    urgent.push(`${p.item} request (${p.studentName || p.studentId}) due today`);
+  });
+
+  // Update UI
+  const urgentAlert = document.getElementById("urgentAlert");
+  const warningAlert = document.getElementById("warningAlert");
+  const alertSection = document.getElementById("criticalAlertsSection");
+
+  if (urgent.length > 0) {
+    const alertText = document.getElementById("urgentAlertText");
+    alertText.innerHTML = `${urgent.length} item${urgent.length !== 1 ? "s" : ""} need immediate attention: ${urgent.slice(0, 2).join(" · ")}${urgent.length > 2 ? "..." : ""}`;
+    urgentAlert.style.display = "block";
+  } else if (urgentAlert) {
+    urgentAlert.style.display = "none";
+  }
+
+  if (warning.length > 0) {
+    const alertText = document.getElementById("warningAlertText");
+    alertText.innerHTML = `${warning.length} item${warning.length !== 1 ? "s" : ""} due soon: ${warning.slice(0, 2).join(" · ")}${warning.length > 2 ? "..." : ""}`;
+    warningAlert.style.display = "block";
+  } else if (warningAlert) {
+    warningAlert.style.display = "none";
+  }
+
+  if (urgentAlert && warningAlert) {
+    alertSection.style.display = (urgent.length > 0 || warning.length > 0) ? "block" : "none";
   }
 }
 
@@ -690,7 +751,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
@@ -702,14 +763,25 @@ function renderPendingTable(requests) {
       const days = Math.round((new Date(+d[0], +d[1]-1, +d[2]) - new Date(+b[0], +b[1]-1, +b[2])) / 86400000);
       if (!isNaN(days) && days > 0) durationText = `${days} day${days !== 1 ? "s" : ""}`;
     }
+
+    // Calculate urgency: check if due date is today or tomorrow
+    const todayStr = getPHTDateString();
+    const urgencyClass = req.dueDate && req.dueDate <= todayStr ? "s-overdue" : 
+                         req.dueDate && req.dueDate === addDaysToPHTString(todayStr, 1) ? "s-pending" : "";
+    const urgencyLabel = req.dueDate && req.dueDate <= todayStr ? "🔴 URGENT" : 
+                         req.dueDate && req.dueDate === addDaysToPHTString(todayStr, 1) ? "🟡 WARNING" : "Normal";
+    const urgencyHtml = urgencyClass ? `<span class="status-pill ${urgencyClass}" style="font-weight:700;">${urgencyLabel}</span>` : `<span style="font-size:11px;color:var(--text3);">Normal</span>`;
+
     const row = document.createElement("tr");
     row.innerHTML = `
+      <td><input type="checkbox" class="pending-checkbox" data-index="${index}" onchange="updatePendingSelection()"></td>
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
+      <td>${urgencyHtml}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           <button class="btn btn-success btn-sm" onclick="confirmHandover(${index})">✅ Hand Over</button>
@@ -718,6 +790,63 @@ function renderPendingTable(requests) {
       </td>`;
     tbody.appendChild(row);
   });
+
+  selectedPending.clear();
+  document.getElementById("selectAllPending").checked = false;
+  document.getElementById("bulkApproveBtn").style.display = "none";
+}
+
+function updatePendingSelection() {
+  selectedPending.clear();
+  document.querySelectorAll(".pending-checkbox:checked").forEach(cb => {
+    selectedPending.add(parseInt(cb.dataset.index));
+  });
+  const bulkBtn = document.getElementById("bulkApproveBtn");
+  if (selectedPending.size > 0) {
+    bulkBtn.style.display = "inline-flex";
+    bulkBtn.textContent = `✅ Approve Selected (${selectedPending.size})`;
+  } else {
+    bulkBtn.style.display = "none";
+  }
+}
+
+function toggleSelectAllPending() {
+  const isChecked = document.getElementById("selectAllPending").checked;
+  document.querySelectorAll(".pending-checkbox").forEach(cb => {
+    cb.checked = isChecked;
+  });
+  updatePendingSelection();
+}
+
+function bulkApprovePending() {
+  if (selectedPending.size === 0) {
+    showNotification("No items selected.", "error");
+    return;
+  }
+
+  const itemsToApprove = Array.from(selectedPending).map(idx => allPending[idx]);
+  let approved = 0;
+  showNotification(`Processing ${itemsToApprove.length} hand-overs…`, "info");
+
+  Promise.all(itemsToApprove.map(req => {
+    return fetch(scriptURL, {
+      method: "POST",
+      body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
+    }).then(r => r.json()).then(data => { if (data.success) approved++; });
+  })).then(() => {
+    showNotification(`✅ ${approved}/${itemsToApprove.length} hand-overs completed.`, "success");
+    loadPendingRequests();
+    loadTransactions();
+    loadItemsTable();
+    renderActiveBorrowers();
+  }).catch(() => showNotification("Error during bulk hand-over.", "error"));
+}
+
+// Helper function to add days to PHT date string
+function addDaysToPHTString(dateStr, days) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().split("T")[0];
 }
 
 function confirmHandover(index) {
@@ -892,7 +1021,7 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
     if (data.success) {
       const conditionIcon = condition === "Good" ? "✅" : condition === "Damaged" ? "⚠️" : "❌";
       const lateText = isLate ? " [LATE]" : "";
-      showNotification(`${conditionIcon} "${req.item}" return confirmed${lateText}.`, "success");
+      showNotification(`${conditionIcon} "${req.item}" return confirmed (${condition})${lateText}.`, "success");
       loadReturnRequests();
       loadTransactions();
       loadItemsTable();
@@ -1001,6 +1130,7 @@ function loadTransactions() {
       archiveFilteredTx = archivedTransactions;
       renderTransactions(allTransactions);
       renderArchiveTransactions(archivedTransactions);
+      loadDamagedItems();
       updateKpiCards();
       renderDashboard();
     })
@@ -1045,7 +1175,7 @@ function renderTransactions(transactions, resetPage = false) {
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${tx.condition || "—"}</td>`;
+      <td>${tx.condition || "Good"}</td>`;
     tbody.appendChild(row);
   });
 
@@ -1096,7 +1226,7 @@ function renderArchiveTransactions(transactions) {
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${tx.condition || "—"}</td>`;
+      <td>${tx.condition || "Good"}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -1142,6 +1272,114 @@ function resetArchiveFilter() {
   if (si) si.value = "";
   if (sf) sf.value = "";
   renderArchiveTransactions(archivedTransactions);
+}
+
+// ── Damaged Items Report ─────────────────────────────────────────────────────
+let allDamagedItems = [];
+let filteredDamagedItems = [];
+
+function loadDamagedItems() {
+  // Get all transactions and filter for damaged items
+  const damaged = allTransactions.filter(tx => 
+    tx.condition && (tx.condition === "Damaged" || tx.condition === "Broken" || tx.condition === "Lost")
+  );
+  allDamagedItems = damaged;
+  filteredDamagedItems = damaged;
+  renderDamagedItemsTable(damaged);
+  
+  // Update count badge
+  const countBadge = document.getElementById("damagedItemsCount");
+  if (countBadge) {
+    if (damaged.length > 0) {
+      countBadge.textContent = `${damaged.length} damaged`;
+      countBadge.style.display = "inline-block";
+    } else {
+      countBadge.style.display = "none";
+    }
+  }
+}
+
+function renderDamagedItemsTable(items) {
+  const tbody = document.getElementById("damagedItemsBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  
+  if (!items || items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged items reported.</td></tr>`;
+    return;
+  }
+  
+  items.forEach(tx => {
+    const row = document.createElement("tr");
+    const conditionBadge = {
+      "Damaged": `<span class="status-pill s-pending" style="background:rgba(255,152,0,0.12);border-color:rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`,
+      "Broken": `<span class="status-pill s-overdue" style="background:rgba(248,81,73,0.12);border-color:rgba(248,81,73,0.25);color:#f85149;">❌ Broken</span>`,
+      "Lost": `<span class="status-pill s-overdue" style="background:rgba(248,81,73,0.12);border-color:rgba(248,81,73,0.25);color:#f85149;">🔴 Lost</span>`
+    }[tx.condition] || `<span class="status-pill">${tx.condition}</span>`;
+    
+    row.innerHTML = `
+      <td><span class="mono-chip">${tx.studentId}</span></td>
+      <td style="font-weight:600;">${tx.studentName || "—"}</td>
+      <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
+      <td><span class="date-chip">${tx.returnDate || tx.dueDate || "—"}</span></td>
+      <td>${conditionBadge}</td>
+      <td>${statusPill(tx.status)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="viewDamagedItemDetails('${tx.studentId}', '${tx.item.replace(/'/g, "\\'")}')">Details →</button></td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function filterDamagedItems() {
+  const search = (document.getElementById("damagedSearch").value || "").toLowerCase();
+  const damageType = document.getElementById("damageTypeFilter").value;
+  
+  let filtered = allDamagedItems;
+  
+  // Filter by damage type
+  if (damageType) {
+    filtered = filtered.filter(tx => tx.condition === damageType);
+  }
+  
+  // Filter by search term
+  if (search) {
+    filtered = filtered.filter(tx => 
+      (tx.studentId || "").toLowerCase().includes(search) ||
+      (tx.studentName || "").toLowerCase().includes(search) ||
+      (tx.item || "").toLowerCase().includes(search)
+    );
+  }
+  
+  filteredDamagedItems = filtered;
+  renderDamagedItemsTable(filtered);
+}
+
+function resetDamagedFilter() {
+  const searchEl = document.getElementById("damagedSearch");
+  const filterEl = document.getElementById("damageTypeFilter");
+  if (searchEl) searchEl.value = "";
+  if (filterEl) filterEl.value = "";
+  filteredDamagedItems = allDamagedItems;
+  renderDamagedItemsTable(allDamagedItems);
+}
+
+function viewDamagedItemDetails(studentId, itemName) {
+  const tx = allDamagedItems.find(t => t.studentId === studentId && t.item === itemName);
+  if (!tx) return;
+  
+  const detailsText = `
+Student: ${tx.studentName || tx.studentId}
+Item: ${tx.item}
+Borrowed: ${tx.borrowDate}
+Returned: ${tx.returnDate || "Not returned"}
+Status: ${tx.status}
+Condition: ${tx.condition}
+Notes: ${tx.notes || "No additional notes"}`;
+  
+  document.getElementById("confirmMessage").textContent = detailsText;
+  document.getElementById("confirmTitle").textContent = `Damaged Item Report`;
+  document.getElementById("confirmIcon").textContent = "🔴";
+  openModal("confirmModal");
 }
 
 function exportTransactionsCSV() {
