@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxQa_iK4rFY8T6SWCjmEWShXGmA-jCt_yJk23aRSiFpJGKqxgai-ivhOl1S86TG5pqjww/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyQ01a3dlH05YquVTavXf1wKI8_z3m7pBx1w3ca5QnHen4jJZTf2l_rrgnoRVXcq1YJ/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -1396,7 +1396,7 @@ function exportTransactionsCSV() {
 // ── Inventory ────────────────────────────────────────────────────────────────
 function loadItemsTable() {
   const tbody = document.getElementById("itemsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getItems")
     .then(r => r.json())
@@ -1404,47 +1404,47 @@ function loadItemsTable() {
       if (!tbody) return;
       tbody.innerHTML = "";
       if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No items yet — add one.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="table-empty">No items yet — add one.</td></tr>`;
         return;
       }
       items.forEach(it => {
-        const tagCls = it.quantity === 0 ? "s-overdue" : it.quantity <= 2 ? "s-pending" : "s-returned";
-        const tagLbl = it.quantity === 0 ? "Out of Stock" : it.quantity <= 2 ? "Low Stock" : "In Stock";
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td style="font-weight:600;">${it.name}</td>
-          <td>
-            <div class="qty-control">
-              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},-1)">−</button>
-              <span class="qty-val">${it.quantity}</span>
-              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},1)">+</button>
-            </div>
-          </td>
-          <td><span class="status-pill ${tagCls}">${tagLbl}</span></td>
-          <td>
-            <button class="btn btn-danger btn-sm" onclick="deleteItem('${it.name}',${it.quantity})">🗑</button>
+          <td style="font-weight:600;font-family:monospace;">${it.itemId}</td>
+          <td>${it.itemName}</td>
+          <td style="text-align:right;">
+            <button class="btn btn-danger btn-sm" onclick="deleteItemById('${it.itemId}')">🗑</button>
           </td>`;
         tbody.appendChild(row);
       });
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
     });
 }
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
-  const qty  = parseInt(document.getElementById("newItemQty").value);
-  if (!name)                { showNotification("Item name is required.", "error"); return; }
-  if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
+  const id   = document.getElementById("newItemId").value.trim();
+  
+  if (!name) { showNotification("Item name is required.", "error"); return; }
+  if (!id)   { showNotification("Item ID is required.", "error"); return; }
 
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty , adminToken: getAdminToken() }) })
+  fetch(scriptURL, { 
+    method: "POST", 
+    body: JSON.stringify({ 
+      action: "addItem", 
+      itemId: id, 
+      itemName: name,
+      adminToken: getAdminToken() 
+    }) 
+  })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`"${name}" added.`, "success");
+        showNotification(`"${name}" (${id}) added.`, "success");
         document.getElementById("newItemName").value = "";
-        document.getElementById("newItemQty").value  = "";
+        document.getElementById("newItemId").value  = "";
         loadItemsTable();
       } else {
         showNotification(data.message || "Failed to add item.", "error");
@@ -1453,37 +1453,22 @@ function addItem() {
     .catch(() => showNotification("Error adding item.", "error"));
 }
 
-function adjustQty(name, currentQty, delta) {
-  // Re-fetch live items first to avoid stale-closure overwrite (e.g. after
-  // a borrow confirmation already deducted stock in the Sheet).
-  fetch(scriptURL + "?action=getItems")
-    .then(r => r.json())
-    .then(items => {
-      const live = items.find(it => it.name.toLowerCase() === name.toLowerCase());
-      const liveQty = live ? Number(live.quantity) : currentQty;
-      const newQty  = liveQty + delta;
-      if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
-      return fetch(scriptURL, {
-        method: "POST",
-        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty , adminToken: getAdminToken() })
-      });
-    })
-    .then(r => r && r.json())
-    .then(data => {
-      if (!data) return;
-      if (data.success) loadItemsTable();
-      else showNotification(data.message || "Failed to update.", "error");
-    })
-    .catch(() => showNotification("Error updating quantity.", "error"));
-}
-
-function deleteItem(name, quantity) {
-  if (quantity > 0) { showNotification(`Set quantity to 0 first to delete "${name}".`, "error"); return; }
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name , adminToken: getAdminToken() }) })
+function deleteItemById(itemId) {
+  if (!confirm(`Delete item "${itemId}"? This cannot be undone.`)) return;
+  fetch(scriptURL, { 
+    method: "POST", 
+    body: JSON.stringify({ 
+      action: "deleteItem", 
+      itemId,
+      adminToken: getAdminToken() 
+    }) 
+  })
     .then(r => r.json())
     .then(data => {
-      if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
+      if (data.success) { 
+        showNotification(`"${itemId}" deleted.`, "success"); 
+        loadItemsTable(); 
+      }
       else showNotification(data.message || "Failed to delete.", "error");
     })
     .catch(() => showNotification("Error deleting item.", "error"));

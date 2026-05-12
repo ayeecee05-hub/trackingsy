@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxQa_iK4rFY8T6SWCjmEWShXGmA-jCt_yJk23aRSiFpJGKqxgai-ivhOl1S86TG5pqjww/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyQ01a3dlH05YquVTavXf1wKI8_z3m7pBx1w3ca5QnHen4jJZTf2l_rrgnoRVXcq1YJ/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
@@ -1314,12 +1314,13 @@ function loadStockPanel() {
   fetch(scriptURL + "?action=getItems")
     .then(res => res.json())
     .then(items => {
-      // Normalize: trim & collapse whitespace; merge any duplicate names
+      // Count items by name (itemName now)
+      // Items are tracked individually by ItemID, so we count how many of each name exist
       const normalized = {};
       (items || []).forEach(it => {
-        const key = it.name.trim().replace(/\s+/g, " ");
+        const key = it.itemName.trim().replace(/\s+/g, " ");
         if (!normalized[key]) normalized[key] = 0;
-        normalized[key] += Number(it.quantity) || 0;
+        normalized[key] += 1;  // Count each item individually
       });
       allStockItems = Object.entries(normalized).map(([name, quantity]) => ({ name, quantity }));
       stockPage     = 1;

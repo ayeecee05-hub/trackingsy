@@ -1042,8 +1042,8 @@
                 <input type="text" class="form-input" id="newItemName" placeholder="e.g. Projector">
               </div>
               <div class="form-group">
-                <label class="form-label">Quantity</label>
-                <input type="number" class="form-input" id="newItemQty" placeholder="0" min="0">
+                <label class="form-label">Item ID</label>
+                <input type="text" class="form-input" id="newItemId" placeholder="e.g. keyboard01">
               </div>
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addItem()">Add to Inventory</button>
             </div>
@@ -1057,7 +1057,7 @@
               <div class="table-wrap scrollable-table" style="max-height:400px;">
                 <table class="data-table" id="itemsTable">
                   <thead><tr>
-                    <th>Item</th><th>Qty</th><th>Status</th><th></th>
+                    <th>Item ID</th><th>Item Name</th><th></th>
                   </tr></thead>
                   <tbody id="itemsTableBody"></tbody>
                 </table>
