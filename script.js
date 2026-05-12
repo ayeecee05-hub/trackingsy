@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzfgcvB4ctSYarwTerNS3pmJK1ceREuCnwWDfn4sGx403Bxt-exj0JUoijHEyL5Rdr0bg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxQa_iK4rFY8T6SWCjmEWShXGmA-jCt_yJk23aRSiFpJGKqxgai-ivhOl1S86TG5pqjww/exec";
 
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
