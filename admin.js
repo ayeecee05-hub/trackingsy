@@ -199,7 +199,6 @@ function switchPage(pageId) {
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAccountability") loadAccountabilityTable();
-  if (pageId === "pageItems")        loadItemsTable();
   if (pageId === "pageDamagedItems")   loadDamagedItems();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
