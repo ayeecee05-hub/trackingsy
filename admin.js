@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbz-jkPHL4aXFEqzed1-XSwvbfXAlaxbb_2gYVH6GNH_rrk-hF869gdu6sBDZCm5mFeJQg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycby1Tgu1DWK4vYSrR20S59nYlEM7jCNxcjVW_6lvlpjMaQLxj8w3Kzwr4nwDzSqJ72Yf/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -167,8 +167,7 @@ const pageMeta = {
   pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
   pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
-  pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" },
-  pageDamaged:      { title: "Damaged Items",       desc: "Items returned in damaged or broken condition" }
+  pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
 };
 
 function switchPage(pageId) {
@@ -193,7 +192,6 @@ function switchPage(pageId) {
   if (pageId === "pageAccountability") loadAccountabilityTable();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
-  if (pageId === "pageDamaged")      loadDamagedItems();
   if (pageId === "pageStudents")     loadStudentsPage();
 
   // Close sidebar on mobile
@@ -263,23 +261,15 @@ function updateKpiCards() {
   const overdue  = allTransactions.filter(tx => tx.status === "Overdue").length;
   const borrowed = allTransactions.filter(tx => tx.status === "Borrowed").length;
   const pending  = allPending.length;
-  const damaged  = allHistoryTransactions.filter(tx =>
-    tx.condition && (tx.condition === "Damaged" || tx.condition === "Broken")
-  ).length;
 
   const kpiStudents = document.getElementById("kpiStudents");
   const kpiPending  = document.getElementById("kpiPending");
   const kpiBorrowed = document.getElementById("kpiBorrowed");
   const kpiOverdue  = document.getElementById("kpiOverdue");
-  const kpiDamaged  = document.getElementById("kpiDamaged");
 
   if (kpiPending)  kpiPending.textContent  = pending;
   if (kpiBorrowed) kpiBorrowed.textContent = borrowed;
   if (kpiOverdue)  kpiOverdue.textContent  = overdue;
-  if (kpiDamaged)  kpiDamaged.textContent  = damaged;
-
-  // Update nav badge for damaged
-  updateNavBadge("navBadgeDamaged", damaged);
 
   // Students count requires separate fetch or uses loaded allUsers
   if (allUsers.length > 0 && kpiStudents) {
@@ -1284,217 +1274,93 @@ function resetArchiveFilter() {
   renderArchiveTransactions(archivedTransactions);
 }
 
-// ── Damaged Items Report ─────────────────────────────────────────────────────
+// ── Damaged Items ─────────────────────────────────────────────────────────────
 let allDamagedItems = [];
 let filteredDamagedItems = [];
 
 function loadDamagedItems() {
-  // Pull from ALL history (active + archived) so nothing is missed
+  // Pull from the full history (active + archived) so nothing is missed
   const source = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
   const damaged = source.filter(tx =>
-    tx.condition && (tx.condition === "Damaged" || tx.condition === "Broken")
+    tx.condition === "Damaged" || tx.condition === "Broken"
   );
   allDamagedItems = damaged;
   filteredDamagedItems = damaged;
-
-  // Render the panel inside Transactions page (existing)
   renderDamagedItemsTable(damaged);
 
-  // Render the standalone page table too
-  renderDamagedPageTable(damaged);
-
-  // Update count badge (Transactions page panel)
-  const countBadge = document.getElementById("damagedItemsCount");
-  if (countBadge) {
-    if (damaged.length > 0) {
-      countBadge.textContent = `${damaged.length} damaged`;
-      countBadge.style.display = "inline-block";
-    } else {
-      countBadge.style.display = "none";
-    }
+  const badge = document.getElementById("damagedItemsCount");
+  if (badge) {
+    badge.textContent   = `${damaged.length} item${damaged.length !== 1 ? "s" : ""}`;
+    badge.style.display = damaged.length > 0 ? "inline-block" : "none";
   }
-
-  // Update standalone page badge
-  const pageCount = document.getElementById("damagedPageCount");
-  if (pageCount) {
-    if (damaged.length > 0) {
-      pageCount.textContent = `${damaged.length} item${damaged.length !== 1 ? "s" : ""}`;
-      pageCount.style.display = "inline-block";
-    } else {
-      pageCount.style.display = "none";
-    }
-  }
-
-  // Update standalone page KPIs
-  const kpiTotal   = document.getElementById("damagedKpiTotal");
-  const kpiDmg     = document.getElementById("damagedKpiDamaged");
-  const kpiBroken  = document.getElementById("damagedKpiBroken");
-  if (kpiTotal)  kpiTotal.textContent  = damaged.length;
-  if (kpiDmg)    kpiDmg.textContent    = damaged.filter(tx => tx.condition === "Damaged").length;
-  if (kpiBroken) kpiBroken.textContent = damaged.filter(tx => tx.condition === "Broken").length;
-
-  // Nav badge
-  updateNavBadge("navBadgeDamaged", damaged.length);
 }
-
-function renderDamagedPageTable(items) {
-  const tbody = document.getElementById("damagedPageBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
-    return;
-  }
-
-  items.forEach(tx => {
-    const row = document.createElement("tr");
-    const conditionBadge = {
-      "Damaged": `<span class="status-pill s-pending" style="background:rgba(255,152,0,0.12);border-color:rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`,
-      "Broken":  `<span class="status-pill s-overdue">❌ Broken</span>`
-    }[tx.condition] || `<span class="status-pill">${tx.condition}</span>`;
-
-    const isArchived = isArchivedTransaction(tx);
-    const sourceBadge = isArchived
-      ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(163,113,247,0.12);color:var(--purple);border:1px solid rgba(163,113,247,0.25);">Archived</span>`
-      : `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(79,195,247,0.12);color:var(--accent);border:1px solid rgba(79,195,247,0.25);">Active</span>`;
-
-    row.innerHTML = `
-      <td><span class="mono-chip">${tx.studentId}</span></td>
-      <td style="font-weight:600;">${tx.studentName || "—"}</td>
-      <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
-      <td><span class="date-chip">${tx.returnDate || tx.dueDate || "—"}</span></td>
-      <td>${conditionBadge}</td>
-      <td>${statusPill(tx.status)}</td>
-      <td>${sourceBadge}</td>`;
-    tbody.appendChild(row);
-  });
-}
-
-function filterDamagedItemsPage() {
-  const search    = (document.getElementById("damagedPageSearch")?.value || "").toLowerCase();
-  const damageType = document.getElementById("damagedPageTypeFilter")?.value || "";
-  let filtered = allDamagedItems;
-  if (damageType) filtered = filtered.filter(tx => tx.condition === damageType);
-  if (search) {
-    filtered = filtered.filter(tx =>
-      (tx.studentId || "").toLowerCase().includes(search) ||
-      (tx.studentName || "").toLowerCase().includes(search) ||
-      (tx.item || "").toLowerCase().includes(search)
-    );
-  }
-  renderDamagedPageTable(filtered);
-}
-
-function resetDamagedPageFilter() {
-  const si = document.getElementById("damagedPageSearch");
-  const sf = document.getElementById("damagedPageTypeFilter");
-  if (si) si.value = "";
-  if (sf) sf.value = "";
-  renderDamagedPageTable(allDamagedItems);
-}
-
-function exportDamagedCSV() {
-  if (!allDamagedItems.length) { showNotification("No damaged items to export.", "error"); return; }
-  const headers = ["Student ID","Name","Item","Borrow Date","Return Date","Damage Type","Status"];
-  const rows = allDamagedItems.map(tx => [
-    tx.studentId, tx.studentName || "", tx.item,
-    tx.borrowDate || "", tx.returnDate || "",
-    tx.condition, tx.status
-  ]);
-  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = `damaged-items-${getPHTDateString()}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  showNotification("CSV exported.", "success");
-}
-
-
 
 function renderDamagedItemsTable(items) {
   const tbody = document.getElementById("damagedItemsBody");
   if (!tbody) return;
   tbody.innerHTML = "";
-  
+
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged items reported.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
     return;
   }
-  
+
   items.forEach(tx => {
+    const condBadge = tx.condition === "Damaged"
+      ? `<span class="status-pill" style="background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`
+      : `<span class="status-pill s-overdue">❌ Broken</span>`;
+
     const row = document.createElement("tr");
-    const conditionBadge = {
-      "Damaged": `<span class="status-pill s-pending" style="background:rgba(255,152,0,0.12);border-color:rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`,
-      "Broken": `<span class="status-pill s-overdue" style="background:rgba(248,81,73,0.12);border-color:rgba(248,81,73,0.25);color:#f85149;">❌ Broken</span>`,
-      "Lost": `<span class="status-pill s-overdue" style="background:rgba(248,81,73,0.12);border-color:rgba(248,81,73,0.25);color:#f85149;">🔴 Lost</span>`
-    }[tx.condition] || `<span class="status-pill">${tx.condition}</span>`;
-    
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td style="font-weight:600;">${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
-      <td><span class="date-chip">${tx.returnDate || tx.dueDate || "—"}</span></td>
-      <td>${conditionBadge}</td>
-      <td>${statusPill(tx.status)}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="viewDamagedItemDetails('${tx.studentId}', '${tx.item.replace(/'/g, "\\'")}')">Details →</button></td>`;
+      <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
+      <td>${condBadge}</td>
+      <td>${statusPill(tx.status)}</td>`;
     tbody.appendChild(row);
   });
 }
 
 function filterDamagedItems() {
-  const search = (document.getElementById("damagedSearch").value || "").toLowerCase();
-  const damageType = document.getElementById("damageTypeFilter").value;
-  
-  let filtered = allDamagedItems;
-  
-  // Filter by damage type
-  if (damageType) {
-    filtered = filtered.filter(tx => tx.condition === damageType);
-  }
-  
-  // Filter by search term
-  if (search) {
-    filtered = filtered.filter(tx => 
-      (tx.studentId || "").toLowerCase().includes(search) ||
-      (tx.studentName || "").toLowerCase().includes(search) ||
-      (tx.item || "").toLowerCase().includes(search)
-    );
-  }
-  
+  const q    = (document.getElementById("damagedSearch")?.value || "").toLowerCase();
+  const type = document.getElementById("damageTypeFilter")?.value || "";
+  const filtered = allDamagedItems.filter(tx =>
+    (!type || tx.condition === type) &&
+    (!q || (tx.studentId||"").toLowerCase().includes(q) ||
+           (tx.studentName||"").toLowerCase().includes(q) ||
+           (tx.item||"").toLowerCase().includes(q))
+  );
   filteredDamagedItems = filtered;
   renderDamagedItemsTable(filtered);
 }
 
 function resetDamagedFilter() {
-  const searchEl = document.getElementById("damagedSearch");
-  const filterEl = document.getElementById("damageTypeFilter");
-  if (searchEl) searchEl.value = "";
-  if (filterEl) filterEl.value = "";
-  filteredDamagedItems = allDamagedItems;
+  const si = document.getElementById("damagedSearch");
+  const sf = document.getElementById("damageTypeFilter");
+  if (si) si.value = "";
+  if (sf) sf.value = "";
   renderDamagedItemsTable(allDamagedItems);
 }
 
-function viewDamagedItemDetails(studentId, itemName) {
-  const tx = allDamagedItems.find(t => t.studentId === studentId && t.item === itemName);
-  if (!tx) return;
-  
-  const detailsText = `
-Student: ${tx.studentName || tx.studentId}
-Item: ${tx.item}
-Borrowed: ${tx.borrowDate}
-Returned: ${tx.returnDate || "Not returned"}
-Status: ${tx.status}
-Condition: ${tx.condition}
-Notes: ${tx.notes || "No additional notes"}`;
-  
-  document.getElementById("confirmMessage").textContent = detailsText;
-  document.getElementById("confirmTitle").textContent = `Damaged Item Report`;
-  document.getElementById("confirmIcon").textContent = "🔴";
-  openModal("confirmModal");
+function exportDamagedCSV() {
+  if (!allDamagedItems.length) { showNotification("No damaged items to export.", "error"); return; }
+  const headers = ["Student ID","Name","Item","Borrow Date","Return Date","Condition","Status"];
+  const rows = allDamagedItems.map(tx => [
+    tx.studentId, tx.studentName||"", tx.item,
+    tx.borrowDate||"", tx.returnDate||"", tx.condition, tx.status
+  ]);
+  const csv = [headers, ...rows]
+    .map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(","))
+    .join("\n");
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
+    download: `damaged-items-${getPHTDateString()}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showNotification("CSV exported.", "success");
 }
 
 function exportTransactionsCSV() {

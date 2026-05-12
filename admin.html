@@ -744,10 +744,6 @@
     <button class="nav-item" data-page="pageAccountability" onclick="switchPage('pageAccountability')">
       <span class="nav-icon">⚠️</span> Accountability
     </button>
-    <button class="nav-item" data-page="pageDamaged" onclick="switchPage('pageDamaged')">
-      <span class="nav-icon">🔴</span> Damaged Items
-      <span class="nav-badge pulse-badge" id="navBadgeDamaged" style="background:var(--danger);color:#fff;"></span>
-    </button>
 
     <div class="sidebar-spacer"></div>
     <div class="sidebar-footer">
@@ -795,7 +791,7 @@
           </div>
         </div>
 
-        <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);">
+        <div class="kpi-row">
           <div class="kpi-card">
             <div class="kpi-label">Registered Students</div>
             <div class="kpi-value kpi-accent" id="kpiStudents">—</div>
@@ -815,11 +811,6 @@
             <div class="kpi-label">Overdue</div>
             <div class="kpi-value kpi-danger" id="kpiOverdue">—</div>
             <div class="kpi-sub">Past expected return date</div>
-          </div>
-          <div class="kpi-card" style="cursor:pointer;" onclick="switchPage('pageDamaged')">
-            <div class="kpi-label">Damaged / Broken</div>
-            <div class="kpi-value kpi-danger" id="kpiDamaged">—</div>
-            <div class="kpi-sub">Items returned in bad condition</div>
           </div>
         </div>
 
@@ -1005,27 +996,27 @@
         <!-- Damaged Items -->
         <div class="panel one-col" style="margin-top:20px;">
           <div class="panel-header">
-            <span class="panel-title"><span class="panel-title-icon">🔴</span> Damaged Items Report</span>
+            <span class="panel-title"><span class="panel-title-icon">🔴</span> Damaged Items</span>
             <div style="display:flex;align-items:center;gap:8px;">
               <span id="damagedItemsCount" class="ab-count-badge" style="display:none;background:rgba(248,81,73,0.15);color:var(--danger);border:1px solid rgba(248,81,73,0.3);"></span>
+              <button class="btn btn-ghost btn-sm" onclick="exportDamagedCSV()">⬇ Export CSV</button>
               <button class="btn btn-ghost btn-sm" onclick="loadDamagedItems()">↻ Refresh</button>
             </div>
           </div>
           <div class="filter-bar">
-            <input type="text" class="filter-input" id="damagedSearch" placeholder="🔍  Search damaged items…" oninput="filterDamagedItems()">
+            <input type="text" class="filter-input" id="damagedSearch" placeholder="🔍  Search by student or item…" oninput="filterDamagedItems()">
             <select class="filter-select" id="damageTypeFilter" onchange="filterDamagedItems()">
-              <option value="">All Damage Types</option>
-              <option value="Damaged">Damaged</option>
-              <option value="Broken">Broken</option>
-              <option value="Lost">Lost</option>
+              <option value="">All Types</option>
+              <option value="Damaged">⚠️ Damaged</option>
+              <option value="Broken">❌ Broken</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="resetDamagedFilter()">Reset</button>
           </div>
           <div class="panel-body-flush">
-            <div class="table-wrap" style="overflow-x:auto;">
+            <div class="table-wrap scrollable-table" style="max-height:420px;">
               <table class="data-table" id="damagedItemsTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Return Date</th><th>Damage Type</th><th>Status</th><th>Action</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th>
                 </tr></thead>
                 <tbody id="damagedItemsBody"></tbody>
               </table>
@@ -1192,63 +1183,6 @@
                   <th>Student ID</th><th>Name</th><th>Status</th><th>Violations</th><th>Late Returns</th><th>Damaged Items</th><th>Actions</th>
                 </tr></thead>
                 <tbody id="accountabilityTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ─── DAMAGED ITEMS ──────────────────────────── -->
-      <div class="page" id="pageDamaged">
-        <div class="alert-banner" style="margin-bottom:16px;background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);color:#f85149;">
-          <span style="font-size:18px;">🔴</span>
-          <span>Items returned in <strong>Damaged</strong> or <strong>Broken</strong> condition are tracked here. These are pulled from all transactions (active &amp; archived).</span>
-        </div>
-
-        <!-- Summary KPI row -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;" id="damagedKpiRow">
-          <div class="kpi-card">
-            <div class="kpi-label">Total Damaged</div>
-            <div class="kpi-value kpi-warning" id="damagedKpiTotal">—</div>
-            <div class="kpi-sub">All condition-flagged returns</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Damaged</div>
-            <div class="kpi-value" style="color:#ffb74d;" id="damagedKpiDamaged">—</div>
-            <div class="kpi-sub">Minor damage reported</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Broken</div>
-            <div class="kpi-value kpi-danger" id="damagedKpiBroken">—</div>
-            <div class="kpi-sub">Cannot be used</div>
-          </div>
-        </div>
-
-        <div class="panel one-col">
-          <div class="panel-header">
-            <span class="panel-title"><span class="panel-title-icon">🔴</span> Damaged Items Report</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span id="damagedPageCount" class="ab-count-badge" style="display:none;background:rgba(248,81,73,0.15);color:var(--danger);border:1px solid rgba(248,81,73,0.3);"></span>
-              <button class="btn btn-ghost btn-sm" onclick="exportDamagedCSV()">⬇ Export CSV</button>
-              <button class="btn btn-ghost btn-sm" onclick="loadDamagedItems()">↻ Refresh</button>
-            </div>
-          </div>
-          <div class="filter-bar">
-            <input type="text" class="filter-input" id="damagedPageSearch" placeholder="🔍  Search by student, ID or item…" oninput="filterDamagedItemsPage()">
-            <select class="filter-select" id="damagedPageTypeFilter" onchange="filterDamagedItemsPage()">
-              <option value="">All Damage Types</option>
-              <option value="Damaged">⚠️ Damaged</option>
-              <option value="Broken">❌ Broken</option>
-            </select>
-            <button class="btn btn-ghost btn-sm" onclick="resetDamagedPageFilter()">Reset</button>
-          </div>
-          <div class="panel-body-flush">
-            <div class="table-wrap" style="overflow-x:auto;">
-              <table class="data-table" id="damagedPageTable">
-                <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Return Date</th><th>Damage Type</th><th>Transaction Status</th><th>Source</th>
-                </tr></thead>
-                <tbody id="damagedPageBody"></tbody>
               </table>
             </div>
           </div>
