@@ -1395,32 +1395,99 @@ function exportTransactionsCSV() {
 
 // ── Inventory ────────────────────────────────────────────────────────────────
 function loadItemsTable() {
-  const tbody = document.getElementById("itemsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty">Loading…</td></tr>`;
+  const container = document.getElementById("itemsContainer");
+  if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
 
   fetch(scriptURL + "?action=getItems")
     .then(r => r.json())
     .then(items => {
-      if (!tbody) return;
-      tbody.innerHTML = "";
+      if (!container) return;
+      container.innerHTML = "";
+      
       if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="table-empty">No items yet — add one.</td></tr>`;
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one.</div>`;
         return;
       }
+
+      // Group items by itemName (category)
+      const grouped = {};
       items.forEach(it => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td style="font-weight:600;font-family:monospace;">${it.itemId}</td>
-          <td>${it.itemName}</td>
-          <td style="text-align:right;">
-            <button class="btn btn-danger btn-sm" onclick="deleteItemById('${it.itemId}')">🗑</button>
-          </td>`;
-        tbody.appendChild(row);
+        const key = normalizeName(it.itemName);
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(it);
+      });
+
+      // Create a card for each category
+      Object.entries(grouped).forEach(([categoryName, categoryItems]) => {
+        const categoryId = `cat-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
+        
+        // Category card header
+        const cardDiv = document.createElement("div");
+        cardDiv.className = "item-category-card";
+        cardDiv.id = categoryId;
+        cardDiv.onclick = () => toggleCategoryExpand(categoryId);
+        
+        cardDiv.innerHTML = `
+          <div class="item-category-info">
+            <div class="item-category-icon">📦</div>
+            <div class="item-category-text">
+              <div class="item-category-name">${categoryName}</div>
+              <div class="item-category-count">${categoryItems.length} item${categoryItems.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          <div class="item-category-toggle">▼</div>
+        `;
+        
+        // Items container (initially hidden)
+        const itemsDiv = document.createElement("div");
+        itemsDiv.className = "item-category-items";
+        itemsDiv.id = `${categoryId}-items`;
+        
+        categoryItems.forEach(item => {
+          const itemDetail = document.createElement("div");
+          itemDetail.className = "item-detail";
+          itemDetail.innerHTML = `
+            <div style="display:flex;align-items:center;flex:1;">
+              <div class="item-detail-id">${item.itemId}</div>
+              <div class="item-detail-name">${item.itemName}</div>
+            </div>
+            <div class="item-detail-delete" onclick="deleteItemById('${item.itemId}', event)">🗑</div>
+          `;
+          itemsDiv.appendChild(itemDetail);
+        });
+        
+        container.appendChild(cardDiv);
+        container.appendChild(itemsDiv);
       });
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
+      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">Error loading items.</div>`;
     });
+}
+
+function toggleCategoryExpand(categoryId) {
+  const card = document.getElementById(categoryId);
+  const itemsContainer = document.getElementById(`${categoryId}-items`);
+  
+  if (!card || !itemsContainer) return;
+  
+  const isExpanded = card.classList.contains("expanded");
+  
+  if (isExpanded) {
+    card.classList.remove("expanded");
+    itemsContainer.classList.remove("visible");
+  } else {
+    card.classList.add("expanded");
+    itemsContainer.classList.add("visible");
+  }
+}
+
+function normalizeItemName(str) {
+  return String(str || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeName(str) {
+  return String(str || "").trim().replace(/\s+/g, " ");
 }
 
 function addItem() {
@@ -1453,7 +1520,11 @@ function addItem() {
     .catch(() => showNotification("Error adding item.", "error"));
 }
 
-function deleteItemById(itemId) {
+function deleteItemById(itemId, event) {
+  if (event) {
+    event.stopPropagation();  // Prevent category toggle on delete click
+  }
+  
   if (!confirm(`Delete item "${itemId}"? This cannot be undone.`)) return;
   fetch(scriptURL, { 
     method: "POST", 

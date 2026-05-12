@@ -458,6 +458,62 @@
     .qty-val { font-weight: 700; min-width: 22px; text-align: center; font-size: 13px; }
 
     /* ═══════════════════════════════════════════════
+       ITEM CATEGORY CARDS
+    ═══════════════════════════════════════════════ */
+    .item-category-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 14px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); cursor: pointer; transition: all 0.2s;
+      user-select: none;
+    }
+    .item-category-card:hover {
+      background: rgba(79,195,247,0.08); border-color: var(--accent);
+    }
+    .item-category-card.expanded {
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+    }
+    .item-category-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .item-category-icon { font-size: 18px; }
+    .item-category-text { display: flex; flex-direction: column; gap: 2px; }
+    .item-category-name { font-weight: 600; color: var(--text); font-size: 14px; }
+    .item-category-count { font-size: 11px; color: var(--text3); }
+    .item-category-toggle {
+      font-size: 18px; color: var(--accent); flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .item-category-card.expanded .item-category-toggle {
+      transform: rotate(180deg);
+    }
+    
+    .item-category-items {
+      display: none; background: rgba(79,195,247,0.04); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+      padding: 12px 14px; flex-direction: column; gap: 8px;
+    }
+    .item-category-items.visible { display: flex; }
+    
+    .item-detail {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--surface); border-radius: 6px;
+      border: 1px solid var(--border); font-size: 13px;
+    }
+    .item-detail-id {
+      font-family: 'JetBrains Mono', monospace; font-weight: 600;
+      color: var(--accent); flex: 1;
+    }
+    .item-detail-name { color: var(--text2); font-size: 12px; margin-left: 8px; }
+    .item-detail-delete {
+      width: 28px; height: 28px; display: flex; align-items: center;
+      justify-content: center; background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3); border-radius: 6px;
+      color: var(--danger); cursor: pointer; font-size: 14px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .item-detail-delete:hover {
+      background: rgba(248,81,73,0.2); border-color: var(--danger);
+    }
+
+    /* ═══════════════════════════════════════════════
        CONFIRM MODALS
     ═══════════════════════════════════════════════ */
     .modal-overlay {
@@ -1053,14 +1109,9 @@
               <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
               <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
             </div>
-            <div class="panel-body-flush">
-              <div class="table-wrap scrollable-table" style="max-height:400px;">
-                <table class="data-table" id="itemsTable">
-                  <thead><tr>
-                    <th>Item ID</th><th>Item Name</th><th></th>
-                  </tr></thead>
-                  <tbody id="itemsTableBody"></tbody>
-                </table>
+            <div class="panel-body-flush" style="padding:12px;">
+              <div id="itemsContainer" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>
               </div>
             </div>
           </div>
