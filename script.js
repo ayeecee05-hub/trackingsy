@@ -303,7 +303,17 @@ function loadBorrowers() {
     renderBorrowerPage();
     handleDeepLink(users);
   })
-  .catch(() => showNotification("Error loading users.", "error"));
+  .catch(() => {
+    const container = document.getElementById("usersContainer");
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state-full">
+          <div class="empty-icon">⚠️</div>
+          <p style="color:var(--highlight,#ef4444);">Could not load users.</p>
+          <small>Check your connection, then <a href="" style="color:var(--accent-primary);">refresh the page</a>.</small>
+        </div>`;
+    }
+  });
 }
 
 function renderBorrowerPage() {
@@ -970,7 +980,39 @@ function loadUserDashboard() {
         stopDashboardPoll();
       }
     })
-    .catch(() => showNotification("Error loading your data.", "error"));
+    .catch(err => {
+      // Show an inline error inside the borrowedList instead of a toast
+      // so it doesn't keep popping up every 15 s from the poll.
+      const borrowedList = document.getElementById("borrowedList");
+      if (borrowedList) {
+        borrowedList.innerHTML = `
+          <li style="list-style:none;padding:0;margin:0;">
+            <div style="
+              display:flex;flex-direction:column;align-items:center;gap:10px;
+              padding:24px 16px;border-radius:12px;
+              background:rgba(239,68,68,0.08);border:1.5px solid rgba(239,68,68,0.25);
+              text-align:center;
+            ">
+              <span style="font-size:28px;">⚠️</span>
+              <div style="font-size:13px;font-weight:600;color:var(--highlight,#ef4444);">
+                Could not load your data
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);">
+                Check your connection and try again.
+              </div>
+              <button
+                onclick="loadUserDashboard()"
+                style="
+                  margin-top:4px;padding:7px 20px;border-radius:20px;border:none;
+                  background:var(--accent-primary,#4fc3f7);color:#fff;
+                  font-size:12px;font-weight:700;cursor:pointer;
+                ">🔄 Retry</button>
+            </div>
+          </li>`;
+      }
+      // Stop auto-poll so we don't spam errors; user can retry manually
+      stopDashboardPoll();
+    });
 }
 
 function getDueBadge(daysLeft) {
