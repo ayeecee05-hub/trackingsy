@@ -645,6 +645,18 @@ function loadUserDashboard() {
       const pending       = history.filter(tx => tx.status === "Pending");
       const returnPending = history.filter(tx => tx.status === "Return Pending");
 
+      // ── Calculate accountability status EARLY (needed for borrowing status card) ──
+      const lateReturnCount = history.filter(tx => 
+        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
+      ).length;
+      const damagedCount = history.filter(tx => 
+        tx.condition === "Damaged" || tx.condition === "Broken"
+      ).length;
+      const totalViolations = lateReturnCount + damagedCount;
+      let accountabilityStatus = "trusted";
+      if (totalViolations >= 3) accountabilityStatus = "suspended";
+      else if (totalViolations >= 1) accountabilityStatus = "caution";
+
       // Build cancel buttons for pending requests in the borrower dashboard
       const pendingSection = document.getElementById("pendingSection");
       const pendingList = document.getElementById("pendingList");
@@ -781,20 +793,7 @@ function loadUserDashboard() {
       }
 
       // ── Accountability Status Alert ────────────────────────────────────────
-      // Calculate student accountability status based on late returns + damaged items
-      const studentId = currentUser.id;
-      const lateReturnCount = history.filter(tx => 
-        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
-      ).length;
-      const damagedCount = history.filter(tx => 
-        tx.condition === "Damaged" || tx.condition === "Broken"
-      ).length;
-      const totalViolations = lateReturnCount + damagedCount;
-
-      let accountabilityStatus = "trusted";
-      if (totalViolations >= 3) accountabilityStatus = "suspended";
-      else if (totalViolations >= 1) accountabilityStatus = "caution";
-
+      // (accountabilityStatus already calculated above for borrowing status card)
       const accountabilityAlert = document.getElementById("accountabilityAlert");
       if (accountabilityStatus !== "trusted") {
         accountabilityAlert.style.display = "block";
@@ -806,7 +805,7 @@ function loadUserDashboard() {
         document.getElementById("accountabilityAlertIcon").textContent = statusInfo.icon;
         document.getElementById("accountabilityAlertTitle").textContent = statusInfo.title;
         document.getElementById("accountabilityAlertTitle").style.color = statusInfo.color;
-        
+
         const detailsHtml = `
           <div class="accountability-stat-row">
             <span class="accountability-stat-item">Late Returns: <span class="accountability-stat-value">${lateReturnCount}</span></span>
@@ -822,7 +821,7 @@ function loadUserDashboard() {
         accountabilityAlert.style.display = "none";
       }
 
-      // ── Due-soon reminder banner ────────────────────────────────────────
+// ── Due-soon reminder banner ────────────────────────────────────────
       // Show a prominent yellow banner for items due within 2 days (but not overdue)
       const dueSoonBanner = document.getElementById("dueSoonBanner");
       if (dueSoon.length > 0) {
