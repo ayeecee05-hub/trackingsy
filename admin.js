@@ -1178,7 +1178,6 @@ function renderTransactions(transactions, resetPage = false) {
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
-      <td><span class="mono-chip" style="font-size:11px;opacity:0.8;">${tx.itemId || "—"}</span></td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
@@ -1230,7 +1229,6 @@ function renderArchiveTransactions(transactions) {
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
-      <td><span class="mono-chip" style="font-size:11px;opacity:0.8;">${tx.itemId || "—"}</span></td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
@@ -1249,7 +1247,6 @@ function filterTransactions() {
     const filtered = allTransactions.filter(tx =>
       (!query  || String(tx.studentId).toLowerCase().includes(query) ||
                   String(tx.item).toLowerCase().includes(query) ||
-                  String(tx.itemId || "").toLowerCase().includes(query) ||
                   String(tx.studentName || "").toLowerCase().includes(query)) &&
       (!status || tx.status === status)
     );
@@ -1379,9 +1376,9 @@ function exportTransactionsCSV() {
     showNotification("No transactions to export.", "error");
     return;
   }
-  const headers = ["Student ID","Name","Item ID","Item","Borrow Date","Due Date","Return Date","Status","Late Return"];
+  const headers = ["Student ID","Name","Item","Borrow Date","Due Date","Return Date","Status","Late Return"];
   const rows = allTransactions.map(tx =>
-    [tx.studentId, tx.studentName || "", tx.itemId || "", tx.item, tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
+    [tx.studentId, tx.studentName || "", tx.item, tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
       .map(v => `"${String(v).replace(/"/g,'""')}"`)
       .join(",")
   );
