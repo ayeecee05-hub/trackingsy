@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxaEgqPeOdMBPPDTIaXPDcCjxBwJh1yHiKBavkugxVAPZenFvb-RrhFZmfo49j-R8wVoQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyctGh5aCbJyZSchQQgwt1L4oTdOuMZSPEta4UbYAhgFB9pYsoZC0My7RSCdTVP8iidYw/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -761,7 +761,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
@@ -1396,106 +1396,97 @@ function exportTransactionsCSV() {
 // ── Inventory ────────────────────────────────────────────────────────────────
 function loadItemsTable() {
   const tbody = document.getElementById("itemsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading…</td></tr>`;
 
-  fetch(scriptURL + "?action=getItemsDetail")
+  fetch(scriptURL + "?action=getItems")
     .then(r => r.json())
     .then(items => {
       if (!tbody) return;
       tbody.innerHTML = "";
       if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No equipment yet — add one.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No items yet — add one.</td></tr>`;
         return;
       }
       items.forEach(it => {
-        const statusCls = it.status === "available" ? "s-returned" : it.status === "borrowed" ? "s-borrowed" : "s-overdue";
-        const statusLbl = it.status.charAt(0).toUpperCase() + it.status.slice(1);
+        const tagCls = it.quantity === 0 ? "s-overdue" : it.quantity <= 2 ? "s-pending" : "s-returned";
+        const tagLbl = it.quantity === 0 ? "Out of Stock" : it.quantity <= 2 ? "Low Stock" : "In Stock";
         const row = document.createElement("tr");
         row.innerHTML = `
           <td style="font-weight:600;">${it.name}</td>
-          <td><code>${it.equipmentId}</code></td>
-          <td><span class="status-pill ${statusCls}">${statusLbl}</span></td>
           <td>
-            <select class="form-select" style="font-size:11px;" onchange="updateEquipmentStatus('${it.equipmentId}', this.value)">
-              <option value="available" ${it.status === "available" ? "selected" : ""}>Available</option>
-              <option value="borrowed" ${it.status === "borrowed" ? "selected" : ""}>Borrowed</option>
-              <option value="damaged" ${it.status === "damaged" ? "selected" : ""}>Damaged</option>
-            </select>
+            <div class="qty-control">
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},-1)">−</button>
+              <span class="qty-val">${it.quantity}</span>
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},1)">+</button>
+            </div>
           </td>
+          <td><span class="status-pill ${tagCls}">${tagLbl}</span></td>
           <td>
-            <button class="btn btn-danger btn-sm" onclick="deleteEquipment('${it.equipmentId}')">🗑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem('${it.name}',${it.quantity})">🗑</button>
           </td>`;
         tbody.appendChild(row);
       });
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="table-empty" style="color:var(--danger);">Error loading equipment.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
     });
 }
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
-  const equipmentId = document.getElementById("newItemQty").value.trim();
-  
-  if (!name) { showNotification("Equipment name is required.", "error"); return; }
-  if (!equipmentId) { showNotification("Equipment ID is required.", "error"); return; }
+  const qty  = parseInt(document.getElementById("newItemQty").value);
+  if (!name)                { showNotification("Item name is required.", "error"); return; }
+  if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
 
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "addItem", name, equipmentId, adminToken: getAdminToken() })
-  })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`${name} (${equipmentId}) added.`, "success");
+        showNotification(`"${name}" added.`, "success");
         document.getElementById("newItemName").value = "";
-        document.getElementById("newItemQty").value = "";
+        document.getElementById("newItemQty").value  = "";
         loadItemsTable();
       } else {
-        showNotification(data.message || "Failed to add equipment.", "error");
+        showNotification(data.message || "Failed to add item.", "error");
       }
     })
-    .catch(() => showNotification("Error adding equipment.", "error"));
-}
-
-function updateEquipmentStatus(equipmentId, status) {
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "updateItemStatus", equipmentId, status, adminToken: getAdminToken() })
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        showNotification(`${equipmentId} status updated.`, "success");
-        loadItemsTable();
-      } else {
-        showNotification(data.message || "Failed to update status.", "error");
-      }
-    })
-    .catch(() => showNotification("Error updating status.", "error"));
+    .catch(() => showNotification("Error adding item.", "error"));
 }
 
 function adjustQty(name, currentQty, delta) {
-  // Legacy function - kept for compatibility but does nothing with new system
-  showNotification("Use status dropdown instead.", "info");
+  // Re-fetch live items first to avoid stale-closure overwrite (e.g. after
+  // a borrow confirmation already deducted stock in the Sheet).
+  fetch(scriptURL + "?action=getItems")
+    .then(r => r.json())
+    .then(items => {
+      const live = items.find(it => it.name.toLowerCase() === name.toLowerCase());
+      const liveQty = live ? Number(live.quantity) : currentQty;
+      const newQty  = liveQty + delta;
+      if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
+      return fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty , adminToken: getAdminToken() })
+      });
+    })
+    .then(r => r && r.json())
+    .then(data => {
+      if (!data) return;
+      if (data.success) loadItemsTable();
+      else showNotification(data.message || "Failed to update.", "error");
+    })
+    .catch(() => showNotification("Error updating quantity.", "error"));
 }
 
-function deleteEquipment(equipmentId) {
-  if (!confirm(`Delete "${equipmentId}"? This cannot be undone.`)) return;
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "deleteItem", equipmentId, adminToken: getAdminToken() })
-  })
+function deleteItem(name, quantity) {
+  if (quantity > 0) { showNotification(`Set quantity to 0 first to delete "${name}".`, "error"); return; }
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
-      if (data.success) {
-        showNotification(`${equipmentId} deleted.`, "success");
-        loadItemsTable();
-      } else {
-        showNotification(data.message || "Failed to delete.", "error");
-      }
+      if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
+      else showNotification(data.message || "Failed to delete.", "error");
     })
-    .catch(() => showNotification("Error deleting equipment.", "error"));
+    .catch(() => showNotification("Error deleting item.", "error"));
 }
 
 // ── Students (QR + table) ────────────────────────────────────────────────────
