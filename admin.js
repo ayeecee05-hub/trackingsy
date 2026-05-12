@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzGFMfcY0322ILMGf9jLDvdt8RERREVAf7C7CQgn8dCzSDu-gIqmfr9fHIUG2f3XuTjLw/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbynzbEXOgXi-cq7uzR7imcNg8J27KlG8fXPmnOTUoEGGFV-z8fFdnaF4hXbbgxPbaqB/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -761,7 +761,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
