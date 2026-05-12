@@ -645,18 +645,6 @@ function loadUserDashboard() {
       const pending       = history.filter(tx => tx.status === "Pending");
       const returnPending = history.filter(tx => tx.status === "Return Pending");
 
-      // ── Calculate accountability status EARLY (needed for borrowing status card) ──
-      const lateReturnCount = history.filter(tx => 
-        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
-      ).length;
-      const damagedCount = history.filter(tx => 
-        tx.condition === "Damaged" || tx.condition === "Broken"
-      ).length;
-      const totalViolations = lateReturnCount + damagedCount;
-      let accountabilityStatus = "trusted";
-      if (totalViolations >= 3) accountabilityStatus = "suspended";
-      else if (totalViolations >= 1) accountabilityStatus = "caution";
-
       // Build cancel buttons for pending requests in the borrower dashboard
       const pendingSection = document.getElementById("pendingSection");
       const pendingList = document.getElementById("pendingList");
@@ -793,7 +781,20 @@ function loadUserDashboard() {
       }
 
       // ── Accountability Status Alert ────────────────────────────────────────
-      // (accountabilityStatus already calculated above for borrowing status card)
+      // Calculate student accountability status based on late returns + damaged items
+      const studentId = currentUser.id;
+      const lateReturnCount = history.filter(tx => 
+        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
+      ).length;
+      const damagedCount = history.filter(tx => 
+        tx.condition === "Damaged" || tx.condition === "Broken"
+      ).length;
+      const totalViolations = lateReturnCount + damagedCount;
+
+      let accountabilityStatus = "trusted";
+      if (totalViolations >= 3) accountabilityStatus = "suspended";
+      else if (totalViolations >= 1) accountabilityStatus = "caution";
+
       const accountabilityAlert = document.getElementById("accountabilityAlert");
       if (accountabilityStatus !== "trusted") {
         accountabilityAlert.style.display = "block";
@@ -805,7 +806,7 @@ function loadUserDashboard() {
         document.getElementById("accountabilityAlertIcon").textContent = statusInfo.icon;
         document.getElementById("accountabilityAlertTitle").textContent = statusInfo.title;
         document.getElementById("accountabilityAlertTitle").style.color = statusInfo.color;
-
+        
         const detailsHtml = `
           <div class="accountability-stat-row">
             <span class="accountability-stat-item">Late Returns: <span class="accountability-stat-value">${lateReturnCount}</span></span>
@@ -821,7 +822,7 @@ function loadUserDashboard() {
         accountabilityAlert.style.display = "none";
       }
 
-// ── Due-soon reminder banner ────────────────────────────────────────
+      // ── Due-soon reminder banner ────────────────────────────────────────
       // Show a prominent yellow banner for items due within 2 days (but not overdue)
       const dueSoonBanner = document.getElementById("dueSoonBanner");
       if (dueSoon.length > 0) {
@@ -1067,23 +1068,43 @@ function populateBorrowSelect() {
   dueDateInput.min   = addDaysToPHTString(todayStr, 1);
   dueDateInput.max   = addDaysToPHTString(todayStr, 30);
 
-  fetch(scriptURL + "?action=getItems")
-    .then(res => res.json())
-    .then(items => {
-      const select    = document.getElementById("borrowItem");
+  // Fetch BOTH items and active transactions to show TRUE available count
+  Promise.all([
+    fetch(scriptURL + "?action=getItems").then(res => res.json()),
+    fetch(scriptURL + "?action=getAllHistory").then(res => res.json())
+  ])
+    .then(([items, history]) => {
+      const select = document.getElementById("borrowItem");
       select.innerHTML = "";
-      // Items now use itemName (category) and itemId; count available per category
-      const normalized = {};
+
+      // Count total items by name
+      const totalByName = {};
       (items || []).forEach(it => {
-        // Support both old format {name, quantity} and new format {itemName, itemId}
         const key = (it.itemName || it.name || "").trim().replace(/\s+/g, " ");
         if (!key) return;
-        if (!normalized[key]) normalized[key] = 0;
-        // New format: each record = 1 individual item (no quantity field)
-        // Old format: use quantity if present
-        normalized[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
+        if (!totalByName[key]) totalByName[key] = 0;
+        totalByName[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
-      const available = Object.entries(normalized).filter(([, qty]) => qty > 0);
+
+      // Count currently borrowed items (Borrowed + Overdue = checked out)
+      const borrowedByName = {};
+      (history || []).forEach(tx => {
+        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+          const key = (tx.item || "").trim().replace(/\s+/g, " ");
+          if (!key) return;
+          borrowedByName[key] = (borrowedByName[key] || 0) + 1;
+        }
+      });
+
+      // Calculate available = total - borrowed
+      const available = [];
+      Object.keys(totalByName).forEach(key => {
+        const total = totalByName[key] || 0;
+        const out = borrowedByName[key] || 0;
+        const qty = Math.max(0, total - out);
+        if (qty > 0) available.push([key, qty]);
+      });
+
       if (available.length === 0) {
         select.innerHTML = `<option disabled selected>No items available</option>`;
         return;
@@ -1356,20 +1377,40 @@ function loadStockPanel() {
     <div class="skeleton-row"></div>
     <div class="skeleton-row"></div>`;
 
-  fetch(scriptURL + "?action=getItems")
-    .then(res => res.json())
-    .then(items => {
-      // Count items by name (itemName now)
-      // Items are tracked individually by ItemID, so we count how many of each name exist
-      const normalized = {};
+  // Fetch BOTH items and active transactions to calculate TRUE available stock
+  Promise.all([
+    fetch(scriptURL + "?action=getItems").then(res => res.json()),
+    fetch(scriptURL + "?action=getAllHistory").then(res => res.json())
+  ])
+    .then(([items, history]) => {
+      // Count total items by name
+      const totalByName = {};
       (items || []).forEach(it => {
         const key = (it.itemName || it.name || "").trim().replace(/\s+/g, " ");
         if (!key) return;
-        if (!normalized[key]) normalized[key] = 0;
-        // New format: each record = 1 unit. Old format: use quantity if present.
-        normalized[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
+        if (!totalByName[key]) totalByName[key] = 0;
+        totalByName[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
-      allStockItems = Object.entries(normalized).map(([name, quantity]) => ({ name, quantity }));
+
+      // Count currently borrowed items (Borrowed + Overdue = checked out)
+      const borrowedByName = {};
+      (history || []).forEach(tx => {
+        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+          const key = (tx.item || "").trim().replace(/\s+/g, " ");
+          if (!key) return;
+          borrowedByName[key] = (borrowedByName[key] || 0) + 1;
+        }
+      });
+
+      // Calculate available = total - borrowed
+      const available = {};
+      Object.keys(totalByName).forEach(key => {
+        const total = totalByName[key] || 0;
+        const out = borrowedByName[key] || 0;
+        available[key] = Math.max(0, total - out);
+      });
+
+      allStockItems = Object.entries(available).map(([name, quantity]) => ({ name, quantity }));
       stockPage     = 1;
       renderStockPage();
     })

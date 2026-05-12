@@ -1398,16 +1398,29 @@ function loadItemsTable() {
   const container = document.getElementById("itemsContainer");
   if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
 
-  fetch(scriptURL + "?action=getItems")
-    .then(r => r.json())
-    .then(items => {
+  // Fetch BOTH items and active transactions to show TRUE available counts
+  Promise.all([
+    fetch(scriptURL + "?action=getItems").then(r => r.json()),
+    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
+  ])
+    .then(([items, history]) => {
       if (!container) return;
       container.innerHTML = "";
-      
+
       if (!items || items.length === 0) {
         container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one.</div>`;
         return;
       }
+
+      // Count currently borrowed items by name
+      const borrowedByName = {};
+      (history || []).forEach(tx => {
+        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+          const key = normalizeName(tx.item);
+          if (!key) return;
+          borrowedByName[key] = (borrowedByName[key] || 0) + 1;
+        }
+      });
 
       // Group items by itemName (category)
       const grouped = {};
@@ -1420,29 +1433,35 @@ function loadItemsTable() {
       // Create a card for each category
       Object.entries(grouped).forEach(([categoryName, categoryItems]) => {
         const categoryId = `cat-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
-        
+        const total = categoryItems.length;
+        const out = borrowedByName[categoryName] || 0;
+        const available = Math.max(0, total - out);
+
         // Category card header
         const cardDiv = document.createElement("div");
         cardDiv.className = "item-category-card";
         cardDiv.id = categoryId;
         cardDiv.onclick = () => toggleCategoryExpand(categoryId);
-        
+
         cardDiv.innerHTML = `
           <div class="item-category-info">
             <div class="item-category-icon">📦</div>
             <div class="item-category-text">
               <div class="item-category-name">${categoryName}</div>
-              <div class="item-category-count">${categoryItems.length} item${categoryItems.length !== 1 ? 's' : ''}</div>
+              <div class="item-category-count">
+                <span style="color:var(--success);font-weight:700;">${available} available</span>
+                <span style="color:var(--text3);"> · ${total} total · ${out} out</span>
+              </div>
             </div>
           </div>
           <div class="item-category-toggle">▼</div>
         `;
-        
+
         // Items container (initially hidden)
         const itemsDiv = document.createElement("div");
         itemsDiv.className = "item-category-items";
         itemsDiv.id = `${categoryId}-items`;
-        
+
         categoryItems.forEach(item => {
           const itemDetail = document.createElement("div");
           itemDetail.className = "item-detail";
@@ -1455,7 +1474,7 @@ function loadItemsTable() {
           `;
           itemsDiv.appendChild(itemDetail);
         });
-        
+
         container.appendChild(cardDiv);
         container.appendChild(itemsDiv);
       });
@@ -1464,7 +1483,6 @@ function loadItemsTable() {
       if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">Error loading items.</div>`;
     });
 }
-
 function toggleCategoryExpand(categoryId) {
   const card = document.getElementById(categoryId);
   const itemsContainer = document.getElementById(`${categoryId}-items`);
