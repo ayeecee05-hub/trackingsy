@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyQ01a3dlH05YquVTavXf1wKI8_z3m7pBx1w3ca5QnHen4jJZTf2l_rrgnoRVXcq1YJ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyB9luieFgCbBJRsT4O2MzDGTLN0wbDa-eRQXWZcocYdLzk-erSqNhtZxsFIrCF871OTw/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -199,6 +199,7 @@ function switchPage(pageId) {
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAccountability") loadAccountabilityTable();
+  if (pageId === "pageItems")        loadItemsTable();
   if (pageId === "pageDamagedItems")   loadDamagedItems();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
