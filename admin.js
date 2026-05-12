@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxys15rE3Y_J8cABfLrclm8p9k73344kkPP9keDT-hSj5UHAakdW_Rq8UBFfZY2BmaPXg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzfgcvB4ctSYarwTerNS3pmJK1ceREuCnwWDfn4sGx403Bxt-exj0JUoijHEyL5Rdr0bg/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -761,7 +761,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
@@ -1160,7 +1160,7 @@ function renderTransactions(transactions, resetPage = false) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No transactions found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions found.</td></tr>`;
     if (paginationEl) paginationEl.style.display = "none";
     if (countEl) countEl.textContent = "";
     return;
@@ -1179,7 +1179,6 @@ function renderTransactions(transactions, resetPage = false) {
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
-      <td><code>${tx.equipmentId || "—"}</code></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1189,7 +1188,7 @@ function renderTransactions(transactions, resetPage = false) {
   });
 
   // Count label
-  const showing = `${start + 1}–${Math.min(start + TX_PER_PAGE, transactions.length)}`;
+  const showing = `${start + 1}–${Math.min(start + TX_PER_PAGE, transactions.length)} of ${transactions.length}`;
   if (countEl) countEl.textContent = showing;
 
   // Pagination controls
@@ -1405,7 +1404,7 @@ function loadItemsTable() {
       if (!tbody) return;
       tbody.innerHTML = "";
       if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No items yet — add one.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No equipment yet — add one.</td></tr>`;
         return;
       }
       items.forEach(it => {
@@ -1430,58 +1429,73 @@ function loadItemsTable() {
       });
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="table-empty" style="color:var(--danger);">Error loading equipment.</td></tr>`;
     });
 }
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
   const equipmentId = document.getElementById("newItemQty").value.trim();
-  if (!name) { showNotification("Item name is required.", "error"); return; }
+  
+  if (!name) { showNotification("Equipment name is required.", "error"); return; }
   if (!equipmentId) { showNotification("Equipment ID is required.", "error"); return; }
 
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, equipmentId, adminToken: getAdminToken() }) })
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "addItem", name, equipmentId, adminToken: getAdminToken() })
+  })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`"${name}" (${equipmentId}) added.`, "success");
+        showNotification(`${name} (${equipmentId}) added.`, "success");
         document.getElementById("newItemName").value = "";
-        document.getElementById("newItemQty").value  = "";
+        document.getElementById("newItemQty").value = "";
         loadItemsTable();
       } else {
-        showNotification(data.message || "Failed to add item.", "error");
+        showNotification(data.message || "Failed to add equipment.", "error");
       }
     })
-    .catch(() => showNotification("Error adding item.", "error"));
+    .catch(() => showNotification("Error adding equipment.", "error"));
 }
 
 function updateEquipmentStatus(equipmentId, status) {
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "updateItemQty", equipmentId, status, adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "updateItemStatus", equipmentId, status, adminToken: getAdminToken() })
   })
     .then(r => r.json())
     .then(data => {
-      if (data.success) loadItemsTable();
-      else showNotification(data.message || "Failed to update status.", "error");
+      if (data.success) {
+        showNotification(`${equipmentId} status updated.`, "success");
+        loadItemsTable();
+      } else {
+        showNotification(data.message || "Failed to update status.", "error");
+      }
     })
     .catch(() => showNotification("Error updating status.", "error"));
-}
-
-function deleteEquipment(equipmentId) {
-  if (!confirm(`Delete "${equipmentId}"? This cannot be undone.`)) return;
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", equipmentId, adminToken: getAdminToken() }) })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) { showNotification(`"${equipmentId}" deleted.`, "success"); loadItemsTable(); }
-      else showNotification(data.message || "Failed to delete.", "error");
-    })
-    .catch(() => showNotification("Error deleting item.", "error"));
 }
 
 function adjustQty(name, currentQty, delta) {
   // Legacy function - kept for compatibility but does nothing with new system
   showNotification("Use status dropdown instead.", "info");
+}
+
+function deleteEquipment(equipmentId) {
+  if (!confirm(`Delete "${equipmentId}"? This cannot be undone.`)) return;
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "deleteItem", equipmentId, adminToken: getAdminToken() })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(`${equipmentId} deleted.`, "success");
+        loadItemsTable();
+      } else {
+        showNotification(data.message || "Failed to delete.", "error");
+      }
+    })
+    .catch(() => showNotification("Error deleting equipment.", "error"));
 }
 
 // ── Students (QR + table) ────────────────────────────────────────────────────
