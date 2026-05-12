@@ -744,6 +744,9 @@
     <button class="nav-item" data-page="pageAccountability" onclick="switchPage('pageAccountability')">
       <span class="nav-icon">⚠️</span> Accountability
     </button>
+    <button class="nav-item" data-page="pageDamagedItems" onclick="switchPage('pageDamagedItems')">
+      <span class="nav-icon">🛠️</span> Damaged Items
+    </button>
 
     <div class="sidebar-spacer"></div>
     <div class="sidebar-footer">
@@ -992,37 +995,6 @@
           </div>
           <div id="activeBorrowersGrid" class="active-borrowers-grid"></div>
         </div>
-
-        <!-- Damaged Items -->
-        <div class="panel one-col" style="margin-top:20px;">
-          <div class="panel-header">
-            <span class="panel-title"><span class="panel-title-icon">🔴</span> Damaged Items</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span id="damagedItemsCount" class="ab-count-badge" style="display:none;background:rgba(248,81,73,0.15);color:var(--danger);border:1px solid rgba(248,81,73,0.3);"></span>
-              <button class="btn btn-ghost btn-sm" onclick="exportDamagedCSV()">⬇ Export CSV</button>
-              <button class="btn btn-ghost btn-sm" onclick="loadDamagedItems()">↻ Refresh</button>
-            </div>
-          </div>
-          <div class="filter-bar">
-            <input type="text" class="filter-input" id="damagedSearch" placeholder="🔍  Search by student or item…" oninput="filterDamagedItems()">
-            <select class="filter-select" id="damageTypeFilter" onchange="filterDamagedItems()">
-              <option value="">All Types</option>
-              <option value="Damaged">⚠️ Damaged</option>
-              <option value="Broken">❌ Broken</option>
-            </select>
-            <button class="btn btn-ghost btn-sm" onclick="resetDamagedFilter()">Reset</button>
-          </div>
-          <div class="panel-body-flush">
-            <div class="table-wrap scrollable-table" style="max-height:420px;">
-              <table class="data-table" id="damagedItemsTable">
-                <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th>
-                </tr></thead>
-                <tbody id="damagedItemsBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- ─── ARCHIVE ─────────────────────────────── -->
@@ -1183,6 +1155,39 @@
                   <th>Student ID</th><th>Name</th><th>Status</th><th>Violations</th><th>Late Returns</th><th>Damaged Items</th><th>Actions</th>
                 </tr></thead>
                 <tbody id="accountabilityTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── DAMAGED ITEMS ──────────────────────── -->
+      <div class="page" id="pageDamagedItems">
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">🛠️</span> Damaged Items</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="damagedItemsCount" class="ab-count-badge" style="display:none;background:rgba(248,81,73,0.15);color:var(--danger);border:1px solid rgba(248,81,73,0.3);"></span>
+              <button class="btn btn-ghost btn-sm" onclick="exportDamagedCSV()">⬇ Export CSV</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadDamagedItems()">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" class="filter-input" id="damagedSearch" placeholder="🔍  Search by student or item…" oninput="filterDamagedItems()">
+            <select class="filter-select" id="damageTypeFilter" onchange="filterDamagedItems()">
+              <option value="">All Types</option>
+              <option value="Damaged">⚠️ Damaged</option>
+              <option value="Broken">❌ Broken</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetDamagedFilter()">Reset</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:600px;">
+              <table class="data-table" id="damagedItemsTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th>
+                </tr></thead>
+                <tbody id="damagedItemsBody"></tbody>
               </table>
             </div>
           </div>

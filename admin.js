@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxMl0ao3Fo62QjltYl1LP0e6cTPBXn6kip-AvzUvDieaa_HdnEYdvLWdrUl526X-Mcbiw/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzGFMfcY0322ILMGf9jLDvdt8RERREVAf7C7CQgn8dCzSDu-gIqmfr9fHIUG2f3XuTjLw/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -107,11 +107,18 @@ function showNotification(message, type = "info") {
   }, 3500);
 }
 
+// ── Admin session token (stored in memory after login) ───────────────────────
+// Sent with every POST so Apps Script can verify admin identity
+// without relying on Session.getActiveUser() (which is empty for web fetches).
+let _adminSessionToken = "";
+function getAdminToken() { return _adminSessionToken; }
+
 // ── Login ────────────────────────────────────────────────────────────────────
 async function checkPassword() {
   const entered = document.getElementById("adminPassword").value;
   const hashed  = await hashPassword(entered);
   if (hashed === ADMIN_PASSWORD_HASH) {
+    _adminSessionToken = entered;   // store plaintext for API verification
     document.getElementById("loginScreen").style.display  = "none";
     document.getElementById("appShell").style.display     = "flex";
     showNotification("Admin access granted", "success");
@@ -126,6 +133,7 @@ async function checkPassword() {
 }
 
 function logoutAdmin(timedOut = false) {
+  _adminSessionToken = "";          // clear token on logout
   stopAutoRefresh();
   clearTimeout(sessionTimer);
   document.getElementById("appShell").style.display    = "none";
@@ -166,6 +174,7 @@ const pageMeta = {
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
   pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
   pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
+  pageDamagedItems:   { title: "Damaged Items",    desc: "Items returned in damaged or broken condition" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
   pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
 };
@@ -190,6 +199,7 @@ function switchPage(pageId) {
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAccountability") loadAccountabilityTable();
+  if (pageId === "pageDamagedItems")   loadDamagedItems();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
@@ -705,7 +715,7 @@ function submitRegisterForm() {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "register", studentId, name: sName, email })
+    body: JSON.stringify({ action: "register", studentId, name: sName, email , adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
@@ -831,7 +841,7 @@ function bulkApprovePending() {
   Promise.all(itemsToApprove.map(req => {
     return fetch(scriptURL, {
       method: "POST",
-      body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
+      body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
     }).then(r => r.json()).then(data => { if (data.success) approved++; });
   })).then(() => {
     showNotification(`✅ ${approved}/${itemsToApprove.length} hand-overs completed.`, "success");
@@ -868,7 +878,7 @@ function executeHandover(req) {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
+    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
@@ -909,7 +919,7 @@ function executeReject(req) {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "rejectBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
+    body: JSON.stringify({ action: "rejectBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
@@ -1006,15 +1016,14 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
   
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ 
-      action: "confirmReturn", 
+    body: JSON.stringify({ action: "confirmReturn", 
       studentId: req.studentId, 
       item: req.item, 
       returnDate, 
       rowIndex: req.rowIndex,
       condition: condition,
       isLate: isLate
-    })
+    , adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
@@ -1076,15 +1085,14 @@ function bulkConfirmReturns() {
     
     return fetch(scriptURL, {
       method: "POST",
-      body: JSON.stringify({ 
-        action: "confirmReturn", 
+      body: JSON.stringify({ action: "confirmReturn", 
         studentId: req.studentId, 
         item: req.item, 
         returnDate: today, 
         rowIndex: req.rowIndex,
         condition: condition,
         isLate: isLate
-      })
+      , adminToken: getAdminToken() })
     }).then(r => r.json()).then(data => { if (data.success) confirmed++; });
   })).then(() => {
     showNotification(`✅ ${confirmed}/${itemsToConfirm.length} items confirmed.`, "success");
@@ -1430,7 +1438,7 @@ function addItem() {
   if (!name)                { showNotification("Item name is required.", "error"); return; }
   if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
 
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
@@ -1457,7 +1465,7 @@ function adjustQty(name, currentQty, delta) {
       if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
       return fetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty })
+        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty , adminToken: getAdminToken() })
       });
     })
     .then(r => r && r.json())
@@ -1472,7 +1480,7 @@ function adjustQty(name, currentQty, delta) {
 function deleteItem(name, quantity) {
   if (quantity > 0) { showNotification(`Set quantity to 0 first to delete "${name}".`, "error"); return; }
   if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
@@ -1709,7 +1717,7 @@ function saveEditStudent() {
   saveBtn.disabled    = true;
   saveBtn.textContent = "Saving…";
 
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateUser", studentId, name, email }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateUser", studentId, name, email , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
@@ -1736,7 +1744,7 @@ function confirmDeleteStudent(studentId, name) {
 
 function executeDeleteStudent(studentId, name) {
   showNotification("Deleting student…", "info");
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteUser", studentId }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteUser", studentId , adminToken: getAdminToken() }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) { showNotification(`${name} removed.`, "success"); loadQrStudentList(); updateKpiCards(); }
