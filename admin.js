@@ -1202,6 +1202,19 @@ function renderTransactions(transactions, resetPage = false) {
 
   page.forEach(tx => {
     const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
+    
+    // Condition pill with color coding
+    let condClass = "c-good";
+    let condIcon = "✅";
+    if (tx.condition === "Damaged") {
+      condClass = "c-damaged";
+      condIcon = "⚠️";
+    } else if (tx.condition === "Broken") {
+      condClass = "c-broken";
+      condIcon = "❌";
+    }
+    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition || "Good"}</span>`;
+    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
@@ -1212,7 +1225,7 @@ function renderTransactions(transactions, resetPage = false) {
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${tx.condition || "Good"}</td>`;
+      <td>${condBadge}</td>`;
     tbody.appendChild(row);
   });
 
@@ -1255,6 +1268,19 @@ function renderArchiveTransactions(transactions) {
   }
   transactions.forEach(tx => {
     const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
+    
+    // Condition pill with color coding
+    let condClass = "c-good";
+    let condIcon = "✅";
+    if (tx.condition === "Damaged") {
+      condClass = "c-damaged";
+      condIcon = "⚠️";
+    } else if (tx.condition === "Broken") {
+      condClass = "c-broken";
+      condIcon = "❌";
+    }
+    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition || "Good"}</span>`;
+    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
@@ -1265,7 +1291,7 @@ function renderArchiveTransactions(transactions) {
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${tx.condition || "Good"}</td>`;
+      <td>${condBadge}</td>`;
     tbody.appendChild(row);
   });
 }
