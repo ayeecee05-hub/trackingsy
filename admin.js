@@ -77,6 +77,7 @@ let filteredTx            = [];
 let archiveFilteredTx     = [];
 let allItems              = [];  // raw items list from server
 let itemIdMap             = {};  // normalizedItemName -> itemId
+let selectedCategoryFilter = "";  // Category filter for Items page
 
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
@@ -219,6 +220,7 @@ function switchPage(pageId) {
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
+  if (pageId === "pageItems")        loadItemsTable();
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
@@ -1500,6 +1502,9 @@ function loadItemsTable() {
         return;
       }
 
+      // Populate category filter dropdown
+      populateCategoryFilter(allItems);
+
       // Count currently borrowed items by name
       const borrowedByName = {};
       (history || []).forEach(tx => {
@@ -1518,8 +1523,16 @@ function loadItemsTable() {
         grouped[key].push(it);
       });
 
+      // Filter by selected category
+      let categoriesToDisplay = Object.entries(grouped);
+      if (selectedCategoryFilter) {
+        categoriesToDisplay = categoriesToDisplay.filter(
+          ([categoryName]) => normalizeName(categoryName).toLowerCase() === normalizeName(selectedCategoryFilter).toLowerCase()
+        );
+      }
+
       // Create a card for each category
-      Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
+      categoriesToDisplay.forEach(([categoryName, categoryItems], catIndex) => {
         // Use a safe numeric index-based ID to avoid special characters breaking getElementById
         const categoryId = `cat-idx-${catIndex}`;
         const total = categoryItems.length;
@@ -1616,6 +1629,47 @@ function normalizeItemName(str) {
 
 function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
+}
+
+function populateCategoryFilter(items) {
+  const filterSelect = document.getElementById("categoryFilter");
+  if (!filterSelect) return;
+
+  // Get unique categories
+  const categories = new Set();
+  items.forEach(item => {
+    if (item.itemName) {
+      categories.add(normalizeName(item.itemName));
+    }
+  });
+
+  // Sort categories alphabetically
+  const sortedCategories = Array.from(categories).sort();
+
+  // Clear existing options except "All Categories"
+  filterSelect.innerHTML = '<option value="">All Categories</option>';
+
+  // Add category options
+  sortedCategories.forEach(category => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    filterSelect.appendChild(option);
+  });
+
+  // Restore previous selection if it still exists
+  if (selectedCategoryFilter) {
+    filterSelect.value = selectedCategoryFilter;
+  }
+}
+
+function filterItemsByCategory() {
+  const filterSelect = document.getElementById("categoryFilter");
+  if (!filterSelect) return;
+
+  selectedCategoryFilter = filterSelect.value;
+  loadItemsTable();
+}
 }
 
 function addItem() {
