@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycby-Pl2Tti6Fyj3KZo0UmJCejCvUE_gdewKCoBURokpfVihb-8770Hg_XQ2KJZ7UjkVfWg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxFm2NBxnDgBVUh4Y4I6_j_qk4BanPdkXUn7Yxt19OCDc8M9dORSA-Pa3atULC8Q431TA/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -75,6 +75,8 @@ let selectedReturns       = new Set();
 let selectedPending       = new Set();
 let filteredTx            = [];
 let archiveFilteredTx     = [];
+let allItems              = [];  // raw items list from server
+let itemIdMap             = {};  // normalizedItemName -> itemId
 
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
@@ -124,7 +126,21 @@ async function checkPassword() {
     showNotification("Admin access granted", "success");
     resetSessionTimer();
     startAutoRefresh();
-    refreshAll();
+    
+    // Ensure data is migrated to new format on login
+    fetch(scriptURL + "?action=diagnostic").then(r => r.json())
+      .then(result => {
+        if (result.status === "NEEDS_MIGRATION") {
+          showNotification("Migrating data format... please wait", "info");
+          // Trigger migration by calling any GET action
+          fetch(scriptURL + "?action=getItems").then(() => {
+            showNotification("Data migration complete", "success");
+            refreshAll();
+          });
+        } else {
+          refreshAll();
+        }
+      });
   } else {
     showNotification("Incorrect password", "error");
     document.getElementById("adminPassword").value = "";
@@ -496,6 +512,10 @@ function renderActiveBorrowers() {
         <span class="ab-item-icon">📦</span>
         <span>${tx.item}</span>
       </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+        ${itemIdMap[normalizeName(tx.item).toLowerCase()] ? `<span class="mono-chip" style="font-size:10px;">🏷 ${itemIdMap[normalizeName(tx.item).toLowerCase()]}</span>` : ""}
+        ${tx.equipmentId ? `<span class="mono-chip" style="font-size:10px;background:rgba(79,195,247,0.15);color:var(--accent);border-color:rgba(79,195,247,0.35);">🔑 ${tx.equipmentId}</span>` : ""}
+      </div>
       <div class="ab-dates">
         <div class="ab-dates-left">
           <div class="ab-date-row">
@@ -568,15 +588,18 @@ function renderDashRecent() {
     .sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""))
     .slice(0, 10);
   if (recent.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No transactions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions yet.</td></tr>`;
     return;
   }
   recent.forEach(tx => {
+    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="mono-chip">${itemId}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td>${statusPill(tx.status)}</td>`;
@@ -744,7 +767,7 @@ function submitRegisterForm() {
 // ── Pending borrow requests ──────────────────────────────────────────────────
 function loadPendingRequests() {
   const tbody = document.getElementById("pendingTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getPendingRequests")
     .then(r => r.json())
@@ -755,7 +778,7 @@ function loadPendingRequests() {
       updateKpiCards();
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
     });
 }
 
@@ -765,7 +788,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
@@ -792,6 +815,8 @@ function renderPendingTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
+      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${req.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
@@ -942,7 +967,7 @@ function executeReject(req) {
 // ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
   const tbody = document.getElementById("returnsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getReturnRequests")
     .then(r => r.json())
@@ -952,7 +977,7 @@ function loadReturnRequests() {
       updateNavBadge("navBadgeReturns", allReturnRequests.length);
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
     });
 }
 
@@ -962,7 +987,7 @@ function renderReturnsTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
     return;
   }
 
@@ -975,6 +1000,8 @@ function renderReturnsTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
+      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${req.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
@@ -1164,7 +1191,7 @@ function renderTransactions(transactions, resetPage = false) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No transactions found.</td></tr>`;
     if (paginationEl) paginationEl.style.display = "none";
     if (countEl) countEl.textContent = "";
     return;
@@ -1178,11 +1205,14 @@ function renderTransactions(transactions, resetPage = false) {
   const page  = transactions.slice(start, start + TX_PER_PAGE);
 
   page.forEach(tx => {
+    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="mono-chip">${itemId}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1225,15 +1255,18 @@ function renderArchiveTransactions(transactions) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No archived transactions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No archived transactions yet.</td></tr>`;
     return;
   }
   transactions.forEach(tx => {
+    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="mono-chip">${itemId}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1313,7 +1346,7 @@ function renderDamagedItemsTable(items) {
   tbody.innerHTML = "";
 
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
     return;
   }
 
@@ -1322,11 +1355,16 @@ function renderDamagedItemsTable(items) {
       ? `<span class="status-pill" style="background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`
       : `<span class="status-pill s-overdue">❌ Broken</span>`;
 
+    const itemId   = itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "—";
+    const equipId  = tx.equipmentId || "—";
+
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td style="font-weight:600;">${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="mono-chip">${itemId}</span></td>
+      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${equipId}</span></td>
       <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${condBadge}</td>
@@ -1358,9 +1396,11 @@ function resetDamagedFilter() {
 
 function exportDamagedCSV() {
   if (!allDamagedItems.length) { showNotification("No damaged items to export.", "error"); return; }
-  const headers = ["Student ID","Name","Item","Borrow Date","Return Date","Condition","Status"];
+  const headers = ["Student ID","Name","Item","Item ID","Equipment ID","Borrow Date","Return Date","Condition","Status"];
   const rows = allDamagedItems.map(tx => [
     tx.studentId, tx.studentName||"", tx.item,
+    itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "",
+    tx.equipmentId || "",
     tx.borrowDate||"", tx.returnDate||"", tx.condition, tx.status
   ]);
   const csv = [headers, ...rows]
@@ -1380,9 +1420,9 @@ function exportTransactionsCSV() {
     showNotification("No transactions to export.", "error");
     return;
   }
-  const headers = ["Student ID","Name","Item","Borrow Date","Due Date","Return Date","Status","Late Return"];
+  const headers = ["Student ID","Name","Item","Item ID","Equipment ID","Borrow Date","Due Date","Return Date","Status","Late Return"];
   const rows = allTransactions.map(tx =>
-    [tx.studentId, tx.studentName || "", tx.item, tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
+    [tx.studentId, tx.studentName || "", tx.item, itemIdMap[normalizeName(tx.item).toLowerCase()] || "", tx.equipmentId || "", tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
       .map(v => `"${String(v).replace(/"/g,'""')}"`)
       .join(",")
   );
@@ -1410,6 +1450,14 @@ function loadItemsTable() {
     .then(([items, history]) => {
       if (!container) return;
       container.innerHTML = "";
+
+      // Build/refresh the itemIdMap so all tables can look up IDs by name
+      allItems = Array.isArray(items) ? items : [];
+      itemIdMap = {};
+      allItems.forEach(it => {
+        const key = normalizeName(it.itemName).toLowerCase();
+        if (!itemIdMap[key]) itemIdMap[key] = it.itemId;
+      });
 
       if (!items || items.length === 0) {
         container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one.</div>`;
@@ -1659,7 +1707,7 @@ function showStudentHistory(studentId, studentName) {
   document.getElementById("studentHistoryTitle").innerText = `${studentName} (${studentId})`;
   document.getElementById("historyFilter").value = "all";
   document.getElementById("historySearch").value = "";
-  document.getElementById("studentHistoryBody").innerHTML = `<tr><td colspan="6" class="table-empty">Loading history…</td></tr>`;
+  document.getElementById("studentHistoryBody").innerHTML = `<tr><td colspan="7" class="table-empty">Loading history…</td></tr>`;
   document.getElementById("studentHistoryModal").classList.add("open");
 
   if (allTransactions.length === 0) {
@@ -1671,7 +1719,7 @@ function showStudentHistory(studentId, studentName) {
       })
       .catch(() => {
         const tbody = document.getElementById("studentHistoryBody");
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load history.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Unable to load history.</td></tr>`;
       });
   } else {
     renderStudentHistory(studentId);
@@ -1684,7 +1732,7 @@ function renderStudentHistory(studentId) {
   
   const studentTx = allTransactions.filter(tx => tx.studentId === studentId);
   if (!studentTx || studentTx.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No borrowing history found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No borrowing history found.</td></tr>`;
     return;
   }
   
@@ -1700,6 +1748,7 @@ function renderStudentHistory(studentId) {
     
     row.innerHTML = `
       <td style="font-weight:600;">${tx.item}</td>
+      <td><span class="mono-chip">${itemIdMap[normalizeName(tx.item).toLowerCase()] || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1716,7 +1765,7 @@ function filterStudentHistory() {
   const rows = tbody.querySelectorAll("tr");
   
   rows.forEach(row => {
-    if (row.cells.length < 6) return; // Skip empty rows
+    if (row.cells.length < 7) return; // Skip empty rows
     
     const item = row.cells[0].textContent.toLowerCase();
     const status = row.cells[4].textContent.toLowerCase();
