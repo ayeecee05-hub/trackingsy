@@ -755,8 +755,8 @@
     <div class="login-title">Admin Panel</div>
     <div class="login-sub">Equipment &amp; Device Borrowing System</div>
     <label class="login-label" for="adminPassword">Password</label>
-    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
-    <button class="login-btn" id="adminLoginBtn" onclick="checkPassword()">Sign In</button>
+    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password" onkeypress="if(event.key==='Enter') checkPassword()">
+    <button type="button" class="login-btn" id="adminLoginBtn" onclick="checkPassword()" style="cursor: pointer; pointer-events: auto;">Sign In</button>
   </div>
 </div>
 
