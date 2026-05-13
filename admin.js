@@ -1510,12 +1510,12 @@ function loadItemsTable() {
         }
       });
 
-      // Group items by itemName (category)
+      // Group items by itemName (category) or category field
       const grouped = {};
       items.forEach(it => {
-        const key = normalizeName(it.itemName);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(it);
+        const categoryKey = normalizeName(it.category || it.itemName);
+        if (!grouped[categoryKey]) grouped[categoryKey] = [];
+        grouped[categoryKey].push(it);
       });
 
       // Create a card for each category
@@ -1557,6 +1557,7 @@ function loadItemsTable() {
             <div style="display:flex;align-items:center;flex:1;">
               <div class="item-detail-id">${item.itemId}</div>
               <div class="item-detail-name">${item.itemName}</div>
+              ${item.category ? `<div style="font-size:11px;color:var(--text3);margin-left:auto;">${item.category}</div>` : ""}
             </div>
             <div class="item-detail-delete" onclick="deleteItemById('${item.itemId}', event)">🗑</div>
           `;
@@ -1566,6 +1567,9 @@ function loadItemsTable() {
         container.appendChild(cardDiv);
         container.appendChild(itemsDiv);
       });
+
+      // Also load categories into the dropdown
+      loadCategoriesDropdown();
     })
     .catch(() => {
       if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">Error loading items.</div>`;
@@ -1596,34 +1600,115 @@ function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
 }
 
-function addItem() {
-  const name = document.getElementById("newItemName").value.trim();
-  const id   = document.getElementById("newItemId").value.trim();
+function addNewItem() {
+  const category = document.getElementById("newItemCategory").value.trim();
+  const itemIdSelect = document.getElementById("newItemId");
+  const id = itemIdSelect.value.trim();
+  const name = document.getElementById("newItemName").value.trim() || 
+               (itemIdSelect.options[itemIdSelect.selectedIndex]?.text || id);
   
-  if (!name) { showNotification("Item name is required.", "error"); return; }
-  if (!id)   { showNotification("Item ID is required.", "error"); return; }
+  if (!category) { showNotification("Category is required.", "error"); return; }
+  if (!id)       { showNotification("Item ID is required.", "error"); return; }
 
   fetch(scriptURL, { 
     method: "POST", 
     body: JSON.stringify({ 
-      action: "addItem", 
+      action: "addItemWithCategory", 
       itemId: id, 
       itemName: name,
+      category: category,
       adminToken: getAdminToken() 
     }) 
   })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`"${name}" (${id}) added.`, "success");
+        showNotification(`✓ "${id}" added to ${category}.`, "success");
+        document.getElementById("newItemCategory").value = "";
+        document.getElementById("newItemId").innerHTML = '<option value="">Select category first...</option>';
         document.getElementById("newItemName").value = "";
-        document.getElementById("newItemId").value  = "";
         loadItemsTable();
       } else {
         showNotification(data.message || "Failed to add item.", "error");
       }
     })
     .catch(() => showNotification("Error adding item.", "error"));
+}
+
+// ── Cascading dropdown: When category changes, load items for that category ───
+function onCategoryChange() {
+  const category = document.getElementById("newItemCategory").value.trim();
+  const itemIdSelect = document.getElementById("newItemId");
+  const itemNameInput = document.getElementById("newItemName");
+  
+  if (!category) {
+    itemIdSelect.innerHTML = '<option value="">Select category first...</option>';
+    itemNameInput.value = "";
+    return;
+  }
+
+  // Fetch items for selected category
+  fetch(`${scriptURL}?action=getItemsByCategory&category=${encodeURIComponent(category)}`)
+    .then(r => r.json())
+    .then(items => {
+      itemIdSelect.innerHTML = '<option value="">Select Item ID...</option>';
+      
+      if (!items || items.length === 0) {
+        itemIdSelect.innerHTML += '<option disabled>No items in this category</option>';
+        itemNameInput.value = "";
+        return;
+      }
+
+      // Populate Item ID dropdown
+      items.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.itemId;
+        opt.textContent = `${item.itemId} (${item.itemName})`;
+        itemIdSelect.appendChild(opt);
+      });
+    })
+    .catch(() => {
+      itemIdSelect.innerHTML = '<option value="">Error loading items...</option>';
+    });
+}
+
+// ── Load categories into dropdown ────────────────────────────────────────────
+function loadCategoriesDropdown() {
+  const categorySelect = document.getElementById("newItemCategory");
+  if (!categorySelect) return;
+
+  const categories = new Set();
+  
+  // Extract unique categories from allItems
+  if (allItems && Array.isArray(allItems)) {
+    allItems.forEach(item => {
+      const cat = item.category || item.itemName;
+      if (cat) categories.add(cat);
+    });
+  }
+
+  // Get current selected value to preserve it
+  const currentValue = categorySelect.value;
+
+  // Clear and rebuild options
+  categorySelect.innerHTML = '<option value="">Select or type category...</option>';
+  
+  Array.from(categories).sort().forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.textContent = cat;
+    categorySelect.appendChild(option);
+  });
+
+  // Restore selected value if it still exists
+  if (currentValue) {
+    categorySelect.value = currentValue;
+  }
+}
+
+// ── Keep old addItem for backward compatibility ─────────────────────────────
+function addItem() {
+  addNewItem();
 }
 
 function deleteItemById(itemId, event) {
