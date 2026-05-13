@@ -2079,6 +2079,7 @@ function openAccountabilityModal(studentId) {
 
 function loadAccountabilityTable() {
   const tbody = document.getElementById("accountabilityTableBody");
+  const topCard = document.getElementById("topViolatorCard");
   if (!tbody) return;
   tbody.innerHTML = "";
 
@@ -2087,6 +2088,50 @@ function loadAccountabilityTable() {
     const { status, violations, lateCount, damagedCount } = calculateStudentStatus(user.id);
     return { ...user, status, violations, lateCount, damagedCount };
   }).filter(u => u.violations > 0).sort((a,b) => b.violations - a.violations);
+
+  // Display top violator card
+  if (topCard) {
+    if (accountabilityData.length > 0) {
+      const topStudent = accountabilityData[0];
+      const statusBadge = getStatusBadge(topStudent.status);
+      topCard.innerHTML = `
+        <div class="panel" style="background:linear-gradient(135deg,rgba(248,81,73,0.1) 0%,rgba(244,67,54,0.05) 100%);border:1px solid rgba(248,81,73,0.3);">
+          <div class="panel-header" style="background:rgba(248,81,73,0.08);">
+            <span class="panel-title"><span class="panel-title-icon">🚨</span> Top Violator</span>
+          </div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center;">
+              <div>
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Student Name</div>
+                <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:12px;">${topStudent.name}</div>
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Status</div>
+                <div style="font-size:14px;font-weight:600;">${statusBadge}</div>
+              </div>
+              <div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div style="background:rgba(248,81,73,0.12);padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Total Violations</div>
+                    <div style="font-size:24px;font-weight:800;color:var(--danger);">${topStudent.violations}</div>
+                  </div>
+                  <div style="background:rgba(255,152,0,0.12);padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Late Returns</div>
+                    <div style="font-size:20px;font-weight:700;color:#ff8f00;">${topStudent.lateCount}</div>
+                  </div>
+                  <div style="background:rgba(255,87,34,0.12);padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Damaged Items</div>
+                    <div style="font-size:20px;font-weight:700;color:#e65100;">${topStudent.damagedCount}</div>
+                  </div>
+                  <button class="btn btn-danger" onclick="openAccountabilityModal('${topStudent.id}')" style="padding:8px;font-size:12px;">View Details →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      topCard.innerHTML = "";
+    }
+  }
 
   if (accountabilityData.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>All students in good standing!</td></tr>`;
