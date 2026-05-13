@@ -1318,7 +1318,7 @@ let allDamagedItems = [];
 let filteredDamagedItems = [];
 
 function loadDamagedItems() {
-   fetch(scriptURL + "?action=getDamagedItems")
+  fetch(scriptURL + "?action=getDamagedItems")
     .then(r => r.json())
     .then(data => {
       allDamagedItems = Array.isArray(data) ? data : [];
@@ -1330,21 +1330,10 @@ function loadDamagedItems() {
         badge.style.display = allDamagedItems.length > 0 ? "inline-block" : "none";
       }
     })
-    .catch(() => showNotification("Error loading damaged items.", "error"));
-  // Pull from the full history (active + archived) so nothing is missed
-  const source = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
-  const damaged = source.filter(tx =>
-    tx.condition === "Damaged" || tx.condition === "Broken"
-  );
-  allDamagedItems = damaged;
-  filteredDamagedItems = damaged;
-  renderDamagedItemsTable(damaged);
-
-  const badge = document.getElementById("damagedItemsCount");
-  if (badge) {
-    badge.textContent   = `${damaged.length} item${damaged.length !== 1 ? "s" : ""}`;
-    badge.style.display = damaged.length > 0 ? "inline-block" : "none";
-  }
+    .catch(err => {
+      console.error("Error loading damaged items:", err);
+      showNotification("Error loading damaged items.", "error");
+    });
 }
 
 function renderDamagedItemsTable(items) {
@@ -1353,7 +1342,7 @@ function renderDamagedItemsTable(items) {
   tbody.innerHTML = "";
 
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
     return;
   }
 
@@ -1362,15 +1351,12 @@ function renderDamagedItemsTable(items) {
       ? `<span class="status-pill" style="background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`
       : `<span class="status-pill s-overdue">❌ Broken</span>`;
 
-    const itemId   = itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "—";
-
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td style="font-weight:600;">${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemId}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${equipId}</span></td>
+      <td><span class="mono-chip">${tx.itemId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${condBadge}</td>
