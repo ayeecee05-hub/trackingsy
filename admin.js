@@ -1602,20 +1602,19 @@ function normalizeName(str) {
 
 function addNewItem() {
   const category = document.getElementById("newItemCategory").value.trim();
-  const itemIdSelect = document.getElementById("newItemId");
-  const id = itemIdSelect.value.trim();
-  const name = document.getElementById("newItemName").value.trim() || 
-               (itemIdSelect.options[itemIdSelect.selectedIndex]?.text || id);
+  const itemId   = document.getElementById("newItemId").value.trim();
+  const itemName = document.getElementById("newItemName").value.trim();
   
   if (!category) { showNotification("Category is required.", "error"); return; }
-  if (!id)       { showNotification("Item ID is required.", "error"); return; }
+  if (!itemId)   { showNotification("Item ID is required.", "error"); return; }
+  if (!itemName) { showNotification("Item Name is required.", "error"); return; }
 
   fetch(scriptURL, { 
     method: "POST", 
     body: JSON.stringify({ 
       action: "addItemWithCategory", 
-      itemId: id, 
-      itemName: name,
+      itemId: itemId, 
+      itemName: itemName,
       category: category,
       adminToken: getAdminToken() 
     }) 
@@ -1623,9 +1622,9 @@ function addNewItem() {
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`✓ "${id}" added to ${category}.`, "success");
+        showNotification(`✓ "${itemName}" (${itemId}) added to ${category}.`, "success");
         document.getElementById("newItemCategory").value = "";
-        document.getElementById("newItemId").innerHTML = '<option value="">Select category first...</option>';
+        document.getElementById("newItemId").value = "";
         document.getElementById("newItemName").value = "";
         loadItemsTable();
       } else {
@@ -1633,43 +1632,6 @@ function addNewItem() {
       }
     })
     .catch(() => showNotification("Error adding item.", "error"));
-}
-
-// ── Cascading dropdown: When category changes, load items for that category ───
-function onCategoryChange() {
-  const category = document.getElementById("newItemCategory").value.trim();
-  const itemIdSelect = document.getElementById("newItemId");
-  const itemNameInput = document.getElementById("newItemName");
-  
-  if (!category) {
-    itemIdSelect.innerHTML = '<option value="">Select category first...</option>';
-    itemNameInput.value = "";
-    return;
-  }
-
-  // Fetch items for selected category
-  fetch(`${scriptURL}?action=getItemsByCategory&category=${encodeURIComponent(category)}`)
-    .then(r => r.json())
-    .then(items => {
-      itemIdSelect.innerHTML = '<option value="">Select Item ID...</option>';
-      
-      if (!items || items.length === 0) {
-        itemIdSelect.innerHTML += '<option disabled>No items in this category</option>';
-        itemNameInput.value = "";
-        return;
-      }
-
-      // Populate Item ID dropdown
-      items.forEach(item => {
-        const opt = document.createElement("option");
-        opt.value = item.itemId;
-        opt.textContent = `${item.itemId} (${item.itemName})`;
-        itemIdSelect.appendChild(opt);
-      });
-    })
-    .catch(() => {
-      itemIdSelect.innerHTML = '<option value="">Error loading items...</option>';
-    });
 }
 
 // ── Load categories into dropdown ────────────────────────────────────────────
@@ -1686,6 +1648,25 @@ function loadCategoriesDropdown() {
       if (cat) categories.add(cat);
     });
   }
+
+  // Get current selected value to preserve it
+  const currentValue = categorySelect.value;
+
+  // Clear and rebuild options
+  categorySelect.innerHTML = '<option value="">Select or type category...</option>';
+  
+  Array.from(categories).sort().forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.textContent = cat;
+    categorySelect.appendChild(option);
+  });
+
+  // Restore selected value if it still exists
+  if (currentValue) {
+    categorySelect.value = currentValue;
+  }
+}
 
   // Get current selected value to preserve it
   const currentValue = categorySelect.value;
