@@ -1389,7 +1389,7 @@ function resetDamagedFilter() {
 
 function exportDamagedCSV() {
   if (!allDamagedItems.length) { showNotification("No damaged items to export.", "error"); return; }
-  const headers = ["Student ID","Name","Item","Item ID","Equipment ID","Borrow Date","Return Date","Condition","Status"];
+  const headers = ["Student ID","Name","Item","Item ID","Borrow Date","Return Date","Condition","Status"];
   const rows = allDamagedItems.map(tx => [
     tx.studentId, tx.studentName||"", tx.item,
     itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "",
@@ -1412,7 +1412,7 @@ function exportTransactionsCSV() {
     showNotification("No transactions to export.", "error");
     return;
   }
-  const headers = ["Student ID","Name","Item","Item ID","Equipment ID","Borrow Date","Due Date","Return Date","Status","Late Return"];
+  const headers = ["Student ID","Name","Item","Item ID","Borrow Date","Due Date","Return Date","Status","Late Return"];
   const rows = allTransactions.map(tx =>
     [tx.studentId, tx.studentName || "", tx.item, itemIdMap[normalizeName(tx.item).toLowerCase()] || "", tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
       .map(v => `"${String(v).replace(/"/g,'""')}"`)
