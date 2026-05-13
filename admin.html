@@ -756,7 +756,7 @@
     <div class="login-sub">Equipment &amp; Device Borrowing System</div>
     <label class="login-label" for="adminPassword">Password</label>
     <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
-    <button type="button" class="login-btn" id="adminLoginBtn" onclick="loginClicked()">Sign In</button>
+    <button class="login-btn" id="adminLoginBtn" onclick="checkPassword()">Sign In</button>
   </div>
 </div>
 
@@ -1121,11 +1121,6 @@
             <div class="panel-header">
               <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
               <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
-            </div>
-            <div class="filter-bar">
-              <select class="filter-input" id="categoryFilter" onchange="filterItemsByCategory()" style="appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23e6edf3%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22></polyline></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:16px;padding-right:32px;">
-                <option value="">All Categories</option>
-              </select>
             </div>
             <div class="panel-body-flush" style="padding:12px;">
               <div id="itemsContainer" style="display:flex;flex-direction:column;gap:8px;">

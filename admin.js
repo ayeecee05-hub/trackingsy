@@ -23,8 +23,8 @@ function getPHTTimeString(opts = {}) {
 }
 
 // ── Admin password (SHA-256) ─────────────────────────────────────────────────
-// Password: p4ssw0rd
-const ADMIN_PASSWORD_HASH = "4ce6712cc14218c3a61b1b3981c9e46c0940f53078d0ca3a8c8ded0f6c3d0e7e";
+// Default: ctu@danao2025
+const ADMIN_PASSWORD_HASH = "48d2a5bbcf422ccd1b69e2a82fb90bafb52384953e77e304bef856084be052b6";
 
 async function hashPassword(pw) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
@@ -77,7 +77,6 @@ let filteredTx            = [];
 let archiveFilteredTx     = [];
 let allItems              = [];  // raw items list from server
 let itemIdMap             = {};  // normalizedItemName -> itemId
-let selectedCategoryFilter = "";  // Category filter for Items page
 
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
@@ -116,60 +115,36 @@ function showNotification(message, type = "info") {
 let _adminSessionToken = "";
 function getAdminToken() { return _adminSessionToken; }
 
-// Simple wrapper for login button
-function loginClicked() {
-  checkPassword();
-}
-
 // ── Login ────────────────────────────────────────────────────────────────────
 async function checkPassword() {
-  try {
-    const entered = document.getElementById("adminPassword").value;
-    if (!entered) {
-      showNotification("Please enter a password", "error");
-      return;
-    }
+  const entered = document.getElementById("adminPassword").value;
+  const hashed  = await hashPassword(entered);
+  if (hashed === ADMIN_PASSWORD_HASH) {
+    _adminSessionToken = entered;   // store plaintext for API verification
+    document.getElementById("loginScreen").style.display  = "none";
+    document.getElementById("appShell").style.display     = "flex";
+    showNotification("Admin access granted", "success");
+    resetSessionTimer();
+    startAutoRefresh();
     
-    const hashed  = await hashPassword(entered);
-    console.log("Entered:", entered);
-    console.log("Hashed:", hashed);
-    console.log("Expected:", ADMIN_PASSWORD_HASH);
-    
-    // Direct comparison for debugging
-    if (entered === "p4ssw0rd" || hashed === ADMIN_PASSWORD_HASH) {
-      _adminSessionToken = entered;
-      document.getElementById("loginScreen").style.display  = "none";
-      document.getElementById("appShell").style.display     = "flex";
-      showNotification("Admin access granted", "success");
-      resetSessionTimer();
-      startAutoRefresh();
-      
-      // Ensure data is migrated to new format on login
-      fetch(scriptURL + "?action=diagnostic").then(r => r.json())
-        .then(result => {
-          if (result.status === "NEEDS_MIGRATION") {
-            showNotification("Migrating data format... please wait", "info");
-            fetch(scriptURL + "?action=getItems").then(() => {
-              showNotification("Data migration complete", "success");
-              refreshAll();
-            });
-          } else {
+    // Ensure data is migrated to new format on login
+    fetch(scriptURL + "?action=diagnostic").then(r => r.json())
+      .then(result => {
+        if (result.status === "NEEDS_MIGRATION") {
+          showNotification("Migrating data format... please wait", "info");
+          // Trigger migration by calling any GET action
+          fetch(scriptURL + "?action=getItems").then(() => {
+            showNotification("Data migration complete", "success");
             refreshAll();
-          }
-        })
-        .catch(err => {
-          console.error("Error during login:", err);
-          showNotification("Connected, but error loading data. Refreshing...", "warning");
+          });
+        } else {
           refreshAll();
-        });
-    } else {
-      showNotification("Incorrect password", "error");
-      document.getElementById("adminPassword").value = "";
-      document.getElementById("adminPassword").focus();
-    }
-  } catch (err) {
-    console.error("Login error:", err);
-    showNotification("Login failed: " + err.message, "error");
+        }
+      });
+  } else {
+    showNotification("Incorrect password", "error");
+    document.getElementById("adminPassword").value = "";
+    document.getElementById("adminPassword").focus();
   }
 }
 
@@ -244,7 +219,6 @@ function switchPage(pageId) {
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
-  if (pageId === "pageItems")        loadItemsTable();
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
@@ -670,15 +644,6 @@ function clearFormState(inputId, errorId) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Login button
-  const loginBtn = document.getElementById("adminLoginBtn");
-  if (loginBtn) {
-    loginBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      checkPassword();
-    });
-  }
-
   // Login on enter
   const pwInput = document.getElementById("adminPassword");
   if (pwInput) pwInput.addEventListener("keypress", e => { if (e.key === "Enter") { e.preventDefault(); checkPassword(); } });
@@ -1535,9 +1500,6 @@ function loadItemsTable() {
         return;
       }
 
-      // Populate category filter dropdown
-      populateCategoryFilter(allItems);
-
       // Count currently borrowed items by name
       const borrowedByName = {};
       (history || []).forEach(tx => {
@@ -1556,16 +1518,8 @@ function loadItemsTable() {
         grouped[key].push(it);
       });
 
-      // Filter by selected category
-      let categoriesToDisplay = Object.entries(grouped);
-      if (selectedCategoryFilter) {
-        categoriesToDisplay = categoriesToDisplay.filter(
-          ([categoryName]) => normalizeName(categoryName).toLowerCase() === normalizeName(selectedCategoryFilter).toLowerCase()
-        );
-      }
-
       // Create a card for each category
-      categoriesToDisplay.forEach(([categoryName, categoryItems], catIndex) => {
+      Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
         // Use a safe numeric index-based ID to avoid special characters breaking getElementById
         const categoryId = `cat-idx-${catIndex}`;
         const total = categoryItems.length;
@@ -1662,47 +1616,6 @@ function normalizeItemName(str) {
 
 function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
-}
-
-function populateCategoryFilter(items) {
-  const filterSelect = document.getElementById("categoryFilter");
-  if (!filterSelect) return;
-
-  // Get unique categories
-  const categories = new Set();
-  items.forEach(item => {
-    if (item.itemName) {
-      categories.add(normalizeName(item.itemName));
-    }
-  });
-
-  // Sort categories alphabetically
-  const sortedCategories = Array.from(categories).sort();
-
-  // Clear existing options except "All Categories"
-  filterSelect.innerHTML = '<option value="">All Categories</option>';
-
-  // Add category options
-  sortedCategories.forEach(category => {
-    const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
-    filterSelect.appendChild(option);
-  });
-
-  // Restore previous selection if it still exists
-  if (selectedCategoryFilter) {
-    filterSelect.value = selectedCategoryFilter;
-  }
-}
-
-function filterItemsByCategory() {
-  const filterSelect = document.getElementById("categoryFilter");
-  if (!filterSelect) return;
-
-  selectedCategoryFilter = filterSelect.value;
-  loadItemsTable();
-}
 }
 
 function addItem() {
