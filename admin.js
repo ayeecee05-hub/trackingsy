@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwBWbPtdTdW5z5qDYwB1dDmuDti0kGXONnYW4GBmzXMZAuRbGDf3_V6H_hhEBUoKDQJSA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwFCeeQ_2R7J2gQI6b-48xDEoP_fI55Ax5er9w_iwqG8S1pbviqYauzcZK1ZmBw0sdZXA/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -514,7 +514,6 @@ function renderActiveBorrowers() {
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
         ${itemIdMap[normalizeName(tx.item).toLowerCase()] ? `<span class="mono-chip" style="font-size:10px;">🏷 ${itemIdMap[normalizeName(tx.item).toLowerCase()]}</span>` : ""}
-        ${tx.equipmentId ? `<span class="mono-chip" style="font-size:10px;background:rgba(79,195,247,0.15);color:var(--accent);border-color:rgba(79,195,247,0.35);">🔑 ${tx.equipmentId}</span>` : ""}
       </div>
       <div class="ab-dates">
         <div class="ab-dates-left">
@@ -599,7 +598,6 @@ function renderDashRecent() {
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="mono-chip">${itemId}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td>${statusPill(tx.status)}</td>`;
@@ -816,7 +814,6 @@ function renderPendingTable(requests) {
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
       <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${req.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
@@ -1001,7 +998,6 @@ function renderReturnsTable(requests) {
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
       <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${req.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
@@ -1212,7 +1208,6 @@ function renderTransactions(transactions, resetPage = false) {
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="mono-chip">${itemId}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1266,7 +1261,6 @@ function renderArchiveTransactions(transactions) {
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
       <td><span class="mono-chip">${itemId}</span></td>
-      <td><span class="mono-chip" style="background-color:rgba(79,195,247,0.2);color:var(--accent);">${tx.equipmentId || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1356,7 +1350,6 @@ function renderDamagedItemsTable(items) {
       : `<span class="status-pill s-overdue">❌ Broken</span>`;
 
     const itemId   = itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "—";
-    const equipId  = tx.equipmentId || "—";
 
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -1400,7 +1393,6 @@ function exportDamagedCSV() {
   const rows = allDamagedItems.map(tx => [
     tx.studentId, tx.studentName||"", tx.item,
     itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "",
-    tx.equipmentId || "",
     tx.borrowDate||"", tx.returnDate||"", tx.condition, tx.status
   ]);
   const csv = [headers, ...rows]
@@ -1422,7 +1414,7 @@ function exportTransactionsCSV() {
   }
   const headers = ["Student ID","Name","Item","Item ID","Equipment ID","Borrow Date","Due Date","Return Date","Status","Late Return"];
   const rows = allTransactions.map(tx =>
-    [tx.studentId, tx.studentName || "", tx.item, itemIdMap[normalizeName(tx.item).toLowerCase()] || "", tx.equipmentId || "", tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
+    [tx.studentId, tx.studentName || "", tx.item, itemIdMap[normalizeName(tx.item).toLowerCase()] || "", tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
       .map(v => `"${String(v).replace(/"/g,'""')}"`)
       .join(",")
   );
