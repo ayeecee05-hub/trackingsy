@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbx8wFUZKN9f7mAWlT-wzLfbZ606kH_fUr8zE0Gy0RcEfVn_HzRKR7mnJSi069MNN_4A6w/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbypZL9K0jJD4HhGnBOBdwy-Lnp9woVjrTYsNC_Fd6q_7qeUJ_SE6FO5-IGe3hLWepB2iw/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -586,16 +586,20 @@ function renderDashRecent() {
 
 function statusPill(status) {
   const map = {
-    "Borrowed":       "s-borrowed",
-    "Pending":        "s-pending",
-    "Returned":       "s-returned",
+    "Borrowed":        "s-borrowed",
+    "Pending":         "s-pending",
+    "Returned":        "s-returned",
     "Returned (Late)": "s-returned-late",
-    "Overdue":        "s-overdue",
-    "Return Pending": "s-return-pending",
-    "Rejected":       "s-rejected"
+    "Overdue":         "s-overdue",
+    "Return Pending":  "s-return-pending",
+    "Rejected":        "s-rejected"
   };
-  const cls = map[status] || "";
-  return `<span class="status-pill ${cls}">${status}</span>`;
+  // Guard against missing, undefined, or raw Date string values
+  // (happens when the sheet's Status column is missing/shifted)
+  const knownStatuses = Object.keys(map);
+  const safeStatus = (status && knownStatuses.includes(String(status))) ? String(status) : "—";
+  const cls = map[safeStatus] || "";
+  return `<span class="status-pill ${cls}">${safeStatus}</span>`;
 }
 
 // ── Registration form ─────────────────────────────────────────────────────────
@@ -2213,4 +2217,4 @@ function drawOnTimeChart(transactions) {
       }
     }
   });
-} 
+}
