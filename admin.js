@@ -23,8 +23,8 @@ function getPHTTimeString(opts = {}) {
 }
 
 // ── Admin password (SHA-256) ─────────────────────────────────────────────────
-// Default: ctu@danao2025
-const ADMIN_PASSWORD_HASH = "48d2a5bbcf422ccd1b69e2a82fb90bafb52384953e77e304bef856084be052b6";
+// Password: p4ssw0rd
+const ADMIN_PASSWORD_HASH = "4ce6712cc14218c3a61b1b3981c9e46c0940f53078d0ca3a8c8ded0f6c3d0e7e";
 
 async function hashPassword(pw) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
@@ -116,36 +116,56 @@ function showNotification(message, type = "info") {
 let _adminSessionToken = "";
 function getAdminToken() { return _adminSessionToken; }
 
+// Simple wrapper for login button
+function loginClicked() {
+  checkPassword();
+}
+
 // ── Login ────────────────────────────────────────────────────────────────────
 async function checkPassword() {
-  const entered = document.getElementById("adminPassword").value;
-  const hashed  = await hashPassword(entered);
-  if (hashed === ADMIN_PASSWORD_HASH) {
-    _adminSessionToken = entered;   // store plaintext for API verification
-    document.getElementById("loginScreen").style.display  = "none";
-    document.getElementById("appShell").style.display     = "flex";
-    showNotification("Admin access granted", "success");
-    resetSessionTimer();
-    startAutoRefresh();
+  try {
+    const entered = document.getElementById("adminPassword").value;
+    if (!entered) {
+      showNotification("Please enter a password", "error");
+      return;
+    }
     
-    // Ensure data is migrated to new format on login
-    fetch(scriptURL + "?action=diagnostic").then(r => r.json())
-      .then(result => {
-        if (result.status === "NEEDS_MIGRATION") {
-          showNotification("Migrating data format... please wait", "info");
-          // Trigger migration by calling any GET action
-          fetch(scriptURL + "?action=getItems").then(() => {
-            showNotification("Data migration complete", "success");
+    const hashed  = await hashPassword(entered);
+    if (hashed === ADMIN_PASSWORD_HASH) {
+      _adminSessionToken = entered;   // store plaintext for API verification
+      document.getElementById("loginScreen").style.display  = "none";
+      document.getElementById("appShell").style.display     = "flex";
+      showNotification("Admin access granted", "success");
+      resetSessionTimer();
+      startAutoRefresh();
+      
+      // Ensure data is migrated to new format on login
+      fetch(scriptURL + "?action=diagnostic").then(r => r.json())
+        .then(result => {
+          if (result.status === "NEEDS_MIGRATION") {
+            showNotification("Migrating data format... please wait", "info");
+            // Trigger migration by calling any GET action
+            fetch(scriptURL + "?action=getItems").then(() => {
+              showNotification("Data migration complete", "success");
+              refreshAll();
+            });
+          } else {
             refreshAll();
-          });
-        } else {
+          }
+        })
+        .catch(err => {
+          console.error("Error during login:", err);
+          showNotification("Connected, but error loading data. Refreshing...", "warning");
           refreshAll();
-        }
-      });
-  } else {
-    showNotification("Incorrect password", "error");
-    document.getElementById("adminPassword").value = "";
-    document.getElementById("adminPassword").focus();
+        });
+    } else {
+      showNotification("Incorrect password", "error");
+      document.getElementById("adminPassword").value = "";
+      document.getElementById("adminPassword").focus();
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    showNotification("Login failed: " + err.message, "error");
   }
 }
 
@@ -646,6 +666,15 @@ function clearFormState(inputId, errorId) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Login button
+  const loginBtn = document.getElementById("adminLoginBtn");
+  if (loginBtn) {
+    loginBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      checkPassword();
+    });
+  }
+
   // Login on enter
   const pwInput = document.getElementById("adminPassword");
   if (pwInput) pwInput.addEventListener("keypress", e => { if (e.key === "Enter") { e.preventDefault(); checkPassword(); } });
