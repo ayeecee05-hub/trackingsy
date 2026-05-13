@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzHRpJcwY4qc1w6UedAlnjG1cAue_3EVsjTORBGtClBVr4wU2jot1CZPyoHsoxKmnpcNQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwNqvNC1nue1RSKHAglAztnD0p7Wc_EU-Q27uGIdSJQgXfZGYRsjjX0Kk4QxcfGsUFtLA/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -1347,9 +1347,28 @@ function renderDamagedItemsTable(items) {
   }
 
   items.forEach(tx => {
-    const condBadge = tx.condition === "Damaged"
-      ? `<span class="status-pill" style="background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);color:#ffb74d;">⚠️ Damaged</span>`
-      : `<span class="status-pill s-overdue">❌ Broken</span>`;
+    // Condition pill with color coding
+    let condClass = "c-good";
+    let condIcon = "✅";
+    if (tx.condition === "Damaged") {
+      condClass = "c-damaged";
+      condIcon = "⚠️";
+    } else if (tx.condition === "Broken") {
+      condClass = "c-broken";
+      condIcon = "❌";
+    }
+    
+    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition}</span>`;
+
+    // Status pill with color coding
+    let statusClass = "s-returned";
+    let statusIcon = "✅";
+    if (tx.status === "Returned (Late)") {
+      statusClass = "s-returned-late";
+      statusIcon = "⚠️";
+    }
+    
+    const statusBadge = `<span class="status-pill ${statusClass}">${statusIcon} ${tx.status}</span>`;
 
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -1360,7 +1379,7 @@ function renderDamagedItemsTable(items) {
       <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${condBadge}</td>
-      <td>${statusPill(tx.status)}</td>`;
+      <td>${statusBadge}</td>`;
     tbody.appendChild(row);
   });
 }
