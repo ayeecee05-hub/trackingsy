@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwC0wIBWch6avpfOtzpX2NTcCXMxN0xJ4KfGgz3c9Qf7Ty4ioGQSgqfgBukQbVP6_ruiw/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzPRdEb3w-rLxiz0p3Ppc-GuNM9Et53gdUV4Cxaph-Ly5BP-9Eulv36igonp7SKfX1FOA/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -1519,8 +1519,9 @@ function loadItemsTable() {
       });
 
       // Create a card for each category
-      Object.entries(grouped).forEach(([categoryName, categoryItems]) => {
-        const categoryId = `cat-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
+      Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
+        // Use a safe numeric index-based ID to avoid special characters breaking getElementById
+        const categoryId = `cat-idx-${catIndex}`;
         const total = categoryItems.length;
         const out = borrowedByName[categoryName] || 0;
         const available = Math.max(0, total - out);
@@ -1529,7 +1530,6 @@ function loadItemsTable() {
         const cardDiv = document.createElement("div");
         cardDiv.className = "item-category-card";
         cardDiv.id = categoryId;
-        cardDiv.onclick = () => toggleCategoryExpand(categoryId);
 
         cardDiv.innerHTML = `
           <div class="item-category-info">
@@ -1553,15 +1553,37 @@ function loadItemsTable() {
         categoryItems.forEach(item => {
           const itemDetail = document.createElement("div");
           itemDetail.className = "item-detail";
-          itemDetail.innerHTML = `
-            <div style="display:flex;align-items:center;flex:1;">
-              <div class="item-detail-id">${item.itemId}</div>
-              <div class="item-detail-name">${item.itemName}</div>
-            </div>
-            <div class="item-detail-delete" onclick="deleteItemById('${item.itemId}', event)">🗑</div>
-          `;
+
+          const infoWrap = document.createElement("div");
+          infoWrap.style.cssText = "display:flex;align-items:center;flex:1;";
+
+          const idEl = document.createElement("div");
+          idEl.className = "item-detail-id";
+          idEl.textContent = item.itemId;
+
+          const nameEl = document.createElement("div");
+          nameEl.className = "item-detail-name";
+          nameEl.textContent = item.itemName;
+
+          infoWrap.appendChild(idEl);
+          infoWrap.appendChild(nameEl);
+
+          const deleteBtn = document.createElement("div");
+          deleteBtn.className = "item-detail-delete";
+          deleteBtn.textContent = "🗑";
+          // Use addEventListener so stopPropagation works cleanly
+          deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteItemById(item.itemId);
+          });
+
+          itemDetail.appendChild(infoWrap);
+          itemDetail.appendChild(deleteBtn);
           itemsDiv.appendChild(itemDetail);
         });
+
+        // Attach toggle via addEventListener (not onclick) to avoid any innerHTML clobbering
+        cardDiv.addEventListener("click", () => toggleCategoryExpand(categoryId));
 
         container.appendChild(cardDiv);
         container.appendChild(itemsDiv);
@@ -1574,11 +1596,11 @@ function loadItemsTable() {
 function toggleCategoryExpand(categoryId) {
   const card = document.getElementById(categoryId);
   const itemsContainer = document.getElementById(`${categoryId}-items`);
-  
+
   if (!card || !itemsContainer) return;
-  
+
   const isExpanded = card.classList.contains("expanded");
-  
+
   if (isExpanded) {
     card.classList.remove("expanded");
     itemsContainer.classList.remove("visible");
@@ -1626,10 +1648,7 @@ function addItem() {
     .catch(() => showNotification("Error adding item.", "error"));
 }
 
-function deleteItemById(itemId, event) {
-  if (event) {
-    event.stopPropagation();  // Prevent category toggle on delete click
-  }
+function deleteItemById(itemId) {
   
   if (!confirm(`Delete item "${itemId}"? This cannot be undone.`)) return;
   fetch(scriptURL, { 
