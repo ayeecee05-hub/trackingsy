@@ -11,6 +11,31 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbypZL9K0jJD4HhGnBOBdwy-Lnp9woVjrTYsNC_Fd6q_7qeUJ_SE6FO5-IGe3hLWepB2iw/exec";
 
+// ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
+// Google Apps Script sometimes returns an HTML redirect/error page instead of
+// JSON (e.g. when the deployment permissions are mismatched, or a short-lived
+// redirect occurs). Calling .json() on that throws a SyntaxError which bubbles
+// up as "Could not load your data". This wrapper reads the raw text first and
+// only parses it as JSON when it actually looks like JSON.
+function safeFetch(url, options) {
+  return fetch(url, options)
+    .then(res => res.text())
+    .then(text => {
+      const trimmed = text.trim();
+      if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+        // Response is HTML or plain text — not valid JSON
+        console.error("Non-JSON response from Apps Script:", trimmed.slice(0, 300));
+        throw new Error("Server returned a non-JSON response. The web app deployment may need to be re-published as 'Anyone' access.");
+      }
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        console.error("JSON parse error:", e, "Raw:", trimmed.slice(0, 300));
+        throw new Error("Failed to parse server response.");
+      }
+    });
+}
+
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 // Always derive the PHT date from Intl/toLocaleDateString so the result is
@@ -244,8 +269,7 @@ function showPage(pageId) {
 
 // Re-fetches history only (fast) and repaints card badges — no full page reload
 function refreshStatusBadges() {
-  fetch(scriptURL + "?action=getAllHistory")
-    .then(r => r.json())
+  safeFetch(scriptURL + "?action=getAllHistory")
     .then(history => {
       borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
       renderBorrowerPage();
@@ -292,8 +316,8 @@ function computeStatusMap(history) {
 
 function loadBorrowers() {
   Promise.all([
-    fetch(scriptURL + "?action=getUsers").then(r => r.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
+    safeFetch(scriptURL + "?action=getUsers"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
   .then(([users, history]) => {
     borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
@@ -629,9 +653,12 @@ function loadUserDashboard() {
   document.getElementById("profileName").textContent = currentUser.name;
   document.getElementById("profileId").textContent   = "ID: " + currentUser.id;
 
-  fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
-    .then(res => res.json())
+  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
     .then(history => {
+      if (!Array.isArray(history)) {
+        console.error("getHistory returned non-array:", history);
+        throw new Error("Unexpected response format from server.");
+      }
       const todayStr = getPHTDateString();
       const [ty, tm, td] = todayStr.split("-").map(Number);
       const today = new Date(ty, tm - 1, td);
@@ -649,8 +676,7 @@ function loadUserDashboard() {
       const pendingSection = document.getElementById("pendingSection");
       const pendingList = document.getElementById("pendingList");
       if (pending.length > 0) {
-        fetch(scriptURL + "?action=getPendingRequests")
-          .then(res => res.json())
+        safeFetch(scriptURL + "?action=getPendingRequests")
           .then(allPending => {
             const userPending = Array.isArray(allPending)
               ? allPending.filter(p => String(p.studentId) === String(currentUser.id))
@@ -983,8 +1009,10 @@ function loadUserDashboard() {
     .catch(err => {
       // Show an inline error inside the borrowedList instead of a toast
       // so it doesn't keep popping up every 15 s from the poll.
+      console.error("loadUserDashboard error:", err);
       const borrowedList = document.getElementById("borrowedList");
       if (borrowedList) {
+        const errMsg = err && err.message ? err.message : "Check your connection and try again.";
         borrowedList.innerHTML = `
           <li style="list-style:none;padding:0;margin:0;">
             <div style="
@@ -998,7 +1026,7 @@ function loadUserDashboard() {
                 Could not load your data
               </div>
               <div style="font-size:12px;color:var(--text-muted);">
-                Check your connection and try again.
+                ${errMsg}
               </div>
               <button
                 onclick="loadUserDashboard()"
@@ -1070,8 +1098,8 @@ function populateBorrowSelect() {
 
   // Fetch BOTH items and active transactions to show TRUE available count
   Promise.all([
-    fetch(scriptURL + "?action=getItems").then(res => res.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(res => res.json())
+    safeFetch(scriptURL + "?action=getItems"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
     .then(([items, history]) => {
       const select = document.getElementById("borrowItem");
@@ -1126,8 +1154,7 @@ function populateReturnSelect() {
   document.getElementById("returnDate").value = getPHTDateString();
   if (!currentUser) return;
 
-  fetch(scriptURL + "?action=getHistory&studentId=" + currentUser.id)
-    .then(res => res.json())
+  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
     .then(history => {
       // Show items with status "Borrowed" OR "Overdue"
       // "Return Pending" items are already submitted and awaiting admin
@@ -1193,7 +1220,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
           wasCancelled = true;
           if (submittedTx) {
             // Cancel by calling rejectBorrow on our own pending request
-            fetch(scriptURL, {
+            safeFetch(scriptURL, {
               method: "POST",
               body: JSON.stringify({
                 action: "rejectBorrow",
@@ -1201,9 +1228,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
                 item: submittedTx.item,
                 rowIndex: submittedTx.rowIndex
               })
-            })
-            .then(r => r.json())
-            .then(data => {
+            }).then(data => {
               if (data.success) {
                 showNotification(`Request for "${item}" cancelled.`, "info");
                 loadUserDashboard();
@@ -1220,24 +1245,21 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
         }
       );
 
-      fetch(scriptURL, {
+      safeFetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
-      })
-      .then(res => res.json())
-      .then(data => {
+      }).then(data => {
         if (data.success) {
           if (wasCancelled) {
             // Undo was tapped before the request came back — cancel immediately
-            fetch(scriptURL + "?action=getPendingRequests")
-              .then(r => r.json())
+            safeFetch(scriptURL + "?action=getPendingRequests")
               .then(pending => {
                 const match = Array.isArray(pending) && pending.find(p =>
                   String(p.studentId) === String(currentUser.id) &&
                   p.item.toLowerCase() === item.toLowerCase()
                 );
                 if (match) {
-                  return fetch(scriptURL, {
+                  return safeFetch(scriptURL, {
                     method: "POST",
                     body: JSON.stringify({ action: "rejectBorrow", studentId: currentUser.id, item: match.item, rowIndex: match.rowIndex })
                   }).then(r => r.json());
@@ -1250,8 +1272,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
               .catch(() => loadUserDashboard());
           } else {
             // Store for potential undo
-            fetch(scriptURL + "?action=getPendingRequests")
-              .then(r => r.json())
+            safeFetch(scriptURL + "?action=getPendingRequests")
               .then(pending => {
                 submittedTx = Array.isArray(pending) && pending.find(p =>
                   String(p.studentId) === String(currentUser.id) &&
@@ -1274,7 +1295,7 @@ function cancelPendingRequest(rowIndex, item) {
   if (!currentUser) return;
   if (!confirm(`Cancel borrow request for "${item}"?`)) return;
 
-  fetch(scriptURL, {
+  safeFetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({
       action: "rejectBorrow",
@@ -1282,9 +1303,7 @@ function cancelPendingRequest(rowIndex, item) {
       item: item,
       rowIndex: rowIndex
     })
-  })
-  .then(r => r.json())
-  .then(data => {
+  }).then(data => {
     if (data.success) {
       showNotification(`Request for "${item}" cancelled.`, "info");
       loadUserDashboard();
@@ -1318,7 +1337,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
        Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
-      fetch(scriptURL, {
+      safeFetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
           action:     "requestReturn",   // sets status = "Return Pending"
@@ -1326,9 +1345,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           item,
           returnDate
         })
-      })
-      .then(res => res.json())
-      .then(data => {
+      }).then(data => {
         if (data.success) {
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
           showPage("userDashboardPage");
@@ -1379,8 +1396,8 @@ function loadStockPanel() {
 
   // Fetch BOTH items and active transactions to calculate TRUE available stock
   Promise.all([
-    fetch(scriptURL + "?action=getItems").then(res => res.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(res => res.json())
+    safeFetch(scriptURL + "?action=getItems"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
     .then(([items, history]) => {
       // Count total items by name
