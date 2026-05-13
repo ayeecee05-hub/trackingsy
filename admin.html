@@ -755,8 +755,8 @@
     <div class="login-title">Admin Panel</div>
     <div class="login-sub">Equipment &amp; Device Borrowing System</div>
     <label class="login-label" for="adminPassword">Password</label>
-    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password" onkeypress="if(event.key==='Enter') checkPassword()">
-    <button type="button" class="login-btn" id="adminLoginBtn" onclick="checkPassword()" style="cursor: pointer; pointer-events: auto;">Sign In</button>
+    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
+    <button class="login-btn" id="adminLoginBtn" onclick="checkPassword()">Sign In</button>
   </div>
 </div>
 
@@ -1107,18 +1107,14 @@
             </div>
             <div class="panel-body">
               <div class="form-group">
-                <label class="form-label">Category</label>
-                <input type="text" class="form-input" id="newItemCategory" placeholder="e.g. Keyboard, Mouse, Projector">
+                <label class="form-label">Item Name</label>
+                <input type="text" class="form-input" id="newItemName" placeholder="e.g. Projector">
               </div>
               <div class="form-group">
                 <label class="form-label">Item ID</label>
-                <input type="text" class="form-input" id="newItemId" placeholder="e.g. keyboard01, proj-001">
+                <input type="text" class="form-input" id="newItemId" placeholder="e.g. keyboard01">
               </div>
-              <div class="form-group">
-                <label class="form-label">Item Name</label>
-                <input type="text" class="form-input" id="newItemName" placeholder="e.g. Mechanical Keyboard, Epson Projector">
-              </div>
-              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addNewItem()">Add Item</button>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addItem()">Add to Inventory</button>
             </div>
           </div>
           <div class="panel">
