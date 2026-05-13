@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwFCeeQ_2R7J2gQI6b-48xDEoP_fI55Ax5er9w_iwqG8S1pbviqYauzcZK1ZmBw0sdZXA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzHRpJcwY4qc1w6UedAlnjG1cAue_3EVsjTORBGtClBVr4wU2jot1CZPyoHsoxKmnpcNQ/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -1318,6 +1318,19 @@ let allDamagedItems = [];
 let filteredDamagedItems = [];
 
 function loadDamagedItems() {
+   fetch(scriptURL + "?action=getDamagedItems")
+    .then(r => r.json())
+    .then(data => {
+      allDamagedItems = Array.isArray(data) ? data : [];
+      filteredDamagedItems = allDamagedItems;
+      renderDamagedItemsTable(allDamagedItems);
+      const badge = document.getElementById("damagedItemsCount");
+      if (badge) {
+        badge.textContent = `${allDamagedItems.length} item${allDamagedItems.length !== 1 ? "s" : ""}`;
+        badge.style.display = allDamagedItems.length > 0 ? "inline-block" : "none";
+      }
+    })
+    .catch(() => showNotification("Error loading damaged items.", "error"));
   // Pull from the full history (active + archived) so nothing is missed
   const source = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
   const damaged = source.filter(tx =>
