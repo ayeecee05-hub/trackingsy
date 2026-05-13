@@ -1119,12 +1119,17 @@
           </div>
           <div class="panel">
             <div class="panel-header">
-              <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
-              <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
+              <span class="panel-title"><span class="panel-title-icon">�</span> Search Items by Category</span>
+              <button class="btn btn-ghost btn-sm" onclick="loadItemsSearch()">↻ Refresh</button>
             </div>
-            <div class="panel-body-flush" style="padding:12px;">
-              <div id="itemsContainer" style="display:flex;flex-direction:column;gap:8px;">
-                <div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>
+            <div class="panel-body">
+              <div id="itemCategoryButtons" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+                <div style="text-align:center;width:100%;color:var(--text3);font-size:12px;padding:16px;">Loading categories...</div>
+              </div>
+              <hr class="divider" style="margin:16px 0;">
+              <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Matching Items</div>
+              <div id="itemSearchResults" style="display:flex;flex-direction:column;gap:6px;">
+                <div style="text-align:center;color:var(--text3);font-size:12px;padding:12px;">Select a category above</div>
               </div>
             </div>
           </div>

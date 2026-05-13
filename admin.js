@@ -163,7 +163,7 @@ function refreshAll() {
   loadPendingRequests();
   loadReturnRequests();
   loadTransactions();
-  loadItemsTable();
+  loadItemsSearch();
   loadQrStudentList();
   updateSyncTime();
 }
@@ -219,6 +219,7 @@ function switchPage(pageId) {
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
+  if (pageId === "pageItems")        loadItemsSearch();
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
@@ -873,7 +874,7 @@ function bulkApprovePending() {
     showNotification(`✅ ${approved}/${itemsToApprove.length} hand-overs completed.`, "success");
     loadPendingRequests();
     loadTransactions();
-    loadItemsTable();
+    loadItemsSearch();
     renderActiveBorrowers();
   }).catch(() => showNotification("Error during bulk hand-over.", "error"));
 }
@@ -912,7 +913,7 @@ function executeHandover(req) {
       showNotification(`✅ "${req.item}" handed over to ${req.studentName || req.studentId}`, "success");
       loadPendingRequests();
       loadTransactions();
-      loadItemsTable();
+      loadItemsSearch();
     } else {
       showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
       btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
@@ -1060,7 +1061,7 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       showNotification(`${conditionIcon} "${req.item}" return confirmed (${condition})${lateText}.`, "success");
       loadReturnRequests();
       loadTransactions();
-      loadItemsTable();
+      loadItemsSearch();
       renderActiveBorrowers();
     } else {
       showNotification(data.message || "Confirmation failed.", "error");
@@ -1125,7 +1126,7 @@ function bulkConfirmReturns() {
     showNotification(`✅ ${confirmed}/${itemsToConfirm.length} items confirmed.`, "success");
     loadReturnRequests();
     loadTransactions();
-    loadItemsTable();
+    loadItemsSearch();
     renderActiveBorrowers();
   }).catch(() => showNotification("Error during bulk confirmation.", "error"));
 }
@@ -1474,6 +1475,118 @@ function exportTransactionsCSV() {
 }
 
 // ── Inventory ────────────────────────────────────────────────────────────────
+let selectedItemCategory = "";
+
+function loadItemsSearch() {
+  const buttonsContainer = document.getElementById("itemCategoryButtons");
+  const resultsContainer = document.getElementById("itemSearchResults");
+  
+  if (buttonsContainer) buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--text3);font-size:12px;padding:16px;">Loading categories...</div>';
+
+  fetch(scriptURL + "?action=getItems").then(r => r.json())
+    .then(items => {
+      if (!buttonsContainer) return;
+      
+      allItems = Array.isArray(items) ? items : [];
+      
+      // Extract unique categories
+      const categories = new Set();
+      allItems.forEach(item => {
+        if (item.itemName) {
+          categories.add(normalizeName(item.itemName));
+        }
+      });
+      
+      const sortedCategories = Array.from(categories).sort();
+      
+      if (sortedCategories.length === 0) {
+        buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--text3);font-size:12px;padding:16px;">No items added yet.</div>';
+        return;
+      }
+      
+      // Create category buttons
+      buttonsContainer.innerHTML = '';
+      sortedCategories.forEach(category => {
+        const btn = document.createElement("button");
+        btn.className = "item-category-btn";
+        btn.textContent = category;
+        btn.onclick = () => selectItemCategory(category);
+        btn.style.cssText = `
+          padding: 8px 14px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--surface2);
+          color: var(--text);
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        `;
+        btn.id = `btn-cat-${category}`;
+        buttonsContainer.appendChild(btn);
+      });
+    })
+    .catch(() => {
+      if (buttonsContainer) buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--danger);font-size:12px;padding:16px;">Error loading items.</div>';
+    });
+}
+
+function selectItemCategory(category) {
+  selectedItemCategory = category;
+  const buttonsContainer = document.getElementById("itemCategoryButtons");
+  const resultsContainer = document.getElementById("itemSearchResults");
+  
+  // Update button styles
+  if (buttonsContainer) {
+    buttonsContainer.querySelectorAll("button").forEach(btn => {
+      if (btn.textContent === category) {
+        btn.style.background = "var(--accent)";
+        btn.style.color = "#fff";
+        btn.style.borderColor = "var(--accent)";
+      } else {
+        btn.style.background = "var(--surface2)";
+        btn.style.color = "var(--text)";
+        btn.style.borderColor = "var(--border)";
+      }
+    });
+  }
+  
+  // Show matching items
+  if (resultsContainer) {
+    const matching = allItems.filter(item => 
+      normalizeName(item.itemName).toLowerCase() === normalizeName(category).toLowerCase()
+    );
+    
+    if (matching.length === 0) {
+      resultsContainer.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:12px;">No items found.</div>';
+      return;
+    }
+    
+    resultsContainer.innerHTML = '';
+    matching.forEach(item => {
+      const itemEl = document.createElement("div");
+      itemEl.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+      `;
+      itemEl.innerHTML = `
+        <div>
+          <strong style="color:var(--accent);">${item.itemId}</strong>
+          <span style="color:var(--text3);margin-left:8px;">${item.itemName}</span>
+        </div>
+        <button class="btn btn-danger btn-xs" onclick="deleteItemById('${item.itemId}')" style="padding:4px 8px;font-size:11px;">🗑</button>
+      `;
+      resultsContainer.appendChild(itemEl);
+    });
+  }
+}
+
 function loadItemsTable() {
   const container = document.getElementById("itemsContainer");
   if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
@@ -1640,7 +1753,7 @@ function addItem() {
         showNotification(`"${name}" (${id}) added.`, "success");
         document.getElementById("newItemName").value = "";
         document.getElementById("newItemId").value  = "";
-        loadItemsTable();
+        loadItemsSearch();
       } else {
         showNotification(data.message || "Failed to add item.", "error");
       }
@@ -1663,7 +1776,7 @@ function deleteItemById(itemId) {
     .then(data => {
       if (data.success) { 
         showNotification(`"${itemId}" deleted.`, "success"); 
-        loadItemsTable(); 
+        loadItemsSearch();
       }
       else showNotification(data.message || "Failed to delete.", "error");
     })
