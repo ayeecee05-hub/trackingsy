@@ -774,6 +774,20 @@ function loadUserDashboard() {
         bigOverdueAlert.style.display = "none";
       }
 
+      // ── Accountability Status — calculated first so statusHealth can use it ──
+      const studentId = currentUser.id;
+      const lateReturnCount = history.filter(tx =>
+        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
+      ).length;
+      const damagedCount = history.filter(tx =>
+        tx.condition === "Damaged" || tx.condition === "Broken"
+      ).length;
+      const totalViolations = lateReturnCount + damagedCount;
+
+      let accountabilityStatus = "trusted";
+      if (totalViolations >= 3) accountabilityStatus = "suspended";
+      else if (totalViolations >= 1) accountabilityStatus = "caution";
+
       // ════════════════════════════════════════════════════════════════════
       // ✅ BORROWING STATUS CARD (new feature)
       // Show how many more items can be borrowed
@@ -781,14 +795,14 @@ function loadUserDashboard() {
       const MAX_BORROW_LIMIT = 5; // Maximum items a student can have at once
       const currentlyOut = borrowed.length;
       const canBorrow = Math.max(0, MAX_BORROW_LIMIT - currentlyOut);
-      
+
       const statusCanBorrow = document.getElementById("statusCanBorrow");
       const statusCurrentOut = document.getElementById("statusCurrentOut");
       const statusHealth = document.getElementById("statusHealth");
-      
+
       if (statusCanBorrow) statusCanBorrow.textContent = canBorrow;
       if (statusCurrentOut) statusCurrentOut.textContent = currentlyOut;
-      
+
       // Determine account health status
       if (statusHealth) {
         if (overdue.length > 0) {
@@ -807,19 +821,6 @@ function loadUserDashboard() {
       }
 
       // ── Accountability Status Alert ────────────────────────────────────────
-      // Calculate student accountability status based on late returns + damaged items
-      const studentId = currentUser.id;
-      const lateReturnCount = history.filter(tx => 
-        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
-      ).length;
-      const damagedCount = history.filter(tx => 
-        tx.condition === "Damaged" || tx.condition === "Broken"
-      ).length;
-      const totalViolations = lateReturnCount + damagedCount;
-
-      let accountabilityStatus = "trusted";
-      if (totalViolations >= 3) accountabilityStatus = "suspended";
-      else if (totalViolations >= 1) accountabilityStatus = "caution";
 
       const accountabilityAlert = document.getElementById("accountabilityAlert");
       if (accountabilityStatus !== "trusted") {
