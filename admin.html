@@ -256,6 +256,7 @@
     }
     .alert-banner.warn { background: rgba(210,153,34,0.12); border: 1px solid rgba(210,153,34,0.3); color: #d29922; }
     .alert-banner.info { background: rgba(79,195,247,0.1);  border: 1px solid rgba(79,195,247,0.25); color: var(--accent); }
+    .alert-banner.urgent { background: rgba(248,81,73,0.15); border: 2px solid rgba(248,81,73,0.4); color: #f85149; }
     .alert-banner strong { font-weight: 700; }
 
     /* ═══════════════════════════════════════════════
@@ -311,6 +312,16 @@
     .s-overdue        { background: rgba(248,81,73,0.12);   color: var(--danger);  border: 1px solid rgba(248,81,73,0.25); }
     .s-return-pending { background: rgba(163,113,247,0.12); color: var(--purple);  border: 1px solid rgba(163,113,247,0.25); }
     .s-rejected       { background: rgba(255,255,255,0.06); color: var(--text3);   border: 1px solid var(--border); text-decoration: line-through; }
+
+    /* ── Condition pills ── */
+    .condition-pill {
+      display: inline-block; padding: 3px 10px;
+      border-radius: 4px; font-size: 11px; font-weight: 700;
+      white-space: nowrap; letter-spacing: 0.2px;
+    }
+    .c-good      { background: rgba(63,185,80,0.15);  color: #2e7d32;  border: 1px solid rgba(63,185,80,0.4); }
+    .c-damaged   { background: rgba(255,87,34,0.15);  color: #e65100;  border: 1px solid rgba(255,87,34,0.4); }
+    .c-broken    { background: rgba(244,67,54,0.15);  color: #b71c1c;  border: 1px solid rgba(244,67,54,0.4); }
 
     /* ── Mono chip ── */
     .mono-chip {
@@ -455,6 +466,62 @@
     }
     .qty-btn:hover { background: rgba(79,195,247,0.2); }
     .qty-val { font-weight: 700; min-width: 22px; text-align: center; font-size: 13px; }
+
+    /* ═══════════════════════════════════════════════
+       ITEM CATEGORY CARDS
+    ═══════════════════════════════════════════════ */
+    .item-category-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 14px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); cursor: pointer; transition: all 0.2s;
+      user-select: none;
+    }
+    .item-category-card:hover {
+      background: rgba(79,195,247,0.08); border-color: var(--accent);
+    }
+    .item-category-card.expanded {
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+    }
+    .item-category-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .item-category-icon { font-size: 18px; }
+    .item-category-text { display: flex; flex-direction: column; gap: 2px; }
+    .item-category-name { font-weight: 600; color: var(--text); font-size: 14px; }
+    .item-category-count { font-size: 11px; color: var(--text3); }
+    .item-category-toggle {
+      font-size: 18px; color: var(--accent); flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .item-category-card.expanded .item-category-toggle {
+      transform: rotate(180deg);
+    }
+    
+    .item-category-items {
+      display: none; background: rgba(79,195,247,0.04); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+      padding: 12px 14px; flex-direction: column; gap: 8px;
+    }
+    .item-category-items.visible { display: flex; }
+    
+    .item-detail {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--surface); border-radius: 6px;
+      border: 1px solid var(--border); font-size: 13px;
+    }
+    .item-detail-id {
+      font-family: 'JetBrains Mono', monospace; font-weight: 600;
+      color: var(--accent); flex: 1;
+    }
+    .item-detail-name { color: var(--text2); font-size: 12px; margin-left: 8px; }
+    .item-detail-delete {
+      width: 28px; height: 28px; display: flex; align-items: center;
+      justify-content: center; background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3); border-radius: 6px;
+      color: var(--danger); cursor: pointer; font-size: 14px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .item-detail-delete:hover {
+      background: rgba(248,81,73,0.2); border-color: var(--danger);
+    }
 
     /* ═══════════════════════════════════════════════
        CONFIRM MODALS
@@ -621,6 +688,9 @@
     .ab-filter-btn.active { background: rgba(79,195,247,0.12); color: var(--accent); border-color: rgba(79,195,247,0.35); }
     .ab-filter-btn.active.danger { background: rgba(248,81,73,0.12); color: var(--danger); border-color: rgba(248,81,73,0.3); }
     .ab-filter-btn.active.warn   { background: rgba(210,153,34,0.12); color: var(--warning); border-color: rgba(210,153,34,0.3); }
+
+    /* ═══════════════════════════════════════════════
+       DIVIDER
     ═══════════════════════════════════════════════ */
     .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
@@ -743,6 +813,9 @@
     <button class="nav-item" data-page="pageAccountability" onclick="switchPage('pageAccountability')">
       <span class="nav-icon">⚠️</span> Accountability
     </button>
+    <button class="nav-item" data-page="pageDamagedItems" onclick="switchPage('pageDamagedItems')">
+      <span class="nav-icon">🛠️</span> Damaged Items
+    </button>
 
     <div class="sidebar-spacer"></div>
     <div class="sidebar-footer">
@@ -776,6 +849,20 @@
 
       <!-- ─── DASHBOARD ─────────────────────────────── -->
       <div class="page active" id="pageDashboard">
+        <!-- ── CRITICAL ALERTS Section ──────────────────── -->
+        <div id="criticalAlertsSection" style="display:none;margin-bottom:20px;">
+          <!-- Red URGENT alert -->
+          <div id="urgentAlert" class="alert-banner" style="display:none;background:rgba(248,81,73,0.15);border-color:rgba(248,81,73,0.4);color:#f85149;">
+            <span style="font-size:18px;">🚨</span>
+            <span><strong>URGENT:</strong> <span id="urgentAlertText"></span></span>
+          </div>
+          <!-- Yellow WARNING alert -->
+          <div id="warningAlert" class="alert-banner warn" style="display:none;">
+            <span>⚠️</span>
+            <span><strong>WARNING:</strong> <span id="warningAlertText"></span></span>
+          </div>
+        </div>
+
         <div class="kpi-row">
           <div class="kpi-card">
             <div class="kpi-label">Registered Students</div>
@@ -847,7 +934,7 @@
             <div class="table-wrap scrollable-table" style="max-height:300px;">
               <table class="data-table" id="dashRecentTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Due Date</th><th>Status</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Due Date</th><th>Status</th>
                 </tr></thead>
                 <tbody id="dashRecentBody"></tbody>
               </table>
@@ -865,13 +952,20 @@
         <div class="panel one-col">
           <div class="panel-header">
             <span class="panel-title"><span class="panel-title-icon">⏳</span> Pending Borrow Requests</span>
-            <button class="btn btn-ghost btn-sm" onclick="loadPendingRequests()">↻ Refresh</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-success btn-sm" id="bulkApproveBtn" onclick="bulkApprovePending()" style="display:none;">✅ Approve Selected</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadPendingRequests()">↻ Refresh</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
+            <input type="checkbox" id="selectAllPending" onchange="toggleSelectAllPending()" aria-label="Select all pending requests">
+            <label for="selectAllPending" style="font-size:11px;color:var(--text3);">Select All</label>
           </div>
           <div class="panel-body-flush">
             <div class="table-wrap scrollable-table" style="max-height:500px;">
               <table class="data-table" id="pendingTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Requested</th><th>Duration</th><th>Expected Return</th><th>Actions</th>
+                  <th style="width:30px;"></th><th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Requested</th><th>Duration</th><th>Expected Return</th><th>Urgency</th><th>Actions</th>
                 </tr></thead>
                 <tbody id="pendingTableBody"></tbody>
               </table>
@@ -899,7 +993,7 @@
               <table class="data-table" id="returnsTable">
                 <thead><tr>
                   <th style="width:30px;"><input type="checkbox" id="selectAllReturns" onchange="toggleSelectAllReturns()"></th>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Actual Return Date</th><th>Action</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Expected Return</th><th>Actual Return Date</th><th>Action</th>
                 </tr></thead>
                 <tbody id="returnsTableBody"></tbody>
               </table>
@@ -936,7 +1030,7 @@
             <div class="table-wrap" style="overflow-x:auto;">
               <table class="data-table" id="transactionsTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th><th>Condition</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th><th>Condition</th>
                 </tr></thead>
                 <tbody></tbody>
               </table>
@@ -995,7 +1089,7 @@
             <div class="table-wrap scrollable-table" style="max-height:520px;">
               <table class="data-table" id="archiveTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th><th>Condition</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Expected Return</th><th>Return Date</th><th>Status</th><th>Condition</th>
                 </tr></thead>
                 <tbody></tbody>
               </table>
@@ -1017,8 +1111,8 @@
                 <input type="text" class="form-input" id="newItemName" placeholder="e.g. Projector">
               </div>
               <div class="form-group">
-                <label class="form-label">Quantity</label>
-                <input type="number" class="form-input" id="newItemQty" placeholder="0" min="0">
+                <label class="form-label">Item ID</label>
+                <input type="text" class="form-input" id="newItemId" placeholder="e.g. keyboard01">
               </div>
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addItem()">Add to Inventory</button>
             </div>
@@ -1028,14 +1122,9 @@
               <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
               <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
             </div>
-            <div class="panel-body-flush">
-              <div class="table-wrap scrollable-table" style="max-height:400px;">
-                <table class="data-table" id="itemsTable">
-                  <thead><tr>
-                    <th>Item</th><th>Qty</th><th>Status</th><th></th>
-                  </tr></thead>
-                  <tbody id="itemsTableBody"></tbody>
-                </table>
+            <div class="panel-body-flush" style="padding:12px;">
+              <div id="itemsContainer" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>
               </div>
             </div>
           </div>
@@ -1106,6 +1195,7 @@
 
       <!-- ─── ACCOUNTABILITY ──────────────────────── -->
       <div class="page" id="pageAccountability">
+        <div class="one-col" id="topViolatorCard"></div>
         <div class="panel one-col">
           <div class="panel-header">
             <span class="panel-title"><span class="panel-title-icon">⚠️</span> Student Accountability</span>
@@ -1130,6 +1220,39 @@
                   <th>Student ID</th><th>Name</th><th>Status</th><th>Violations</th><th>Late Returns</th><th>Damaged Items</th><th>Actions</th>
                 </tr></thead>
                 <tbody id="accountabilityTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── DAMAGED ITEMS ──────────────────────── -->
+      <div class="page" id="pageDamagedItems">
+        <div class="panel one-col">
+          <div class="panel-header">
+            <span class="panel-title"><span class="panel-title-icon">🛠️</span> Damaged Items</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="damagedItemsCount" class="ab-count-badge" style="display:none;background:rgba(248,81,73,0.15);color:var(--danger);border:1px solid rgba(248,81,73,0.3);"></span>
+              <button class="btn btn-ghost btn-sm" onclick="exportDamagedCSV()">⬇ Export CSV</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadDamagedItems()">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input type="text" class="filter-input" id="damagedSearch" placeholder="🔍  Search by student or item…" oninput="filterDamagedItems()">
+            <select class="filter-select" id="damageTypeFilter" onchange="filterDamagedItems()">
+              <option value="">All Types</option>
+              <option value="Damaged">⚠️ Damaged</option>
+              <option value="Broken">❌ Broken</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetDamagedFilter()">Reset</button>
+          </div>
+          <div class="panel-body-flush">
+            <div class="table-wrap scrollable-table" style="max-height:600px;">
+              <table class="data-table" id="damagedItemsTable">
+                <thead><tr>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th>
+                </tr></thead>
+                <tbody id="damagedItemsBody"></tbody>
               </table>
             </div>
           </div>
@@ -1301,7 +1424,7 @@
     <div class="modal-body" style="max-height:400px;overflow-y:auto;">
       <table class="data-table" id="studentHistoryTable">
         <thead><tr>
-          <th>Item</th><th>Borrow Date</th><th>Due Date</th><th>Return Date</th><th>Status</th><th>Condition</th>
+          <th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Due Date</th><th>Return Date</th><th>Status</th><th>Condition</th>
         </tr></thead>
         <tbody id="studentHistoryBody"></tbody>
       </table>
