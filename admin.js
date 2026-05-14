@@ -1618,6 +1618,95 @@ function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
 }
 
+// ── Inventory Search ────────────────────────────────────────────────────────
+function filterInventoryItems(searchQuery) {
+  const query = (searchQuery || "").toLowerCase().trim();
+  const container = document.getElementById("itemsContainer");
+  const searchInput = document.getElementById("inventorySearchInput");
+  const clearBtn = document.getElementById("inventoryClearBtn");
+  const statsEl = document.getElementById("inventoryStats");
+  const matchCountEl = document.getElementById("inventoryMatchCount");
+
+  if (!container) return;
+
+  // Show/hide clear button
+  if (query) {
+    clearBtn.style.display = "flex";
+    statsEl.style.display = "flex";
+  } else {
+    clearBtn.style.display = "none";
+    statsEl.style.display = "none";
+  }
+
+  let matchedItemCount = 0;
+  const allCards = container.querySelectorAll(".item-category-card");
+  const allItemDetails = container.querySelectorAll(".item-detail");
+
+  // If no search query, show everything
+  if (!query) {
+    allCards.forEach(card => card.classList.remove("hidden"));
+    allItemDetails.forEach(detail => detail.classList.remove("hidden"));
+    return;
+  }
+
+  // Filter categories and items based on search query
+  allCards.forEach(card => {
+    const categoryName = card.querySelector(".item-category-name")?.textContent || "";
+    const categoryMatches = categoryName.toLowerCase().includes(query);
+
+    // Get the corresponding items container
+    const categoryId = card.id;
+    const itemsContainer = document.getElementById(`${categoryId}-items`);
+    if (!itemsContainer) return;
+
+    const itemDetails = itemsContainer.querySelectorAll(".item-detail");
+    let categoryHasMatches = categoryMatches;
+    let categoryMatchCount = 0;
+
+    // Check if any individual items match
+    itemDetails.forEach(detail => {
+      const itemId = detail.querySelector(".item-detail-id")?.textContent || "";
+      const itemName = detail.querySelector(".item-detail-name")?.textContent || "";
+      
+      const itemMatches = itemId.toLowerCase().includes(query) || 
+                         itemName.toLowerCase().includes(query);
+
+      if (itemMatches) {
+        detail.classList.remove("hidden");
+        categoryHasMatches = true;
+        categoryMatchCount++;
+        matchedItemCount++;
+      } else {
+        detail.classList.add("hidden");
+      }
+    });
+
+    // Show/hide category card based on whether any items match
+    if (categoryHasMatches) {
+      card.classList.remove("hidden");
+      // Auto-expand category if it has matches
+      if (!card.classList.contains("expanded")) {
+        card.classList.add("expanded");
+        itemsContainer.classList.add("visible");
+      }
+    } else {
+      card.classList.add("hidden");
+    }
+  });
+
+  // Update match count
+  if (matchCountEl) matchCountEl.textContent = matchedItemCount;
+}
+
+function clearInventorySearch() {
+  const searchInput = document.getElementById("inventorySearchInput");
+  if (searchInput) {
+    searchInput.value = "";
+    searchInput.focus();
+    filterInventoryItems("");
+  }
+}
+
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
   const id   = document.getElementById("newItemId").value.trim();

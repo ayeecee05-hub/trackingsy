@@ -470,6 +470,39 @@
     /* ═══════════════════════════════════════════════
        ITEM CATEGORY CARDS
     ═══════════════════════════════════════════════ */
+    .inventory-search-wrap {
+      display: flex; align-items: center; gap: 8px; position: relative;
+      margin-bottom: 8px;
+    }
+    .inventory-search-input {
+      flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-family: var(--font); font-size: 13px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .inventory-search-input:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .inventory-search-input::placeholder {
+      color: var(--text3);
+    }
+    .inventory-search-clear {
+      width: 32px; height: 32px; display: flex; align-items: center;
+      justify-content: center; background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3); border-radius: 6px;
+      color: var(--danger); cursor: pointer; font-size: 16px;
+      transition: all 0.2s; font-family: var(--font);
+    }
+    .inventory-search-clear:hover {
+      background: rgba(248,81,73,0.2); border-color: var(--danger);
+    }
+    .inventory-search-stats {
+      font-size: 11px; color: var(--text3); padding: 0 4px 8px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .inventory-search-stats span {
+      font-weight: 600; color: var(--accent);
+    }
     .item-category-card {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 14px; background: var(--surface2); border: 1px solid var(--border);
@@ -501,12 +534,16 @@
       padding: 12px 14px; flex-direction: column; gap: 8px;
     }
     .item-category-items.visible { display: flex; }
+    .item-category-items.hidden { display: none !important; }
+    .item-category-card.hidden { display: none !important; }
+    .item-category-card.hidden + .item-category-items { display: none !important; }
     
     .item-detail {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 12px; background: var(--surface); border-radius: 6px;
       border: 1px solid var(--border); font-size: 13px;
     }
+    .item-detail.hidden { display: none !important; }
     .item-detail-id {
       font-family: 'JetBrains Mono', monospace; font-weight: 600;
       color: var(--accent); flex: 1;
@@ -1121,6 +1158,21 @@
             <div class="panel-header">
               <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
               <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
+            </div>
+            <div class="panel-body" style="padding:12px;border-bottom:1px solid var(--border);">
+              <div class="inventory-search-wrap">
+                <input 
+                  type="text" 
+                  id="inventorySearchInput" 
+                  class="inventory-search-input" 
+                  placeholder="🔍 Search items by name or ID..."
+                  onkeyup="filterInventoryItems(this.value)"
+                />
+                <button class="inventory-search-clear" id="inventoryClearBtn" style="display:none;" onclick="clearInventorySearch()">✕</button>
+              </div>
+              <div class="inventory-search-stats" id="inventoryStats" style="display:none;">
+                <span id="inventoryMatchCount">0</span> items found
+              </div>
             </div>
             <div class="panel-body-flush" style="padding:12px;">
               <div id="itemsContainer" style="display:flex;flex-direction:column;gap:8px;">
