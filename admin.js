@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzPRdEb3w-rLxiz0p3Ppc-GuNM9Et53gdUV4Cxaph-Ly5BP-9Eulv36igonp7SKfX1FOA/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyBKu765NZSFkdlmW0-5de0LjLQZBxRK5WjJ9SzpTLJP5anlJqxBQv-NQFhGvpag_9qSQ/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -72,11 +72,8 @@ let allUsers              = [];
 let allPending            = [];
 let allReturnRequests     = [];
 let selectedReturns       = new Set();
-let selectedPending       = new Set();
 let filteredTx            = [];
 let archiveFilteredTx     = [];
-let allItems              = [];  // raw items list from server
-let itemIdMap             = {};  // normalizedItemName -> itemId
 
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
@@ -109,38 +106,17 @@ function showNotification(message, type = "info") {
   }, 3500);
 }
 
-// ── Admin session token (stored in memory after login) ───────────────────────
-// Sent with every POST so Apps Script can verify admin identity
-// without relying on Session.getActiveUser() (which is empty for web fetches).
-let _adminSessionToken = "";
-function getAdminToken() { return _adminSessionToken; }
-
 // ── Login ────────────────────────────────────────────────────────────────────
 async function checkPassword() {
   const entered = document.getElementById("adminPassword").value;
   const hashed  = await hashPassword(entered);
   if (hashed === ADMIN_PASSWORD_HASH) {
-    _adminSessionToken = entered;   // store plaintext for API verification
     document.getElementById("loginScreen").style.display  = "none";
     document.getElementById("appShell").style.display     = "flex";
     showNotification("Admin access granted", "success");
     resetSessionTimer();
     startAutoRefresh();
-    
-    // Ensure data is migrated to new format on login
-    fetch(scriptURL + "?action=diagnostic").then(r => r.json())
-      .then(result => {
-        if (result.status === "NEEDS_MIGRATION") {
-          showNotification("Migrating data format... please wait", "info");
-          // Trigger migration by calling any GET action
-          fetch(scriptURL + "?action=getItems").then(() => {
-            showNotification("Data migration complete", "success");
-            refreshAll();
-          });
-        } else {
-          refreshAll();
-        }
-      });
+    refreshAll();
   } else {
     showNotification("Incorrect password", "error");
     document.getElementById("adminPassword").value = "";
@@ -149,7 +125,6 @@ async function checkPassword() {
 }
 
 function logoutAdmin(timedOut = false) {
-  _adminSessionToken = "";          // clear token on logout
   stopAutoRefresh();
   clearTimeout(sessionTimer);
   document.getElementById("appShell").style.display    = "none";
@@ -163,7 +138,7 @@ function refreshAll() {
   loadPendingRequests();
   loadReturnRequests();
   loadTransactions();
-  loadItemsSearch();
+  loadItemsTable();
   loadQrStudentList();
   updateSyncTime();
 }
@@ -190,7 +165,6 @@ const pageMeta = {
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
   pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
   pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
-  pageDamagedItems:   { title: "Damaged Items",    desc: "Items returned in damaged or broken condition" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
   pageAnalytics:    { title: "Analytics",          desc: "Visual overview of borrowing activity" }
 };
@@ -215,11 +189,9 @@ function switchPage(pageId) {
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
   if (pageId === "pageAccountability") loadAccountabilityTable();
-  if (pageId === "pageDamagedItems")   loadDamagedItems();
   if (pageId === "pageAnalytics")    loadCharts();
   if (pageId === "pageDashboard")    renderDashboard();
   if (pageId === "pageStudents")     loadStudentsPage();
-  if (pageId === "pageItems")        loadItemsSearch();
 
   // Close sidebar on mobile
   if (window.innerWidth <= 700) {
@@ -314,9 +286,6 @@ function updateKpiCards() {
   // Update nav badges
   updateNavBadge("navBadgePending", pending);
   updateNavBadge("navBadgeReturns", allReturnRequests.length);
-
-  // Update problem alerts
-  updateProblemAlerts();
 }
 
 function updateNavBadge(id, count) {
@@ -327,63 +296,6 @@ function updateNavBadge(id, count) {
     el.style.display = "inline-flex";
   } else {
     el.style.display = "none";
-  }
-}
-
-function updateProblemAlerts() {
-  const todayStr = getPHTDateString();
-  const [ty, tm, td] = todayStr.split("-").map(Number);
-  const today = new Date(ty, tm - 1, td);
-
-  // Find URGENT (overdue or due today) and WARNING (due within 2 days)
-  const urgent = [];   // Red — immediate action needed
-  const warning = [];  // Yellow — watch closely
-
-  allTransactions.forEach(tx => {
-    if (tx.status === "Overdue") {
-      const overdueCount = urgent.filter(i => i.includes(tx.item)).length;
-      if (overdueCount === 0) {
-        urgent.push(`${tx.item} (${tx.studentName || tx.studentId}) is overdue`);
-      }
-    } else if (tx.status === "Borrowed" && tx.dueDate) {
-      const daysDiff = Math.ceil((new Date(tx.dueDate.split("-")[0], tx.dueDate.split("-")[1] - 1, tx.dueDate.split("-")[2]) - today) / 86400000);
-      if (daysDiff <= 0) {
-        urgent.push(`${tx.item} from ${tx.studentName || tx.studentId} due today!`);
-      } else if (daysDiff <= 2) {
-        warning.push(`${tx.item} due in ${daysDiff} day${daysDiff !== 1 ? "s" : ""} (${tx.studentName || tx.studentId})`);
-      }
-    }
-  });
-
-  // Check for pending requests at risk
-  const pendingRisk = allPending.filter(p => p.dueDate && p.dueDate <= todayStr);
-  pendingRisk.forEach(p => {
-    urgent.push(`${p.item} request (${p.studentName || p.studentId}) due today`);
-  });
-
-  // Update UI
-  const urgentAlert = document.getElementById("urgentAlert");
-  const warningAlert = document.getElementById("warningAlert");
-  const alertSection = document.getElementById("criticalAlertsSection");
-
-  if (urgent.length > 0) {
-    const alertText = document.getElementById("urgentAlertText");
-    alertText.innerHTML = `${urgent.length} item${urgent.length !== 1 ? "s" : ""} need immediate attention: ${urgent.slice(0, 2).join(" · ")}${urgent.length > 2 ? "..." : ""}`;
-    urgentAlert.style.display = "block";
-  } else if (urgentAlert) {
-    urgentAlert.style.display = "none";
-  }
-
-  if (warning.length > 0) {
-    const alertText = document.getElementById("warningAlertText");
-    alertText.innerHTML = `${warning.length} item${warning.length !== 1 ? "s" : ""} due soon: ${warning.slice(0, 2).join(" · ")}${warning.length > 2 ? "..." : ""}`;
-    warningAlert.style.display = "block";
-  } else if (warningAlert) {
-    warningAlert.style.display = "none";
-  }
-
-  if (urgentAlert && warningAlert) {
-    alertSection.style.display = (urgent.length > 0 || warning.length > 0) ? "block" : "none";
   }
 }
 
@@ -513,9 +425,6 @@ function renderActiveBorrowers() {
         <span class="ab-item-icon">📦</span>
         <span>${tx.item}</span>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
-        ${itemIdMap[normalizeName(tx.item).toLowerCase()] ? `<span class="mono-chip" style="font-size:10px;">🏷 ${itemIdMap[normalizeName(tx.item).toLowerCase()]}</span>` : ""}
-      </div>
       <div class="ab-dates">
         <div class="ab-dates-left">
           <div class="ab-date-row">
@@ -588,17 +497,15 @@ function renderDashRecent() {
     .sort((a, b) => (b.borrowDate || "").localeCompare(a.borrowDate || ""))
     .slice(0, 10);
   if (recent.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No transactions yet.</td></tr>`;
     return;
   }
   recent.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemId}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td>${statusPill(tx.status)}</td>`;
@@ -608,20 +515,16 @@ function renderDashRecent() {
 
 function statusPill(status) {
   const map = {
-    "Borrowed":        "s-borrowed",
-    "Pending":         "s-pending",
-    "Returned":        "s-returned",
+    "Borrowed":       "s-borrowed",
+    "Pending":        "s-pending",
+    "Returned":       "s-returned",
     "Returned (Late)": "s-returned-late",
-    "Overdue":         "s-overdue",
-    "Return Pending":  "s-return-pending",
-    "Rejected":        "s-rejected"
+    "Overdue":        "s-overdue",
+    "Return Pending": "s-return-pending",
+    "Rejected":       "s-rejected"
   };
-  // Guard against missing, undefined, or raw Date string values
-  // (happens when the sheet's Status column is missing/shifted)
-  const knownStatuses = Object.keys(map);
-  const safeStatus = (status && knownStatuses.includes(String(status))) ? String(status) : "—";
-  const cls = map[safeStatus] || "";
-  return `<span class="status-pill ${cls}">${safeStatus}</span>`;
+  const cls = map[status] || "";
+  return `<span class="status-pill ${cls}">${status}</span>`;
 }
 
 // ── Registration form ─────────────────────────────────────────────────────────
@@ -741,7 +644,7 @@ function submitRegisterForm() {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "register", studentId, name: sName, email , adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "register", studentId, name: sName, email })
   })
   .then(r => r.json())
   .then(data => {
@@ -766,7 +669,7 @@ function submitRegisterForm() {
 // ── Pending borrow requests ──────────────────────────────────────────────────
 function loadPendingRequests() {
   const tbody = document.getElementById("pendingTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getPendingRequests")
     .then(r => r.json())
@@ -777,7 +680,7 @@ function loadPendingRequests() {
       updateKpiCards();
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
     });
 }
 
@@ -787,7 +690,7 @@ function renderPendingTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
     return;
   }
 
@@ -799,26 +702,14 @@ function renderPendingTable(requests) {
       const days = Math.round((new Date(+d[0], +d[1]-1, +d[2]) - new Date(+b[0], +b[1]-1, +b[2])) / 86400000);
       if (!isNaN(days) && days > 0) durationText = `${days} day${days !== 1 ? "s" : ""}`;
     }
-
-    // Calculate urgency: check if due date is today or tomorrow
-    const todayStr = getPHTDateString();
-    const urgencyClass = req.dueDate && req.dueDate <= todayStr ? "s-overdue" : 
-                         req.dueDate && req.dueDate === addDaysToPHTString(todayStr, 1) ? "s-pending" : "";
-    const urgencyLabel = req.dueDate && req.dueDate <= todayStr ? "🔴 URGENT" : 
-                         req.dueDate && req.dueDate === addDaysToPHTString(todayStr, 1) ? "🟡 WARNING" : "Normal";
-    const urgencyHtml = urgencyClass ? `<span class="status-pill ${urgencyClass}" style="font-weight:700;">${urgencyLabel}</span>` : `<span style="font-size:11px;color:var(--text3);">Normal</span>`;
-
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td><input type="checkbox" class="pending-checkbox" data-index="${index}" onchange="updatePendingSelection()"></td>
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
-      <td>${urgencyHtml}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           <button class="btn btn-success btn-sm" onclick="confirmHandover(${index})">✅ Hand Over</button>
@@ -827,63 +718,6 @@ function renderPendingTable(requests) {
       </td>`;
     tbody.appendChild(row);
   });
-
-  selectedPending.clear();
-  document.getElementById("selectAllPending").checked = false;
-  document.getElementById("bulkApproveBtn").style.display = "none";
-}
-
-function updatePendingSelection() {
-  selectedPending.clear();
-  document.querySelectorAll(".pending-checkbox:checked").forEach(cb => {
-    selectedPending.add(parseInt(cb.dataset.index));
-  });
-  const bulkBtn = document.getElementById("bulkApproveBtn");
-  if (selectedPending.size > 0) {
-    bulkBtn.style.display = "inline-flex";
-    bulkBtn.textContent = `✅ Approve Selected (${selectedPending.size})`;
-  } else {
-    bulkBtn.style.display = "none";
-  }
-}
-
-function toggleSelectAllPending() {
-  const isChecked = document.getElementById("selectAllPending").checked;
-  document.querySelectorAll(".pending-checkbox").forEach(cb => {
-    cb.checked = isChecked;
-  });
-  updatePendingSelection();
-}
-
-function bulkApprovePending() {
-  if (selectedPending.size === 0) {
-    showNotification("No items selected.", "error");
-    return;
-  }
-
-  const itemsToApprove = Array.from(selectedPending).map(idx => allPending[idx]);
-  let approved = 0;
-  showNotification(`Processing ${itemsToApprove.length} hand-overs…`, "info");
-
-  Promise.all(itemsToApprove.map(req => {
-    return fetch(scriptURL, {
-      method: "POST",
-      body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
-    }).then(r => r.json()).then(data => { if (data.success) approved++; });
-  })).then(() => {
-    showNotification(`✅ ${approved}/${itemsToApprove.length} hand-overs completed.`, "success");
-    loadPendingRequests();
-    loadTransactions();
-    loadItemsSearch();
-    renderActiveBorrowers();
-  }).catch(() => showNotification("Error during bulk hand-over.", "error"));
-}
-
-// Helper function to add days to PHT date string
-function addDaysToPHTString(dateStr, days) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d + days));
-  return date.toISOString().split("T")[0];
 }
 
 function confirmHandover(index) {
@@ -905,7 +739,7 @@ function executeHandover(req) {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
   })
   .then(r => r.json())
   .then(data => {
@@ -913,7 +747,7 @@ function executeHandover(req) {
       showNotification(`✅ "${req.item}" handed over to ${req.studentName || req.studentId}`, "success");
       loadPendingRequests();
       loadTransactions();
-      loadItemsSearch();
+      loadItemsTable();
     } else {
       showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
       btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
@@ -946,7 +780,7 @@ function executeReject(req) {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "rejectBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "rejectBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex })
   })
   .then(r => r.json())
   .then(data => {
@@ -965,7 +799,7 @@ function executeReject(req) {
 // ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
   const tbody = document.getElementById("returnsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Loading…</td></tr>`;
 
   fetch(scriptURL + "?action=getReturnRequests")
     .then(r => r.json())
@@ -975,7 +809,7 @@ function loadReturnRequests() {
       updateNavBadge("navBadgeReturns", allReturnRequests.length);
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
     });
 }
 
@@ -985,7 +819,7 @@ function renderReturnsTable(requests) {
   tbody.innerHTML = "";
 
   if (!requests || requests.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
     return;
   }
 
@@ -998,7 +832,6 @@ function renderReturnsTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
@@ -1044,14 +877,15 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
   
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "confirmReturn", 
+    body: JSON.stringify({ 
+      action: "confirmReturn", 
       studentId: req.studentId, 
       item: req.item, 
       returnDate, 
       rowIndex: req.rowIndex,
       condition: condition,
       isLate: isLate
-    , adminToken: getAdminToken() })
+    })
   })
   .then(r => r.json())
   .then(data => {
@@ -1061,7 +895,7 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       showNotification(`${conditionIcon} "${req.item}" return confirmed (${condition})${lateText}.`, "success");
       loadReturnRequests();
       loadTransactions();
-      loadItemsSearch();
+      loadItemsTable();
       renderActiveBorrowers();
     } else {
       showNotification(data.message || "Confirmation failed.", "error");
@@ -1113,20 +947,21 @@ function bulkConfirmReturns() {
     
     return fetch(scriptURL, {
       method: "POST",
-      body: JSON.stringify({ action: "confirmReturn", 
+      body: JSON.stringify({ 
+        action: "confirmReturn", 
         studentId: req.studentId, 
         item: req.item, 
         returnDate: today, 
         rowIndex: req.rowIndex,
         condition: condition,
         isLate: isLate
-      , adminToken: getAdminToken() })
+      })
     }).then(r => r.json()).then(data => { if (data.success) confirmed++; });
   })).then(() => {
     showNotification(`✅ ${confirmed}/${itemsToConfirm.length} items confirmed.`, "success");
     loadReturnRequests();
     loadTransactions();
-    loadItemsSearch();
+    loadItemsTable();
     renderActiveBorrowers();
   }).catch(() => showNotification("Error during bulk confirmation.", "error"));
 }
@@ -1166,7 +1001,6 @@ function loadTransactions() {
       archiveFilteredTx = archivedTransactions;
       renderTransactions(allTransactions);
       renderArchiveTransactions(archivedTransactions);
-      loadDamagedItems();
       updateKpiCards();
       renderDashboard();
     })
@@ -1188,7 +1022,7 @@ function renderTransactions(transactions, resetPage = false) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No transactions found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No transactions found.</td></tr>`;
     if (paginationEl) paginationEl.style.display = "none";
     if (countEl) countEl.textContent = "";
     return;
@@ -1202,31 +1036,16 @@ function renderTransactions(transactions, resetPage = false) {
   const page  = transactions.slice(start, start + TX_PER_PAGE);
 
   page.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
-    
-    // Condition pill with color coding
-    let condClass = "c-good";
-    let condIcon = "✅";
-    if (tx.condition === "Damaged") {
-      condClass = "c-damaged";
-      condIcon = "⚠️";
-    } else if (tx.condition === "Broken") {
-      condClass = "c-broken";
-      condIcon = "❌";
-    }
-    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition || "Good"}</span>`;
-    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemId}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${condBadge}</td>`;
+      <td>${tx.condition || "Good"}</td>`;
     tbody.appendChild(row);
   });
 
@@ -1264,35 +1083,20 @@ function renderArchiveTransactions(transactions) {
   tbody.innerHTML = "";
 
   if (!transactions || transactions.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No archived transactions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No archived transactions yet.</td></tr>`;
     return;
   }
   transactions.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
-    
-    // Condition pill with color coding
-    let condClass = "c-good";
-    let condIcon = "✅";
-    if (tx.condition === "Damaged") {
-      condClass = "c-damaged";
-      condIcon = "⚠️";
-    } else if (tx.condition === "Broken") {
-      condClass = "c-broken";
-      condIcon = "❌";
-    }
-    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition || "Good"}</span>`;
-    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemId}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${statusPill(tx.status)}</td>
-      <td>${condBadge}</td>`;
+      <td>${tx.condition || "Good"}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -1340,126 +1144,14 @@ function resetArchiveFilter() {
   renderArchiveTransactions(archivedTransactions);
 }
 
-// ── Damaged Items ─────────────────────────────────────────────────────────────
-let allDamagedItems = [];
-let filteredDamagedItems = [];
-
-function loadDamagedItems() {
-  fetch(scriptURL + "?action=getDamagedItems")
-    .then(r => r.json())
-    .then(data => {
-      allDamagedItems = Array.isArray(data) ? data : [];
-      filteredDamagedItems = allDamagedItems;
-      renderDamagedItemsTable(allDamagedItems);
-      const badge = document.getElementById("damagedItemsCount");
-      if (badge) {
-        badge.textContent = `${allDamagedItems.length} item${allDamagedItems.length !== 1 ? "s" : ""}`;
-        badge.style.display = allDamagedItems.length > 0 ? "inline-block" : "none";
-      }
-    })
-    .catch(err => {
-      console.error("Error loading damaged items:", err);
-      showNotification("Error loading damaged items.", "error");
-    });
-}
-
-function renderDamagedItemsTable(items) {
-  const tbody = document.getElementById("damagedItemsBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
-    return;
-  }
-
-  items.forEach(tx => {
-    // Condition pill with color coding
-    let condClass = "c-good";
-    let condIcon = "✅";
-    if (tx.condition === "Damaged") {
-      condClass = "c-damaged";
-      condIcon = "⚠️";
-    } else if (tx.condition === "Broken") {
-      condClass = "c-broken";
-      condIcon = "❌";
-    }
-    
-    const condBadge = `<span class="condition-pill ${condClass}">${condIcon} ${tx.condition}</span>`;
-
-    // Status pill with color coding
-    let statusClass = "s-returned";
-    let statusIcon = "✅";
-    if (tx.status === "Returned (Late)") {
-      statusClass = "s-returned-late";
-      statusIcon = "⚠️";
-    }
-    
-    const statusBadge = `<span class="status-pill ${statusClass}">${statusIcon} ${tx.status}</span>`;
-
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td><span class="mono-chip">${tx.studentId}</span></td>
-      <td style="font-weight:600;">${tx.studentName || "—"}</td>
-      <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${tx.itemId || "—"}</span></td>
-      <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
-      <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
-      <td>${condBadge}</td>
-      <td>${statusBadge}</td>`;
-    tbody.appendChild(row);
-  });
-}
-
-function filterDamagedItems() {
-  const q    = (document.getElementById("damagedSearch")?.value || "").toLowerCase();
-  const type = document.getElementById("damageTypeFilter")?.value || "";
-  const filtered = allDamagedItems.filter(tx =>
-    (!type || tx.condition === type) &&
-    (!q || (tx.studentId||"").toLowerCase().includes(q) ||
-           (tx.studentName||"").toLowerCase().includes(q) ||
-           (tx.item||"").toLowerCase().includes(q))
-  );
-  filteredDamagedItems = filtered;
-  renderDamagedItemsTable(filtered);
-}
-
-function resetDamagedFilter() {
-  const si = document.getElementById("damagedSearch");
-  const sf = document.getElementById("damageTypeFilter");
-  if (si) si.value = "";
-  if (sf) sf.value = "";
-  renderDamagedItemsTable(allDamagedItems);
-}
-
-function exportDamagedCSV() {
-  if (!allDamagedItems.length) { showNotification("No damaged items to export.", "error"); return; }
-  const headers = ["Student ID","Name","Item","Item ID","Borrow Date","Return Date","Condition","Status"];
-  const rows = allDamagedItems.map(tx => [
-    tx.studentId, tx.studentName||"", tx.item,
-    itemIdMap[normalizeName(tx.item).toLowerCase()] || tx.itemId || "",
-    tx.borrowDate||"", tx.returnDate||"", tx.condition, tx.status
-  ]);
-  const csv = [headers, ...rows]
-    .map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(","))
-    .join("\n");
-  const a = Object.assign(document.createElement("a"), {
-    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
-    download: `damaged-items-${getPHTDateString()}.csv`
-  });
-  a.click();
-  URL.revokeObjectURL(a.href);
-  showNotification("CSV exported.", "success");
-}
-
 function exportTransactionsCSV() {
   if (!allTransactions || allTransactions.length === 0) {
     showNotification("No transactions to export.", "error");
     return;
   }
-  const headers = ["Student ID","Name","Item","Item ID","Borrow Date","Due Date","Return Date","Status","Late Return"];
+  const headers = ["Student ID","Name","Item","Borrow Date","Due Date","Return Date","Status","Late Return"];
   const rows = allTransactions.map(tx =>
-    [tx.studentId, tx.studentName || "", tx.item, itemIdMap[normalizeName(tx.item).toLowerCase()] || "", tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
+    [tx.studentId, tx.studentName || "", tx.item, tx.borrowDate, tx.dueDate, tx.returnDate || "", tx.status, tx.isLate ? "Yes" : "No"]
       .map(v => `"${String(v).replace(/"/g,'""')}"`)
       .join(",")
   );
@@ -1475,285 +1167,58 @@ function exportTransactionsCSV() {
 }
 
 // ── Inventory ────────────────────────────────────────────────────────────────
-let selectedItemCategory = "";
-
-function loadItemsSearch() {
-  const buttonsContainer = document.getElementById("itemCategoryButtons");
-  const resultsContainer = document.getElementById("itemSearchResults");
-  
-  if (buttonsContainer) buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--text3);font-size:12px;padding:16px;">Loading categories...</div>';
-
-  fetch(scriptURL + "?action=getItems").then(r => r.json())
-    .then(items => {
-      if (!buttonsContainer) return;
-      
-      allItems = Array.isArray(items) ? items : [];
-      
-      // Extract unique categories
-      const categories = new Set();
-      allItems.forEach(item => {
-        if (item.itemName) {
-          categories.add(normalizeName(item.itemName));
-        }
-      });
-      
-      const sortedCategories = Array.from(categories).sort();
-      
-      if (sortedCategories.length === 0) {
-        buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--text3);font-size:12px;padding:16px;">No items added yet.</div>';
-        return;
-      }
-      
-      // Create category buttons
-      buttonsContainer.innerHTML = '';
-      sortedCategories.forEach(category => {
-        const btn = document.createElement("button");
-        btn.className = "item-category-btn";
-        btn.textContent = category;
-        btn.onclick = () => selectItemCategory(category);
-        btn.style.cssText = `
-          padding: 8px 14px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: var(--surface2);
-          color: var(--text);
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        `;
-        btn.id = `btn-cat-${category}`;
-        buttonsContainer.appendChild(btn);
-      });
-    })
-    .catch(() => {
-      if (buttonsContainer) buttonsContainer.innerHTML = '<div style="text-align:center;width:100%;color:var(--danger);font-size:12px;padding:16px;">Error loading items.</div>';
-    });
-}
-
-function selectItemCategory(category) {
-  selectedItemCategory = category;
-  const buttonsContainer = document.getElementById("itemCategoryButtons");
-  const resultsContainer = document.getElementById("itemSearchResults");
-  
-  // Update button styles
-  if (buttonsContainer) {
-    buttonsContainer.querySelectorAll("button").forEach(btn => {
-      if (btn.textContent === category) {
-        btn.style.background = "var(--accent)";
-        btn.style.color = "#fff";
-        btn.style.borderColor = "var(--accent)";
-      } else {
-        btn.style.background = "var(--surface2)";
-        btn.style.color = "var(--text)";
-        btn.style.borderColor = "var(--border)";
-      }
-    });
-  }
-  
-  // Show matching items
-  if (resultsContainer) {
-    const matching = allItems.filter(item => 
-      normalizeName(item.itemName).toLowerCase() === normalizeName(category).toLowerCase()
-    );
-    
-    if (matching.length === 0) {
-      resultsContainer.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:12px;">No items found.</div>';
-      return;
-    }
-    
-    resultsContainer.innerHTML = '';
-    matching.forEach(item => {
-      const itemEl = document.createElement("div");
-      itemEl.style.cssText = `
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        font-size: 12px;
-      `;
-      itemEl.innerHTML = `
-        <div>
-          <strong style="color:var(--accent);">${item.itemId}</strong>
-          <span style="color:var(--text3);margin-left:8px;">${item.itemName}</span>
-        </div>
-        <button class="btn btn-danger btn-xs" onclick="deleteItemById('${item.itemId}')" style="padding:4px 8px;font-size:11px;">🗑</button>
-      `;
-      resultsContainer.appendChild(itemEl);
-    });
-  }
-}
-
 function loadItemsTable() {
-  const container = document.getElementById("itemsContainer");
-  if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
+  const tbody = document.getElementById("itemsTableBody");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading…</td></tr>`;
 
-  // Fetch BOTH items and active transactions to show TRUE available counts
-  Promise.all([
-    fetch(scriptURL + "?action=getItems").then(r => r.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
-  ])
-    .then(([items, history]) => {
-      if (!container) return;
-      container.innerHTML = "";
-
-      // Build/refresh the itemIdMap so all tables can look up IDs by name
-      allItems = Array.isArray(items) ? items : [];
-      itemIdMap = {};
-      allItems.forEach(it => {
-        const key = normalizeName(it.itemName).toLowerCase();
-        if (!itemIdMap[key]) itemIdMap[key] = it.itemId;
-      });
-
+  fetch(scriptURL + "?action=getItems")
+    .then(r => r.json())
+    .then(items => {
+      if (!tbody) return;
+      tbody.innerHTML = "";
       if (!items || items.length === 0) {
-        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one.</div>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No items yet — add one.</td></tr>`;
         return;
       }
-
-      // Count currently borrowed items by name
-      const borrowedByName = {};
-      (history || []).forEach(tx => {
-        if (tx.status === "Borrowed" || tx.status === "Overdue") {
-          const key = normalizeName(tx.item);
-          if (!key) return;
-          borrowedByName[key] = (borrowedByName[key] || 0) + 1;
-        }
-      });
-
-      // Group items by itemName (category)
-      const grouped = {};
       items.forEach(it => {
-        const key = normalizeName(it.itemName);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(it);
-      });
-
-      // Create a card for each category
-      Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
-        // Use a safe numeric index-based ID to avoid special characters breaking getElementById
-        const categoryId = `cat-idx-${catIndex}`;
-        const total = categoryItems.length;
-        const out = borrowedByName[categoryName] || 0;
-        const available = Math.max(0, total - out);
-
-        // Category card header
-        const cardDiv = document.createElement("div");
-        cardDiv.className = "item-category-card";
-        cardDiv.id = categoryId;
-
-        cardDiv.innerHTML = `
-          <div class="item-category-info">
-            <div class="item-category-icon">📦</div>
-            <div class="item-category-text">
-              <div class="item-category-name">${categoryName}</div>
-              <div class="item-category-count">
-                <span style="color:var(--success);font-weight:700;">${available} available</span>
-                <span style="color:var(--text3);"> · ${total} total · ${out} out</span>
-              </div>
+        const tagCls = it.quantity === 0 ? "s-overdue" : it.quantity <= 2 ? "s-pending" : "s-returned";
+        const tagLbl = it.quantity === 0 ? "Out of Stock" : it.quantity <= 2 ? "Low Stock" : "In Stock";
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td style="font-weight:600;">${it.name}</td>
+          <td>
+            <div class="qty-control">
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},-1)">−</button>
+              <span class="qty-val">${it.quantity}</span>
+              <button class="qty-btn" onclick="adjustQty('${it.name}',${it.quantity},1)">+</button>
             </div>
-          </div>
-          <div class="item-category-toggle">▼</div>
-        `;
-
-        // Items container (initially hidden)
-        const itemsDiv = document.createElement("div");
-        itemsDiv.className = "item-category-items";
-        itemsDiv.id = `${categoryId}-items`;
-
-        categoryItems.forEach(item => {
-          const itemDetail = document.createElement("div");
-          itemDetail.className = "item-detail";
-
-          const infoWrap = document.createElement("div");
-          infoWrap.style.cssText = "display:flex;align-items:center;flex:1;";
-
-          const idEl = document.createElement("div");
-          idEl.className = "item-detail-id";
-          idEl.textContent = item.itemId;
-
-          const nameEl = document.createElement("div");
-          nameEl.className = "item-detail-name";
-          nameEl.textContent = item.itemName;
-
-          infoWrap.appendChild(idEl);
-          infoWrap.appendChild(nameEl);
-
-          const deleteBtn = document.createElement("div");
-          deleteBtn.className = "item-detail-delete";
-          deleteBtn.textContent = "🗑";
-          // Use addEventListener so stopPropagation works cleanly
-          deleteBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            deleteItemById(item.itemId);
-          });
-
-          itemDetail.appendChild(infoWrap);
-          itemDetail.appendChild(deleteBtn);
-          itemsDiv.appendChild(itemDetail);
-        });
-
-        // Attach toggle via addEventListener (not onclick) to avoid any innerHTML clobbering
-        cardDiv.addEventListener("click", () => toggleCategoryExpand(categoryId));
-
-        container.appendChild(cardDiv);
-        container.appendChild(itemsDiv);
+          </td>
+          <td><span class="status-pill ${tagCls}">${tagLbl}</span></td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem('${it.name}',${it.quantity})">🗑</button>
+          </td>`;
+        tbody.appendChild(row);
       });
     })
     .catch(() => {
-      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">Error loading items.</div>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="color:var(--danger);">Error loading items.</td></tr>`;
     });
-}
-function toggleCategoryExpand(categoryId) {
-  const card = document.getElementById(categoryId);
-  const itemsContainer = document.getElementById(`${categoryId}-items`);
-
-  if (!card || !itemsContainer) return;
-
-  const isExpanded = card.classList.contains("expanded");
-
-  if (isExpanded) {
-    card.classList.remove("expanded");
-    itemsContainer.classList.remove("visible");
-  } else {
-    card.classList.add("expanded");
-    itemsContainer.classList.add("visible");
-  }
-}
-
-function normalizeItemName(str) {
-  return String(str || "").trim().replace(/\s+/g, " ");
-}
-
-function normalizeName(str) {
-  return String(str || "").trim().replace(/\s+/g, " ");
 }
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
-  const id   = document.getElementById("newItemId").value.trim();
-  
-  if (!name) { showNotification("Item name is required.", "error"); return; }
-  if (!id)   { showNotification("Item ID is required.", "error"); return; }
+  const qty  = parseInt(document.getElementById("newItemQty").value);
+  if (!name)                { showNotification("Item name is required.", "error"); return; }
+  if (isNaN(qty) || qty < 0) { showNotification("Enter a valid quantity.", "error"); return; }
 
-  fetch(scriptURL, { 
-    method: "POST", 
-    body: JSON.stringify({ 
-      action: "addItem", 
-      itemId: id, 
-      itemName: name,
-      adminToken: getAdminToken() 
-    }) 
-  })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "addItem", name, quantity: qty }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showNotification(`"${name}" (${id}) added.`, "success");
+        showNotification(`"${name}" added.`, "success");
         document.getElementById("newItemName").value = "";
-        document.getElementById("newItemId").value  = "";
-        loadItemsSearch();
+        document.getElementById("newItemQty").value  = "";
+        loadItemsTable();
       } else {
         showNotification(data.message || "Failed to add item.", "error");
       }
@@ -1761,23 +1226,37 @@ function addItem() {
     .catch(() => showNotification("Error adding item.", "error"));
 }
 
-function deleteItemById(itemId) {
-  
-  if (!confirm(`Delete item "${itemId}"? This cannot be undone.`)) return;
-  fetch(scriptURL, { 
-    method: "POST", 
-    body: JSON.stringify({ 
-      action: "deleteItem", 
-      itemId,
-      adminToken: getAdminToken() 
-    }) 
-  })
+function adjustQty(name, currentQty, delta) {
+  // Re-fetch live items first to avoid stale-closure overwrite (e.g. after
+  // a borrow confirmation already deducted stock in the Sheet).
+  fetch(scriptURL + "?action=getItems")
+    .then(r => r.json())
+    .then(items => {
+      const live = items.find(it => it.name.toLowerCase() === name.toLowerCase());
+      const liveQty = live ? Number(live.quantity) : currentQty;
+      const newQty  = liveQty + delta;
+      if (newQty < 0) { showNotification("Quantity cannot go below 0.", "error"); return; }
+      return fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify({ action: "updateItemQty", name, quantity: newQty })
+      });
+    })
+    .then(r => r && r.json())
+    .then(data => {
+      if (!data) return;
+      if (data.success) loadItemsTable();
+      else showNotification(data.message || "Failed to update.", "error");
+    })
+    .catch(() => showNotification("Error updating quantity.", "error"));
+}
+
+function deleteItem(name, quantity) {
+  if (quantity > 0) { showNotification(`Set quantity to 0 first to delete "${name}".`, "error"); return; }
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteItem", name }) })
     .then(r => r.json())
     .then(data => {
-      if (data.success) { 
-        showNotification(`"${itemId}" deleted.`, "success"); 
-        loadItemsSearch();
-      }
+      if (data.success) { showNotification(`"${name}" deleted.`, "success"); loadItemsTable(); }
       else showNotification(data.message || "Failed to delete.", "error");
     })
     .catch(() => showNotification("Error deleting item.", "error"));
@@ -1875,7 +1354,7 @@ function showStudentHistory(studentId, studentName) {
   document.getElementById("studentHistoryTitle").innerText = `${studentName} (${studentId})`;
   document.getElementById("historyFilter").value = "all";
   document.getElementById("historySearch").value = "";
-  document.getElementById("studentHistoryBody").innerHTML = `<tr><td colspan="7" class="table-empty">Loading history…</td></tr>`;
+  document.getElementById("studentHistoryBody").innerHTML = `<tr><td colspan="6" class="table-empty">Loading history…</td></tr>`;
   document.getElementById("studentHistoryModal").classList.add("open");
 
   if (allTransactions.length === 0) {
@@ -1887,7 +1366,7 @@ function showStudentHistory(studentId, studentName) {
       })
       .catch(() => {
         const tbody = document.getElementById("studentHistoryBody");
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Unable to load history.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load history.</td></tr>`;
       });
   } else {
     renderStudentHistory(studentId);
@@ -1900,7 +1379,7 @@ function renderStudentHistory(studentId) {
   
   const studentTx = allTransactions.filter(tx => tx.studentId === studentId);
   if (!studentTx || studentTx.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No borrowing history found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No borrowing history found.</td></tr>`;
     return;
   }
   
@@ -1916,7 +1395,6 @@ function renderStudentHistory(studentId) {
     
     row.innerHTML = `
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(tx.item).toLowerCase()] || "—"}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
@@ -1933,7 +1411,7 @@ function filterStudentHistory() {
   const rows = tbody.querySelectorAll("tr");
   
   rows.forEach(row => {
-    if (row.cells.length < 7) return; // Skip empty rows
+    if (row.cells.length < 6) return; // Skip empty rows
     
     const item = row.cells[0].textContent.toLowerCase();
     const status = row.cells[4].textContent.toLowerCase();
@@ -2012,7 +1490,7 @@ function saveEditStudent() {
   saveBtn.disabled    = true;
   saveBtn.textContent = "Saving…";
 
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateUser", studentId, name, email , adminToken: getAdminToken() }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "updateUser", studentId, name, email }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
@@ -2039,7 +1517,7 @@ function confirmDeleteStudent(studentId, name) {
 
 function executeDeleteStudent(studentId, name) {
   showNotification("Deleting student…", "info");
-  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteUser", studentId , adminToken: getAdminToken() }) })
+  fetch(scriptURL, { method: "POST", body: JSON.stringify({ action: "deleteUser", studentId }) })
     .then(r => r.json())
     .then(data => {
       if (data.success) { showNotification(`${name} removed.`, "success"); loadQrStudentList(); updateKpiCards(); }
@@ -2211,7 +1689,6 @@ function openAccountabilityModal(studentId) {
 
 function loadAccountabilityTable() {
   const tbody = document.getElementById("accountabilityTableBody");
-  const topCard = document.getElementById("topViolatorCard");
   if (!tbody) return;
   tbody.innerHTML = "";
 
@@ -2220,50 +1697,6 @@ function loadAccountabilityTable() {
     const { status, violations, lateCount, damagedCount } = calculateStudentStatus(user.id);
     return { ...user, status, violations, lateCount, damagedCount };
   }).filter(u => u.violations > 0).sort((a,b) => b.violations - a.violations);
-
-  // Display top violator card
-  if (topCard) {
-    if (accountabilityData.length > 0) {
-      const topStudent = accountabilityData[0];
-      const statusBadge = getStatusBadge(topStudent.status);
-      topCard.innerHTML = `
-        <div class="panel" style="background:linear-gradient(135deg,rgba(248,81,73,0.1) 0%,rgba(244,67,54,0.05) 100%);border:1px solid rgba(248,81,73,0.3);">
-          <div class="panel-header" style="background:rgba(248,81,73,0.08);">
-            <span class="panel-title"><span class="panel-title-icon">🚨</span> Top Violator</span>
-          </div>
-          <div class="panel-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center;">
-              <div>
-                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Student Name</div>
-                <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:12px;">${topStudent.name}</div>
-                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Status</div>
-                <div style="font-size:14px;font-weight:600;">${statusBadge}</div>
-              </div>
-              <div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                  <div style="background:rgba(248,81,73,0.12);padding:12px;border-radius:8px;text-align:center;">
-                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Total Violations</div>
-                    <div style="font-size:24px;font-weight:800;color:var(--danger);">${topStudent.violations}</div>
-                  </div>
-                  <div style="background:rgba(255,152,0,0.12);padding:12px;border-radius:8px;text-align:center;">
-                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Late Returns</div>
-                    <div style="font-size:20px;font-weight:700;color:#ff8f00;">${topStudent.lateCount}</div>
-                  </div>
-                  <div style="background:rgba(255,87,34,0.12);padding:12px;border-radius:8px;text-align:center;">
-                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Damaged Items</div>
-                    <div style="font-size:20px;font-weight:700;color:#e65100;">${topStudent.damagedCount}</div>
-                  </div>
-                  <button class="btn btn-danger" onclick="openAccountabilityModal('${topStudent.id}')" style="padding:8px;font-size:12px;">View Details →</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      topCard.innerHTML = "";
-    }
-  }
 
   if (accountabilityData.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="empty-icon">✅</span>All students in good standing!</td></tr>`;
