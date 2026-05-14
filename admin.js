@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyBKu765NZSFkdlmW0-5de0LjLQZBxRK5WjJ9SzpTLJP5anlJqxBQv-NQFhGvpag_9qSQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycby7MhPTvjTBNutZHfeOs6qGm_A8IUDspuVDKWiIGd_0xY5LFrvWGBAOFxRRaP16Vsne/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -649,7 +649,14 @@ function submitRegisterForm() {
   .then(r => r.json())
   .then(data => {
     if (data.success) {
+      const pw = data.password || "—";
       showNotification(data.message, "success");
+      // Show the generated password prominently
+      openModal("passwordRevealModal");
+      const pwEl = document.getElementById("generatedPasswordDisplay");
+      const pwNameEl = document.getElementById("generatedPasswordName");
+      if (pwEl) pwEl.textContent = pw;
+      if (pwNameEl) pwNameEl.textContent = document.getElementById("adminName").value.trim();
       document.getElementById("adminForm").reset();
       ["adminId","adminName","adminEmail"].forEach((id, i) =>
         clearFormState(id, ["adminIdError","adminNameError","adminEmailError"][i])
@@ -1296,6 +1303,7 @@ function renderQrStudentList(users) {
       <div class="student-info">
         <span class="student-name">${u.name}</span>
         <span class="student-id">${u.id}</span>
+        <span style="font-size:11px;color:var(--primary);font-family:var(--mono);font-weight:700;letter-spacing:1px;">🔑 ${u.password || "—"}</span>
       </div>
       <div class="student-btns">
         <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
@@ -1326,6 +1334,7 @@ function renderStudentsTable(users) {
     row.innerHTML = `
       <td><span class="mono-chip">${u.id}</span></td>
       <td style="font-weight:600;">${u.name}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:700;letter-spacing:2px;color:var(--primary);">${u.password || "—"}</td>
       <td style="text-align:center;font-family:var(--mono);">${totalBorrows}</td>
       <td style="text-align:center;font-family:var(--mono);">${currentItems}</td>
       <td style="text-align:center;font-family:var(--mono);${lateReturns > 0 ? 'color:var(--danger);font-weight:600;' : ''}">${lateReturns}</td>
