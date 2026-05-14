@@ -513,7 +513,7 @@ function renderActiveBorrowers() {
         <span>${tx.item}</span>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
-        ${itemIdMap[normalizeName(tx.item).toLowerCase()] ? `<span class="mono-chip" style="font-size:10px;">🏷 ${itemIdMap[normalizeName(tx.item).toLowerCase()]}</span>` : ""}
+${(tx.equipmentId && tx.equipmentId !== "") || itemIdMap[normalizeName(tx.item).toLowerCase()] ? `<span class="mono-chip" style="font-size:10px;">🏷 ${(tx.equipmentId && tx.equipmentId !== "") ? tx.equipmentId : itemIdMap[normalizeName(tx.item).toLowerCase()]}</span>` : ""}
       </div>
       <div class="ab-dates">
         <div class="ab-dates-left">
@@ -591,8 +591,10 @@ function renderDashRecent() {
     return;
   }
   recent.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
-    const row = document.createElement("tr");
+const itemId = (tx.equipmentId && tx.equipmentId !== "")
+  ? tx.equipmentId
+  : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");
+const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="mono-chip">${tx.studentId}</span></td>
       <td>${tx.studentName || "—"}</td>
@@ -1201,8 +1203,11 @@ function renderTransactions(transactions, resetPage = false) {
   const page  = transactions.slice(start, start + TX_PER_PAGE);
 
   page.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
-    
+// Use the transaction's own stored equipment ID first,
+// fall back to itemIdMap lookup only if empty
+const itemId = (tx.equipmentId && tx.equipmentId !== "") 
+  ? tx.equipmentId 
+  : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
     // Condition pill with color coding
     let condClass = "c-good";
     let condIcon = "✅";
@@ -1267,8 +1272,11 @@ function renderArchiveTransactions(transactions) {
     return;
   }
   transactions.forEach(tx => {
-    const itemId = itemIdMap[normalizeName(tx.item).toLowerCase()] || "—";
-    
+// Use the transaction's own stored equipment ID first,
+// fall back to itemIdMap lookup only if empty
+const itemId = (tx.equipmentId && tx.equipmentId !== "") 
+  ? tx.equipmentId 
+  : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
     // Condition pill with color coding
     let condClass = "c-good";
     let condIcon = "✅";
@@ -1892,7 +1900,7 @@ function renderStudentHistory(studentId) {
     
     row.innerHTML = `
       <td style="font-weight:600;">${tx.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(tx.item).toLowerCase()] || "—"}</span></td>
+<td><span class="mono-chip">${(tx.equipmentId && tx.equipmentId !== "") ? tx.equipmentId : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—")}</span></td>
       <td><span class="date-chip">${tx.borrowDate}</span></td>
       <td><span class="date-chip">${tx.dueDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
