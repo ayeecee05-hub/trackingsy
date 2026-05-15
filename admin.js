@@ -4,6 +4,25 @@
 
 const scriptURL = "https://script.google.com/macros/s/AKfycbyjCAbdDn115HtWPxBAzdo-ClBJA05eEwi-PfJZnitloVxjxvH-HiPWNB_Fgg8EG-dM_g/exec";
 
+// ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
+function safeFetch(url, options) {
+  return fetch(url, options)
+    .then(res => res.text())
+    .then(text => {
+      const trimmed = text.trim();
+      if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+        console.error("Non-JSON response from Apps Script:", trimmed.slice(0, 300));
+        throw new Error("Server returned a non-JSON response. The web app deployment may need to be re-published as 'Anyone' access.");
+      }
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        console.error("JSON parse error:", e, "Raw:", trimmed.slice(0, 300));
+        throw new Error("Failed to parse server response.");
+      }
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
