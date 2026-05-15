@@ -2497,7 +2497,7 @@ function openDamageReportModal(txId, studentName, item) {
   document.getElementById("damageReportStudent").value = studentName;
   document.getElementById("damageReportItem").value = item;
   document.getElementById("damageReportTxId").value = txId;
-  document.getElementById("damageReportSeverity").value = "DAMAGED;
+  document.getElementById("damageReportSeverity").value = "DAMAGED";
   document.getElementById("damageReportDescription").value = "";
   const err = document.getElementById("damageReportError");
   if (err) { err.textContent = ""; err.style.display = "none"; }
