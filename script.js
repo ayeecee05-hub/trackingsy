@@ -1115,10 +1115,10 @@ function populateBorrowSelect() {
         totalByName[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
 
-      // Count currently borrowed items (Borrowed + Overdue = checked out)
+      // Count currently borrowed items (Borrowed + Overdue + Return Pending = checked out)
       const borrowedByName = {};
       (history || []).forEach(tx => {
-        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+        if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = (tx.item || "").trim().replace(/\s+/g, " ");
           if (!key) return;
           borrowedByName[key] = (borrowedByName[key] || 0) + 1;
@@ -1410,10 +1410,10 @@ function loadStockPanel() {
         totalByName[key] += (it.itemId ? 1 : (Number(it.quantity) || 1));
       });
 
-      // Count currently borrowed items (Borrowed + Overdue = checked out)
+      // Count currently borrowed items (Borrowed + Overdue + Return Pending = checked out)
       const borrowedByName = {};
       (history || []).forEach(tx => {
-        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+        if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = (tx.item || "").trim().replace(/\s+/g, " ");
           if (!key) return;
           borrowedByName[key] = (borrowedByName[key] || 0) + 1;
