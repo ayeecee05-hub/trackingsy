@@ -1578,12 +1578,15 @@ function loadItemsTable() {
           const key = normalizeName(tx.item);
           if (!key) return;
           borrowedByName[key] = (borrowedByName[key] || 0) + 1;
-          // Also track the specific itemId if available
+          // Track the specific itemId from transaction if available
           if (tx.itemId) {
             borrowedItemIds.add(tx.itemId);
           }
         }
       });
+
+      console.log(`[loadItemsTable] Borrowed items by name:`, borrowedByName);
+      console.log(`[loadItemsTable] Borrowed item IDs:`, Array.from(borrowedItemIds));
 
       // Group items by itemName (category)
       const grouped = {};
@@ -1659,6 +1662,10 @@ function loadItemsTable() {
           margin-bottom: 8px;
         `;
 
+        // Track how many of this category are borrowed to mark them
+        let borrowedCount = 0;
+        const borrowedThisCategory = out || 0;
+
         categoryItems.forEach(item => {
           const itemRow = document.createElement("div");
           itemRow.style.cssText = `
@@ -1672,8 +1679,9 @@ function loadItemsTable() {
             font-size: 13px;
           `;
 
-          // Check if this specific item is borrowed
-          const isBorrowed = borrowedItemIds.has(item.itemId);
+          // Mark first N items as borrowed based on borrowedByName count
+          const isBorrowed = borrowedCount < borrowedThisCategory;
+          if (isBorrowed) borrowedCount++;
 
           const idText = document.createElement("span");
           idText.className = "item-detail-id";
