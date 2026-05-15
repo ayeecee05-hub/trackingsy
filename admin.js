@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxRkAYoNxJUQb_OOUI2UctADfCYZDmcnt5QztNGuTbwk6-su2B3M7LCyCux2ZXgVwXU1g/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbyEhaa2wPvh9qpdrouTBd0X3bD0jgByuUfusdqB4si43xGLwplaAxmgg8Y69x26qs2I/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1520,10 +1520,31 @@ function loadItemsTable() {
     fetch(scriptURL + "?action=getItems").then(r => r.json()),
     fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
   ])
-    .then(([items, history]) => {
+    .then(([response, history]) => {
       if (!container) return;
       
+      // Handle both old and new response formats
+      let items = Array.isArray(response) ? response : (response && response.items ? response.items : []);
+      
+      // Show debug info if available
+      if (response && response.debug) {
+        console.log(`[loadItemsTable] 📊 DEBUG INFO:`);
+        console.log(`  Sheet: ${response.debug.sheetName}`);
+        console.log(`  Total Rows: ${response.debug.totalRows}`);
+        console.log(`  Header Row:`, response.debug.headerRow);
+        console.log(`  Data Rows:`);
+        response.debug.dataRows.forEach(row => {
+          console.log(`    Row ${row.rowNumber}: A="${row.colA}" | B="${row.colB}" | C="${row.colC}"`);
+        });
+      }
+      
+      console.log(`[loadItemsTable] Raw items response:`, items);
       console.log(`[loadItemsTable] Received ${Array.isArray(items) ? items.length : 0} items`);
+      if (Array.isArray(items)) {
+        items.forEach((it, idx) => {
+          console.log(`  [${idx}] itemId="${it.itemId}", itemName="${it.itemName}"`);
+        });
+      }
       console.log(`[loadItemsTable] Received ${Array.isArray(history) ? history.length : 0} transactions`);
       
       container.innerHTML = "";
@@ -1557,11 +1578,15 @@ function loadItemsTable() {
       const grouped = {};
       allItems.forEach(it => {
         const key = normalizeName(it.itemName);
+        console.log(`[loadItemsTable] Grouping item: itemId="${it.itemId}", itemName="${it.itemName}" → key="${key}"`);
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(it);
       });
 
-      console.log(`[loadItemsTable] Grouped into ${Object.keys(grouped).length} categories`);
+      console.log(`[loadItemsTable] Grouped into ${Object.keys(grouped).length} categories:`);
+      Object.keys(grouped).forEach(cat => {
+        console.log(`  - "${cat}": ${grouped[cat].length} items`);
+      });
 
       // Create a card for each category
       Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
@@ -1570,6 +1595,8 @@ function loadItemsTable() {
         const total = categoryItems.length;
         const out = borrowedByName[categoryName] || 0;
         const available = Math.max(0, total - out);
+
+        console.log(`[loadItemsTable] Creating category card ${catIndex}: "${categoryName}" (${available}/${total})`);
 
         // Category card header
         const cardDiv = document.createElement("div");
@@ -1634,7 +1661,7 @@ function loadItemsTable() {
         container.appendChild(itemsDiv);
       });
       
-      console.log(`[loadItemsTable] Displayed ${allItems.length} items in ${Object.keys(grouped).length} categories`);
+      console.log(`[loadItemsTable] ✅ Display complete: ${allItems.length} items in ${Object.keys(grouped).length} categories`);
     })
     .catch(err => {
       console.error(`[loadItemsTable] Error:`, err);
