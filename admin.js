@@ -1545,7 +1545,10 @@ function loadItemsTable() {
           console.log(`  [${idx}] itemId="${it.itemId}", itemName="${it.itemName}"`);
         });
       }
-      console.log(`[loadItemsTable] Received ${Array.isArray(history) ? history.length : 0} transactions`);
+      
+      // Handle both old and new response formats for history
+      let transactionsList = Array.isArray(history) ? history : (history && history.data ? history.data : (history && Array.isArray(history) ? history : []));
+      console.log(`[loadItemsTable] Received ${Array.isArray(transactionsList) ? transactionsList.length : 0} transactions`);
       
       container.innerHTML = "";
 
@@ -1566,7 +1569,7 @@ function loadItemsTable() {
       // Count currently borrowed items by name
       // Include "Return Pending" so items don't show as available until return is confirmed
       const borrowedByName = {};
-      (history || []).forEach(tx => {
+      (transactionsList || []).forEach(tx => {
         if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = normalizeName(tx.item);
           if (!key) return;
