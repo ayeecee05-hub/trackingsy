@@ -1031,7 +1031,9 @@ function confirmReturnRequest(index) {
   };
   document.getElementById("adminReturnDamage").onclick = () => {
     modal.classList.remove("open");
-    openDamageReportModal(req.txId || index, req.studentName || req.studentId, req.item);
+    const txId = req.txId || (req.index !== undefined ? req.index : index);
+    console.log("Opening damage report for:", { txId, studentName: req.studentName, item: req.item });
+    openDamageReportModal(txId, req.studentName || req.studentId, req.item);
   };
   document.getElementById("adminReturnNo").onclick  = () => { modal.classList.remove("open"); };
 }
