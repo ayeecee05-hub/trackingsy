@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyz3njvGMqbKqjYqt5SdOemrcnYIYhToMaoEvUp-b5Zz7Uw2TfGnHQBUDCruz9CK4XG5Q/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbyhUi1MXKYj14V_eaFu4xDpMT4QqUL6EhWxqY_bEYniCtJgGANSEDSCiceu0nPxLqVqSA/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -2489,5 +2489,67 @@ function drawOnTimeChart(transactions) {
         tooltip: { callbacks: { label: ctx => { const pct = ((ctx.parsed / returned.length)*100).toFixed(1); return ` ${ctx.parsed} (${pct}%)`; } } }
       }
     }
+  });
+}
+
+// ── Damage Report Modal ──────────────────────────────────────────────────────
+function openDamageReportModal(txId, studentName, item) {
+  document.getElementById("damageReportStudent").value = studentName;
+  document.getElementById("damageReportItem").value = item;
+  document.getElementById("damageReportTxId").value = txId;
+  document.getElementById("damageReportSeverity").value = "DAMAGED;
+  document.getElementById("damageReportDescription").value = "";
+  const err = document.getElementById("damageReportError");
+  if (err) { err.textContent = ""; err.style.display = "none"; }
+  openModal("damageReportModal");
+}
+
+function submitDamageReport() {
+  const txId = document.getElementById("damageReportTxId").value;
+  const severity = document.getElementById("damageReportSeverity").value;
+  const description = document.getElementById("damageReportDescription").value.trim();
+  const errEl = document.getElementById("damageReportError");
+
+  if (!description || description.length < 3) {
+    errEl.textContent = "Description must be at least 3 characters.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  const submitBtn = document.querySelector("#damageReportModal .btn-danger");
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
+
+  const reportDate = getPHTDateString();
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "logDamageReport",
+      txId: txId,
+      severity: severity,
+      description: description,
+      reportDate: reportDate,
+      adminToken: getAdminToken()
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(data.message || "✅ Damage report submitted.", "success");
+      closeModal("damageReportModal");
+      loadDamagedItems();
+      loadReturnRequests();
+      loadTransactions();
+    } else {
+      errEl.textContent = data.message || "Failed to submit report.";
+      errEl.style.display = "block";
+    }
+  })
+  .catch(() => {
+    errEl.textContent = "Network error while submitting report.";
+    errEl.style.display = "block";
+  })
+  .finally(() => {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "📋 Submit Report"; }
   });
 }
