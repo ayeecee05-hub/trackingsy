@@ -2,12 +2,19 @@
 const CACHE_NAME = "ctu-borrow-v3";
 
 // Only cache files you're 100% sure exist on the server
-// Removed icon-192.png and icon-512.png — add them back once you upload them
 const STATIC_ASSETS = [
   "/index.html",
   "/style.css",
   "/script.js",
-  "/manifest.json"
+  "/manifest.json",
+  "/logo.svg",
+  "/icon-192.svg",
+  "/icon-512.svg",
+  "/countdown-timer.js",
+  "/countdown-styles.css",
+  "/admin.html",
+  "/admin.js",
+  "/overrides.css"
 ];
 
 // Install: cache static assets individually so one missing file doesn't break everything

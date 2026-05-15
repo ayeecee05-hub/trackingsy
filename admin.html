@@ -1443,6 +1443,153 @@
   </div>
 </div>
 
+<!-- ──────────────────────────────────────────────────────────────────────────
+     NEW MODALS — Damage Report, Analytics, Bulk Actions
+     ────────────────────────────────────────────────────────────────────────── -->
+
+<!-- Damage Report Modal -->
+<div class="modal-overlay" id="damageReportModal">
+  <div class="modal-box wide">
+    <span class="modal-icon">⚠️</span>
+    <div class="modal-title">Report Damage</div>
+    <div class="modal-form">
+      <div class="form-group">
+        <label class="form-label">Student</label>
+        <input type="text" class="form-input" id="damageReportStudent" readonly>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Item</label>
+        <input type="text" class="form-input" id="damageReportItem" readonly>
+      </div>
+      <input type="hidden" id="damageReportTxId">
+      <div class="form-group">
+        <label class="form-label">Severity</label>
+        <select class="form-input" id="damageReportSeverity">
+          <option value="Minor">Minor - Cosmetic damage only</option>
+          <option value="Moderate">Moderate - Affects functionality</option>
+          <option value="Severe">Severe - Item unusable</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="damageReportDescription" placeholder="Describe the damage..." style="min-height:100px;"></textarea>
+      </div>
+      <span class="form-error" id="damageReportError" style="display:block;"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="submitDamageReport()">📋 Submit Report</button>
+      <button class="btn btn-ghost" onclick="closeModal('damageReportModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Item Filters (Inventory Panel) -->
+<div style="display:none;background:var(--surface2);padding:16px;border-radius:8px;margin-bottom:16px;border:1px solid var(--border);" id="itemFiltersPanel">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+    <input type="text" id="itemSearchFilter" class="form-input" placeholder="🔍 Search by name or ID..." style="grid-column:1/-1;">
+    <select class="form-input" id="itemStatusFilter">
+      <option value="all">All Status</option>
+      <option value="available">Available</option>
+      <option value="borrowed">Borrowed</option>
+    </select>
+    <select class="form-input" id="itemCategoryFilter">
+      <option value="all">All Categories</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('itemFiltersPanel').style.display='none'">✕ Close</button>
+  </div>
+  <div id="filteredItemsList"></div>
+</div>
+
+<!-- Bulk Actions Bar -->
+<div style="display:none;background:var(--accent-glow);padding:12px 16px;border-radius:8px;margin-bottom:16px;border:1px solid var(--accent);gap:8px;align-items:center;" id="bulkActionBar">
+  <span style="flex:1;color:var(--text2);" id="bulkSelectionCount">0 items selected</span>
+  <button class="btn btn-primary btn-sm" onclick="bulkConfirmReturns()">✅ Confirm Returns</button>
+  <button class="btn btn-warning btn-sm" onclick="bulkRejectPending()">❌ Reject Requests</button>
+  <button class="btn btn-ghost btn-sm" onclick="disableBulkSelectMode()">Cancel</button>
+</div>
+
+<!-- Analytics Modal -->
+<div class="modal-overlay" id="analyticsModal">
+  <div class="modal-box wide">
+    <span class="modal-icon">📊</span>
+    <div class="modal-title">Analytics & Reports</div>
+    <div id="analyticsContent" style="max-height:500px;overflow-y:auto;"></div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <button class="btn btn-primary btn-sm" onclick="exportTransactions()">📥 Export Transactions</button>
+      <button class="btn btn-primary btn-sm" onclick="exportStudentAccounts()">📥 Export Students</button>
+      <button class="btn btn-primary btn-sm" onclick="exportInventory()">📥 Export Inventory</button>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('analyticsModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Item Selection Helper (hidden by default) -->
+<style>
+  .bulk-select-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+  
+  .analytics-card {
+    background: var(--surface2);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  
+  .stat-box {
+    background: var(--surface);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  
+  .badge-success {
+    background: rgba(63, 185, 80, 0.2);
+    color: #3fb950;
+  }
+  
+  .badge-danger {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+  }
+</style>
+
+
 <!-- Student Accountability Modal -->
 <div class="modal-overlay" id="studentAccountabilityModal">
   <div class="modal-box wide">
@@ -1519,5 +1666,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="admin.js"></script>
+<script src="admin-features.js"></script>
 </body>
 </html>
