@@ -1534,9 +1534,10 @@ function loadItemsTable() {
       }
 
       // Count currently borrowed items by name
+      // Include "Return Pending" so items don't show as available until return is confirmed
       const borrowedByName = {};
       (history || []).forEach(tx => {
-        if (tx.status === "Borrowed" || tx.status === "Overdue") {
+        if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = normalizeName(tx.item);
           if (!key) return;
           borrowedByName[key] = (borrowedByName[key] || 0) + 1;
