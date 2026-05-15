@@ -1050,7 +1050,7 @@ function confirmReturnRequest(index) {
   };
   document.getElementById("adminReturnDamage").onclick = () => {
     modal.classList.remove("open");
-    const txId = req.txId || (req.index !== undefined ? req.index : index);
+    const txId = req.rowIndex || index;
     console.log("Opening damage report for:", { txId, studentName: req.studentName, item: req.item });
     openDamageReportModal(txId, req.studentName || req.studentId, req.item);
   };
