@@ -1667,6 +1667,200 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="admin.js"></script>
-<script src="admin-features.js"></script>
+
+<!-- ENHANCED ADMIN FEATURES - Damage Report & Item Filters -->
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// DAMAGE REPORT FORM
+// ─────────────────────────────────────────────────────────────────────────────
+
+function openDamageReportModal(txId, studentName, itemName) {
+  console.log("openDamageReportModal called with:", { txId, studentName, itemName });
+  
+  const txIdEl = document.getElementById("damageReportTxId");
+  const studentEl = document.getElementById("damageReportStudent");
+  const itemEl = document.getElementById("damageReportItem");
+  const descEl = document.getElementById("damageReportDescription");
+  const sevEl = document.getElementById("damageReportSeverity");
+  const errEl = document.getElementById("damageReportError");
+  const modalEl = document.getElementById("damageReportModal");
+
+  console.log("Elements found:", { txIdEl, studentEl, itemEl, descEl, sevEl, errEl, modalEl });
+
+  if (!txIdEl || !studentEl || !itemEl || !modalEl) {
+    console.error("Damage report modal elements not found:", { 
+      txIdEl: !!txIdEl, 
+      studentEl: !!studentEl, 
+      itemEl: !!itemEl, 
+      modalEl: !!modalEl 
+    });
+    return;
+  }
+
+  txIdEl.value = txId;
+  studentEl.value = studentName;
+  itemEl.value = itemName;
+  if (descEl) descEl.value = "";
+  if (sevEl) sevEl.value = "Minor";
+  if (errEl) errEl.innerText = "";
+  
+  console.log("Opening modal...");
+  setTimeout(() => {
+    console.log("Modal should now be visible");
+    openModal("damageReportModal");
+  }, 50);
+}
+
+async function submitDamageReport() {
+  const txId = document.getElementById("damageReportTxId").value;
+  const severity = document.getElementById("damageReportSeverity").value;
+  const description = document.getElementById("damageReportDescription").value;
+  const reportDate = getPHTDateString();
+  
+  if (!description.trim()) {
+    document.getElementById("damageReportError").innerText = "⚠️ Please describe the damage.";
+    return;
+  }
+
+  try {
+    const result = await safeFetch(scriptURL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "logDamageReport",
+        txId: txId,
+        severity: severity,
+        description: description,
+        reportDate: reportDate,
+        adminToken: "admin_placeholder"
+      })
+    });
+
+    if (result.success) {
+      showNotification("✅ Damage report logged.", "success");
+      closeModal("damageReportModal");
+      loadReturnRequests();
+    } else {
+      document.getElementById("damageReportError").innerText = "❌ " + (result.message || "Failed to log report");
+    }
+  } catch(e) {
+    document.getElementById("damageReportError").innerText = "❌ Error: " + e.message;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM SEARCH & FILTERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+let itemFilterState = {
+  searchText: "",
+  statusFilter: "all",
+  categoryFilter: "all"
+};
+
+function initializeItemFilters() {
+  const searchInput = document.getElementById("itemSearchFilter");
+  const statusFilter = document.getElementById("itemStatusFilter");
+  const categoryFilter = document.getElementById("itemCategoryFilter");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      itemFilterState.searchText = e.target.value;
+      applyItemFilters();
+    });
+  }
+
+  if (statusFilter) {
+    statusFilter.addEventListener("change", (e) => {
+      itemFilterState.statusFilter = e.target.value;
+      applyItemFilters();
+    });
+  }
+
+  if (categoryFilter) {
+    categoryFilter.addEventListener("change", (e) => {
+      itemFilterState.categoryFilter = e.target.value;
+      applyItemFilters();
+    });
+  }
+
+  populateCategoryFilter();
+}
+
+function populateCategoryFilter() {
+  const categorySelect = document.getElementById("itemCategoryFilter");
+  if (!categorySelect || !allItems) return;
+
+  const categories = new Set(
+    allItems
+      .map(item => (item.itemName || "").split("-")[0].trim())
+      .filter(c => c)
+  );
+
+  const existing = Array.from(categorySelect.querySelectorAll("option")).map(o => o.value);
+  categories.forEach(cat => {
+    if (!existing.includes(cat)) {
+      const option = document.createElement("option");
+      option.value = cat;
+      option.textContent = cat;
+      categorySelect.appendChild(option);
+    }
+  });
+}
+
+function applyItemFilters() {
+  const { searchText, statusFilter, categoryFilter } = itemFilterState;
+
+  const filtered = (allItems || []).filter(item => {
+    const matchesSearch =
+      !searchText ||
+      item.itemName.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.itemId.toLowerCase().includes(searchText.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "available" && item.qty > 0) ||
+      (statusFilter === "borrowed" && item.qty === 0);
+
+    const matchesCategory =
+      categoryFilter === "all" ||
+      item.itemName.toLowerCase().startsWith(categoryFilter.toLowerCase());
+
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
+
+  renderFilteredItems(filtered);
+}
+
+function renderFilteredItems(items) {
+  const container = document.getElementById("filteredItemsList");
+  if (!container) return;
+
+  if (items.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);">No items match your filters.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map((item) => `
+    <div class="table-row" style="padding:12px;border-bottom:1px solid var(--border);">
+      <div class="table-cell" style="flex:1;"><strong>${item.itemName}</strong></div>
+      <div class="table-cell" style="flex:1;"><code>${item.itemId}</code></div>
+      <div class="table-cell" style="width:80px;">
+        <span class="badge ${item.qty > 0 ? 'badge-success' : 'badge-danger'}">
+          ${item.qty > 0 ? `${item.qty} avail` : "Borrowed"}
+        </span>
+      </div>
+    </div>
+  `).join("");
+}
+
+// Initialize filters when page loads
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(initializeItemFilters, 100);
+  });
+} else {
+  setTimeout(initializeItemFilters, 100);
+}
+</script>
 </body>
 </html>
