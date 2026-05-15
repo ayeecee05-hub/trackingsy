@@ -1603,94 +1603,111 @@ function loadItemsTable() {
 
         console.log(`[loadItemsTable] Creating category card ${catIndex}: "${categoryName}" (${available}/${total})`);
 
-        // Category card header
-        const cardDiv = document.createElement("div");
-        cardDiv.className = "item-category-card";
-        cardDiv.id = categoryId;
-
-        cardDiv.innerHTML = `
-          <div class="item-category-info">
-            <div class="item-category-icon">📦</div>
-            <div class="item-category-text">
-              <div class="item-category-name">${categoryName}</div>
-              <div class="item-category-count">
-                <span style="color:var(--success);font-weight:700;">${available} available</span>
-                <span style="color:var(--text3);"> · ${total} total · ${out} out</span>
-              </div>
-            </div>
-          </div>
-          <div class="item-category-toggle">▼</div>
+        // Item name header with checkbox (accordion)
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "inventory-item-header";
+        headerDiv.id = categoryId;
+        headerDiv.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 10px 12px;
+          background: rgba(79,195,247,0.08);
+          border: 1px solid rgba(79,195,247,0.2);
+          border-radius: 8px;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s;
         `;
+
+        // Checkbox
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = `check-${categoryId}`;
+        checkbox.style.cssText = "margin-right:10px;cursor:pointer;width:18px;height:18px;";
+
+        // Item name text
+        const nameLabel = document.createElement("label");
+        nameLabel.htmlFor = `check-${categoryId}`;
+        nameLabel.style.cssText = "flex:1;cursor:pointer;font-weight:600;color:var(--text);";
+        nameLabel.textContent = `${categoryName} (${available}/${total})`;
+
+        // Expand/collapse arrow
+        const arrow = document.createElement("span");
+        arrow.className = "accordion-arrow";
+        arrow.textContent = "▶";
+        arrow.style.cssText = "margin-left:auto;transition:transform 0.2s;font-size:12px;color:var(--text3);";
+
+        headerDiv.appendChild(checkbox);
+        headerDiv.appendChild(nameLabel);
+        headerDiv.appendChild(arrow);
 
         // Items container (initially hidden)
         const itemsDiv = document.createElement("div");
-        itemsDiv.className = "item-category-items";
         itemsDiv.id = `${categoryId}-items`;
+        itemsDiv.style.cssText = `
+          display: none;
+          flex-direction: column;
+          gap: 6px;
+          padding-left: 28px;
+          margin-top: 4px;
+          margin-bottom: 8px;
+        `;
 
         categoryItems.forEach(item => {
-          const itemDetail = document.createElement("div");
-          itemDetail.className = "item-detail";
+          const itemRow = document.createElement("div");
+          itemRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border-left: 2px solid var(--accent);
+            border-radius: 4px;
+            font-size: 13px;
+          `;
 
-          const infoWrap = document.createElement("div");
-          infoWrap.style.cssText = "display:flex;align-items:center;flex:1;";
+          const idText = document.createElement("span");
+          idText.className = "item-detail-id";
+          idText.textContent = item.itemId;
+          idText.style.cssText = "font-family:var(--mono);font-weight:600;color:var(--accent);";
 
-          const idEl = document.createElement("div");
-          idEl.className = "item-detail-id";
-          idEl.textContent = item.itemId;
-
-          const nameEl = document.createElement("div");
-          nameEl.className = "item-detail-name";
-          nameEl.textContent = item.itemName;
-
-          infoWrap.appendChild(idEl);
-          infoWrap.appendChild(nameEl);
-
-          const deleteBtn = document.createElement("div");
-          deleteBtn.className = "item-detail-delete";
-          deleteBtn.textContent = "🗑";
-          // Use addEventListener so stopPropagation works cleanly
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-ghost btn-sm";
+          deleteBtn.textContent = "🗑 Delete";
+          deleteBtn.style.cssText = "margin-left:auto;";
           deleteBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             deleteItemById(item.itemId);
           });
 
-          itemDetail.appendChild(infoWrap);
-          itemDetail.appendChild(deleteBtn);
-          itemsDiv.appendChild(itemDetail);
+          itemRow.appendChild(idText);
+          itemRow.appendChild(deleteBtn);
+          itemsDiv.appendChild(itemRow);
         });
 
-        // Attach toggle via addEventListener (not onclick) to avoid any innerHTML clobbering
-        cardDiv.addEventListener("click", () => toggleCategoryExpand(categoryId));
+        // Toggle expand/collapse on header click
+        headerDiv.addEventListener("click", () => {
+          const isVisible = itemsDiv.style.display === "flex";
+          itemsDiv.style.display = isVisible ? "none" : "flex";
+          arrow.style.transform = isVisible ? "rotate(0deg)" : "rotate(90deg)";
+          checkbox.checked = !isVisible;
+        });
 
-        container.appendChild(cardDiv);
+        // Prevent checkbox click from double-triggering
+        checkbox.addEventListener("click", (e) => {
+          e.stopPropagation();
+          headerDiv.click();
+        });
+
+        container.appendChild(headerDiv);
         container.appendChild(itemsDiv);
       });
-      
       console.log(`[loadItemsTable] ✅ Display complete: ${allItems.length} items in ${Object.keys(grouped).length} categories`);
-      
-      // Populate the dropdown with all items
-      populateInventoryDropdown();
     })
     .catch(err => {
       console.error(`[loadItemsTable] Error:`, err);
       if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">⚠️ Error loading items: ${err.message}</div>`;
     });
-}
-function toggleCategoryExpand(categoryId) {
-  const card = document.getElementById(categoryId);
-  const itemsContainer = document.getElementById(`${categoryId}-items`);
-
-  if (!card || !itemsContainer) return;
-
-  const isExpanded = card.classList.contains("expanded");
-
-  if (isExpanded) {
-    card.classList.remove("expanded");
-    itemsContainer.classList.remove("visible");
-  } else {
-    card.classList.add("expanded");
-    itemsContainer.classList.add("visible");
-  }
 }
 
 function normalizeItemName(str) {
@@ -1701,138 +1718,7 @@ function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
 }
 
-// ── Inventory Search ────────────────────────────────────────────────────────
-function filterInventoryItems(searchQuery) {
-  const query = (searchQuery || "").toLowerCase().trim();
-  const container = document.getElementById("itemsContainer");
-  const searchInput = document.getElementById("inventorySearchInput");
-  const clearBtn = document.getElementById("inventoryClearBtn");
-  const statsEl = document.getElementById("inventoryStats");
-  const matchCountEl = document.getElementById("inventoryMatchCount");
 
-  if (!container) return;
-
-  // Show/hide clear button and stats
-  if (query) {
-    clearBtn.style.display = "flex";
-    statsEl.style.display = "flex";
-  } else {
-    clearBtn.style.display = "none";
-    statsEl.style.display = "none";
-  }
-
-  let matchedItemCount = 0;
-  const allCards = container.querySelectorAll(".item-category-card");
-  const allItemDetails = container.querySelectorAll(".item-detail");
-
-  // If no search query, show everything
-  if (!query) {
-    allCards.forEach(card => card.classList.remove("hidden"));
-    allItemDetails.forEach(detail => detail.classList.remove("hidden"));
-    return;
-  }
-
-  // Filter categories and items based on search query
-  allCards.forEach(card => {
-    const categoryName = card.querySelector(".item-category-name")?.textContent || "";
-    const categoryMatches = categoryName.toLowerCase().includes(query);
-
-    // Get the corresponding items container
-    const categoryId = card.id;
-    const itemsContainer = document.getElementById(`${categoryId}-items`);
-    if (!itemsContainer) return;
-
-    const itemDetails = itemsContainer.querySelectorAll(".item-detail");
-    let categoryHasMatches = categoryMatches;
-    let categoryMatchCount = 0;
-
-    // Check if any individual items match
-    itemDetails.forEach(detail => {
-      const itemId = detail.querySelector(".item-detail-id")?.textContent || "";
-      const itemName = detail.querySelector(".item-detail-name")?.textContent || "";
-      
-      const itemMatches = itemId.toLowerCase().includes(query) || 
-                         itemName.toLowerCase().includes(query);
-
-      if (itemMatches) {
-        detail.classList.remove("hidden");
-        categoryHasMatches = true;
-        categoryMatchCount++;
-        matchedItemCount++;
-      } else {
-        detail.classList.add("hidden");
-      }
-    });
-
-    // Show/hide category card based on whether any items match
-    if (categoryHasMatches) {
-      card.classList.remove("hidden");
-      // Auto-expand category if it has matches
-      if (!card.classList.contains("expanded")) {
-        card.classList.add("expanded");
-        itemsContainer.classList.add("visible");
-      }
-    } else {
-      card.classList.add("hidden");
-    }
-  });
-
-  // Update match count
-  if (matchCountEl) matchCountEl.textContent = matchedItemCount;
-}
-
-function clearInventorySearch() {
-  const searchInput = document.getElementById("inventorySearchInput");
-  const dropdown = document.getElementById("inventoryDropdown");
-  if (searchInput) {
-    searchInput.value = "";
-    searchInput.focus();
-  }
-  if (dropdown) {
-    dropdown.value = "";
-  }
-  filterInventoryItems("");
-}
-
-// ── Debounced search for faster performance ──────────────────────────────────
-let searchDebounceTimer = null;
-function debounceSearch(query) {
-  clearTimeout(searchDebounceTimer);
-  searchDebounceTimer = setTimeout(() => {
-    filterInventoryItems(query);
-  }, 150);  // 150ms debounce for instant feel but less CPU usage
-}
-
-// ── Populate dropdown with all items ─────────────────────────────────────────
-function populateInventoryDropdown() {
-  const dropdown = document.getElementById("inventoryDropdown");
-  if (!dropdown) return;
-
-  // Keep the default option
-  dropdown.innerHTML = '<option value="">📦 All Items - Click to filter...</option>';
-
-  // Group items by name and add to dropdown
-  const itemNames = new Set();
-  allItems.forEach(item => {
-    const key = normalizeName(item.itemName).toLowerCase();
-    if (!itemNames.has(key)) {
-      itemNames.add(key);
-      const opt = document.createElement("option");
-      opt.value = item.itemName;
-      opt.textContent = item.itemName;
-      dropdown.appendChild(opt);
-    }
-  });
-}
-
-// ── Handle dropdown selection ─────────────────────────────────────────────────
-function selectItemFromDropdown(itemName) {
-  const searchInput = document.getElementById("inventorySearchInput");
-  if (searchInput) {
-    searchInput.value = itemName;
-  }
-  filterInventoryItems(itemName);
-}
 
 function addItem() {
   const name = document.getElementById("newItemName").value.trim();
