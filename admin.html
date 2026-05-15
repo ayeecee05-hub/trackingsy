@@ -1161,14 +1161,24 @@
             </div>
             <div class="panel-body" style="padding:12px;border-bottom:1px solid var(--border);">
               <div class="inventory-search-wrap">
+                <select 
+                  id="inventoryDropdown" 
+                  class="inventory-search-input" 
+                  style="cursor:pointer;"
+                  onchange="selectItemFromDropdown(this.value)"
+                >
+                  <option value="">📦 All Items - Click to filter...</option>
+                </select>
+                <button class="inventory-search-clear" id="inventoryClearBtn" style="display:none;" onclick="clearInventorySearch()">✕</button>
+              </div>
+              <div class="inventory-search-wrap" style="margin-top:8px;">
                 <input 
                   type="text" 
                   id="inventorySearchInput" 
                   class="inventory-search-input" 
-                  placeholder="🔍 Search items by name or ID..."
-                  onkeyup="filterInventoryItems(this.value)"
+                  placeholder="🔍 Or type to search..."
+                  onkeyup="debounceSearch(this.value)"
                 />
-                <button class="inventory-search-clear" id="inventoryClearBtn" style="display:none;" onclick="clearInventorySearch()">✕</button>
               </div>
               <div class="inventory-search-stats" id="inventoryStats" style="display:none;">
                 <span id="inventoryMatchCount">0</span> items found

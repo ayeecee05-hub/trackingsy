@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwFkrD6bmhxzIXgizqrYYdbhQAaeSDIM7yEbJZA5hSjrHaZpNCq9MlsrbHPfoREiS3c7w/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbyWkxNPe8_wKW9ojjoGuVnOjWXuorPmiPD0T_OO2arwI-ZGuEMiYVANx4VePjq78cjWcQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1667,6 +1667,9 @@ function loadItemsTable() {
       });
       
       console.log(`[loadItemsTable] ✅ Display complete: ${allItems.length} items in ${Object.keys(grouped).length} categories`);
+      
+      // Populate the dropdown with all items
+      populateInventoryDropdown();
     })
     .catch(err => {
       console.error(`[loadItemsTable] Error:`, err);
@@ -1709,7 +1712,7 @@ function filterInventoryItems(searchQuery) {
 
   if (!container) return;
 
-  // Show/hide clear button
+  // Show/hide clear button and stats
   if (query) {
     clearBtn.style.display = "flex";
     statsEl.style.display = "flex";
@@ -1780,11 +1783,55 @@ function filterInventoryItems(searchQuery) {
 
 function clearInventorySearch() {
   const searchInput = document.getElementById("inventorySearchInput");
+  const dropdown = document.getElementById("inventoryDropdown");
   if (searchInput) {
     searchInput.value = "";
     searchInput.focus();
-    filterInventoryItems("");
   }
+  if (dropdown) {
+    dropdown.value = "";
+  }
+  filterInventoryItems("");
+}
+
+// ── Debounced search for faster performance ──────────────────────────────────
+let searchDebounceTimer = null;
+function debounceSearch(query) {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    filterInventoryItems(query);
+  }, 150);  // 150ms debounce for instant feel but less CPU usage
+}
+
+// ── Populate dropdown with all items ─────────────────────────────────────────
+function populateInventoryDropdown() {
+  const dropdown = document.getElementById("inventoryDropdown");
+  if (!dropdown) return;
+
+  // Keep the default option
+  dropdown.innerHTML = '<option value="">📦 All Items - Click to filter...</option>';
+
+  // Group items by name and add to dropdown
+  const itemNames = new Set();
+  allItems.forEach(item => {
+    const key = normalizeName(item.itemName).toLowerCase();
+    if (!itemNames.has(key)) {
+      itemNames.add(key);
+      const opt = document.createElement("option");
+      opt.value = item.itemName;
+      opt.textContent = item.itemName;
+      dropdown.appendChild(opt);
+    }
+  });
+}
+
+// ── Handle dropdown selection ─────────────────────────────────────────────────
+function selectItemFromDropdown(itemName) {
+  const searchInput = document.getElementById("inventorySearchInput");
+  if (searchInput) {
+    searchInput.value = itemName;
+  }
+  filterInventoryItems(itemName);
 }
 
 function addItem() {
