@@ -2,8 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzpq65F39re20r-cEBw2DhvqVnYXRtWDPfaoYhoCga8LH5muYqEDLtkRhgFDTGnay1XyQ/exec";
-
+const scriptURL = "https://script.google.com/macros/s/AKfycbw23yK5qqvGOb1aIJn43Yk17I1itExoBeDQemHwZiFqX_hYYYWYqcqUpPz5NAQrk4o4Nw/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -291,7 +290,7 @@ function isDateStringOlderThan(dateStr, days) {
 }
 
 function isArchivedTransaction(tx) {
-  const archiveStatuses = ["Returned", "Returned (Late)", "Rejected"];
+  const archiveStatuses = ["Returned", "Late Returned", "Rejected"];
   if (!archiveStatuses.includes(tx.status)) return false;
   const compareDate = tx.returnDate || tx.dueDate;
   return compareDate ? isDateStringOlderThan(compareDate, ARCHIVE_DAYS) : false;
@@ -631,6 +630,7 @@ function statusPill(status) {
     "Borrowed":        "s-borrowed",
     "Pending":         "s-pending",
     "Returned":        "s-returned",
+    "Late Returned":   "s-returned-late",
     "Returned (Late)": "s-returned-late",
     "Overdue":         "s-overdue",
     "Return Pending":  "s-return-pending",
@@ -1171,13 +1171,13 @@ function loadTransactions() {
           const p = tx.dueDate.split("-");
           if (new Date(+p[0], +p[1]-1, +p[2]) < today) result.status = "Overdue";
         }
-        if (tx.status === "Returned" && tx.returnDate && tx.dueDate) {
+        if ((tx.status === "Returned" || tx.status === "Late Returned") && tx.returnDate && tx.dueDate) {
           const rp = tx.returnDate.split("-");
           const dp = tx.dueDate.split("-");
           const returnDate = new Date(+rp[0], +rp[1]-1, +rp[2]);
           const dueDate = new Date(+dp[0], +dp[1]-1, +dp[2]);
           if (returnDate > dueDate) {
-            result.status = "Returned (Late)";
+            result.status = "Late Returned";
             result.isLate = true;
           }
         }
@@ -1329,7 +1329,7 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
   });
 }
 
-function filterTransactions() {
+ function filterTransactions() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     const query  = (document.getElementById("searchInput")?.value || "").toLowerCase();
@@ -1401,7 +1401,7 @@ function renderDamagedItemsTable(items) {
   tbody.innerHTML = "";
 
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
     return;
   }
 
@@ -1422,7 +1422,7 @@ function renderDamagedItemsTable(items) {
     // Status pill with color coding
     let statusClass = "s-returned";
     let statusIcon = "✅";
-    if (tx.status === "Returned (Late)") {
+    if (tx.status === "Late Returned") {
       statusClass = "s-returned-late";
       statusIcon = "⚠️";
     }
@@ -1438,7 +1438,8 @@ function renderDamagedItemsTable(items) {
       <td><span class="date-chip">${tx.borrowDate || "—"}</span></td>
       <td><span class="date-chip">${tx.returnDate || "—"}</span></td>
       <td>${condBadge}</td>
-      <td>${statusBadge}</td>`;
+      <td>${statusBadge}</td>
+      <td>${tx.description || "—"}</td>`;
     tbody.appendChild(row);
   });
 }
@@ -1851,7 +1852,7 @@ function renderStudentsTable(users) {
     const studentTx = historySource.filter(tx => tx.studentId === u.id);
     const totalBorrows = studentTx.length;
     const currentItems = studentTx.filter(tx => ["Borrowed", "Overdue", "Return Pending"].includes(tx.status)).length;
-    const lateReturns = studentTx.filter(tx => tx.status === "Returned (Late)").length;
+    const lateReturns = studentTx.filter(tx => tx.status === "Late Returned").length;
     
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -1920,7 +1921,7 @@ function renderStudentHistory(studentId) {
   tbody.innerHTML = "";
   studentTx.forEach(tx => {
     const row = document.createElement("tr");
-    const isLate = tx.status === "Returned (Late)";
+    const isLate = tx.status === "Late Returned";
     const conditionIcon = tx.condition ? 
       (tx.condition === "Good" ? "✅" : tx.condition === "Damaged" ? "⚠️" : tx.condition === "Broken" ? "❌" : "🔴") : "—";
     

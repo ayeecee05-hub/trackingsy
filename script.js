@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzpq65F39re20r-cEBw2DhvqVnYXRtWDPfaoYhoCga8LH5muYqEDLtkRhgFDTGnay1XyQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbw23yK5qqvGOb1aIJn43Yk17I1itExoBeDQemHwZiFqX_hYYYWYqcqUpPz5NAQrk4o4Nw/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -561,7 +561,7 @@ function changeHistoryPage(delta) {
 
 function getFilteredHistory() {
   // Only show "terminal" statuses in history — exclude active/pending items
-  const terminalStatuses = ["Returned", "Returned (Late)", "Rejected"];
+  const terminalStatuses = ["Returned", "Late Returned", "Rejected"];
   let records = allHistoryRecords.filter(tx => terminalStatuses.includes(tx.status));
   if (historyFilter !== "all") records = records.filter(tx => tx.status === historyFilter);
   // Most recent first (sort by borrowDate desc)
@@ -577,7 +577,7 @@ function renderHistoryTable() {
   const countBadge = document.getElementById("historyCount");
 
   const records    = getFilteredHistory();
-  const total      = allHistoryRecords.filter(tx => ["Returned", "Returned (Late)", "Rejected"].includes(tx.status)).length;
+  const total      = allHistoryRecords.filter(tx => ["Returned", "Late Returned", "Rejected"].includes(tx.status)).length;
   if (countBadge) countBadge.textContent = total + " record" + (total !== 1 ? "s" : "");
 
   if (records.length === 0) {
@@ -594,7 +594,7 @@ function renderHistoryTable() {
   const pillClass = s => {
     switch(s) {
       case "Returned":        return "returned";
-      case "Returned (Late)": return "returned-late";
+      case "Late Returned": return "returned-late";
       case "Rejected":        return "rejected";
       case "Borrowed":        return "borrowed";
       case "Overdue":         return "overdue";
@@ -743,7 +743,7 @@ function loadUserDashboard() {
         tx.status === "Returned" || tx.status === "Returned (Late)"
       );
       const lateReturns = completedReturns.filter(tx =>
-        tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE"
+        tx.status === "Late Returned" || tx.isLate === true || tx.isLate === "TRUE"
       );
       const onTimeRate = completedReturns.length > 0
         ? Math.round(((completedReturns.length - lateReturns.length) / completedReturns.length) * 100) + "%"
@@ -777,7 +777,7 @@ function loadUserDashboard() {
       // ── Accountability Status — calculated first so statusHealth can use it ──
       const studentId = currentUser.id;
       const lateReturnCount = history.filter(tx =>
-        (tx.status === "Returned (Late)" || tx.isLate === true || tx.isLate === "TRUE")
+        (tx.status === "Late Returned" || tx.isLate === true || tx.isLate === "TRUE")
       ).length;
       const damagedCount = history.filter(tx =>
         tx.condition === "Damaged" || tx.condition === "Broken"

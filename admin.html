@@ -1058,7 +1058,7 @@
               <option value="Overdue">Overdue</option>
               <option value="Return Pending">Return Pending</option>
               <option value="Returned">Returned</option>
-              <option value="Returned (Late)">Returned (Late)</option>
+              <option value="Late Returned">Late Returned</option>
               <option value="Rejected">Rejected</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="resetFilter()">Reset</button>
@@ -1117,7 +1117,7 @@
             <select class="filter-select" id="archiveStatusFilter" onchange="filterArchiveTransactions()">
               <option value="">All Statuses</option>
               <option value="Returned">Returned</option>
-              <option value="Returned (Late)">Returned (Late)</option>
+              <option value="Late Returned">Late Returned</option>
               <option value="Rejected">Rejected</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="resetArchiveFilter()">Reset</button>
@@ -1302,7 +1302,7 @@
             <div class="table-wrap scrollable-table" style="max-height:600px;">
               <table class="data-table" id="damagedItemsTable">
                 <thead><tr>
-                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th>
+                  <th>Student ID</th><th>Name</th><th>Item</th><th>Item ID</th><th>Borrow Date</th><th>Return Date</th><th>Condition</th><th>Status</th><th>Description</th>
                 </tr></thead>
                 <tbody id="damagedItemsBody"></tbody>
               </table>
