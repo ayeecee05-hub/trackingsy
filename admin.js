@@ -1569,14 +1569,19 @@ function loadItemsTable() {
         return;
       }
 
-      // Count currently borrowed items by name
+      // Count currently borrowed items by name AND build a set of borrowed itemIds
       // Include "Return Pending" so items don't show as available until return is confirmed
       const borrowedByName = {};
+      const borrowedItemIds = new Set();
       (transactionsList || []).forEach(tx => {
         if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = normalizeName(tx.item);
           if (!key) return;
           borrowedByName[key] = (borrowedByName[key] || 0) + 1;
+          // Also track the specific itemId if available
+          if (tx.itemId) {
+            borrowedItemIds.add(tx.itemId);
+          }
         }
       });
 
@@ -1667,22 +1672,37 @@ function loadItemsTable() {
             font-size: 13px;
           `;
 
+          // Check if this specific item is borrowed
+          const isBorrowed = borrowedItemIds.has(item.itemId);
+
           const idText = document.createElement("span");
           idText.className = "item-detail-id";
           idText.textContent = item.itemId;
           idText.style.cssText = "font-family:var(--mono);font-weight:600;color:var(--accent);";
 
+          // Add borrowed indicator if needed
+          const statusDiv = document.createElement("div");
+          statusDiv.style.cssText = "display:flex;align-items:center;gap:8px;margin-left:auto;";
+
+          if (isBorrowed) {
+            const borrowedBadge = document.createElement("span");
+            borrowedBadge.textContent = "🔴 Borrowed";
+            borrowedBadge.style.cssText = "font-size:12px;color:var(--warning);font-weight:600;";
+            statusDiv.appendChild(borrowedBadge);
+          }
+
           const deleteBtn = document.createElement("button");
           deleteBtn.className = "btn btn-ghost btn-sm";
           deleteBtn.textContent = "🗑 Delete";
-          deleteBtn.style.cssText = "margin-left:auto;";
+          deleteBtn.style.cssText = "margin-left:8px;";
           deleteBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             deleteItemById(item.itemId);
           });
 
           itemRow.appendChild(idText);
-          itemRow.appendChild(deleteBtn);
+          statusDiv.appendChild(deleteBtn);
+          itemRow.appendChild(statusDiv);
           itemsDiv.appendChild(itemRow);
         });
 
