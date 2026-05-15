@@ -232,6 +232,7 @@ function switchPage(pageId) {
   if (pageId === "pageReturns")      loadReturnRequests();
   if (pageId === "pageTransactions") renderTransactions(allTransactions, true);
   if (pageId === "pageArchive")      renderArchiveTransactions(archivedTransactions);
+  if (pageId === "pageItems")        { loadItemsTable(); loadDamagedItemsTable(); }
   if (pageId === "pageAccountability") loadAccountabilityTable();
   if (pageId === "pageDamagedItems")   loadDamagedItems();
   if (pageId === "pageAnalytics")    loadCharts();
@@ -1716,6 +1717,140 @@ function normalizeItemName(str) {
 
 function normalizeName(str) {
   return String(str || "").trim().replace(/\s+/g, " ");
+}
+
+// ── Damaged Items ────────────────────────────────────────────────────────────
+function loadDamagedItemsTable() {
+  const container = document.getElementById("damagedItemsContainer");
+  if (!container) return;
+  
+  container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading damaged items...</div>`;
+
+  fetch(scriptURL + "?action=getDamagedItems")
+    .then(r => r.json())
+    .then(response => {
+      if (!container) return;
+      
+      // Handle both old and new response formats
+      let damagedItems = Array.isArray(response) ? response : (response && response.data ? response.data : (response && response.items ? response.items : []));
+      
+      console.log(`[loadDamagedItemsTable] Received ${Array.isArray(damagedItems) ? damagedItems.length : 0} damaged items`);
+      
+      container.innerHTML = "";
+
+      if (!damagedItems || damagedItems.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No damaged items recorded.</div>`;
+        return;
+      }
+
+      // Group damaged items by item name
+      const grouped = {};
+      damagedItems.forEach(it => {
+        const key = normalizeName(it.item);
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(it);
+      });
+
+      // Create a card for each item name
+      Object.entries(grouped).forEach(([itemName, itemList], catIndex) => {
+        const categoryId = `dmg-cat-${catIndex}`;
+        const total = itemList.length;
+
+        // Item name header with checkbox (accordion)
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "inventory-item-header";
+        headerDiv.id = categoryId;
+        headerDiv.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 10px 12px;
+          background: rgba(248,81,73,0.08);
+          border: 1px solid rgba(248,81,73,0.2);
+          border-radius: 8px;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s;
+        `;
+
+        // Checkbox
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = `check-${categoryId}`;
+        checkbox.style.cssText = "margin-right:10px;cursor:pointer;width:18px;height:18px;";
+
+        // Item name text
+        const nameLabel = document.createElement("label");
+        nameLabel.htmlFor = `check-${categoryId}`;
+        nameLabel.style.cssText = "flex:1;cursor:pointer;font-weight:600;color:var(--text);";
+        nameLabel.textContent = `${itemName} (${total})`;
+
+        // Expand/collapse arrow
+        const arrow = document.createElement("span");
+        arrow.className = "accordion-arrow";
+        arrow.textContent = "▶";
+        arrow.style.cssText = "margin-left:auto;transition:transform 0.2s;font-size:12px;color:var(--text3);";
+
+        headerDiv.appendChild(checkbox);
+        headerDiv.appendChild(nameLabel);
+        headerDiv.appendChild(arrow);
+
+        // Items container (initially hidden)
+        const itemsDiv = document.createElement("div");
+        itemsDiv.id = `${categoryId}-items`;
+        itemsDiv.style.cssText = `
+          display: none;
+          flex-direction: column;
+          gap: 6px;
+          padding-left: 28px;
+          margin-top: 4px;
+          margin-bottom: 8px;
+        `;
+
+        itemList.forEach(item => {
+          const itemRow = document.createElement("div");
+          itemRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border-left: 2px solid var(--danger);
+            border-radius: 4px;
+            font-size: 13px;
+          `;
+
+          const idText = document.createElement("span");
+          idText.className = "item-detail-id";
+          idText.textContent = item.itemId;
+          idText.style.cssText = "font-family:var(--mono);font-weight:600;color:var(--danger);";
+
+          itemRow.appendChild(idText);
+          itemsDiv.appendChild(itemRow);
+        });
+
+        // Toggle expand/collapse on header click
+        headerDiv.addEventListener("click", () => {
+          const isVisible = itemsDiv.style.display === "flex";
+          itemsDiv.style.display = isVisible ? "none" : "flex";
+          arrow.style.transform = isVisible ? "rotate(0deg)" : "rotate(90deg)";
+          checkbox.checked = !isVisible;
+        });
+
+        // Prevent checkbox click from double-triggering
+        checkbox.addEventListener("click", (e) => {
+          e.stopPropagation();
+          headerDiv.click();
+        });
+
+        container.appendChild(headerDiv);
+        container.appendChild(itemsDiv);
+      });
+      console.log(`[loadDamagedItemsTable] ✅ Display complete: ${damagedItems.length} items`);
+    })
+    .catch(err => {
+      console.error(`[loadDamagedItemsTable] Error:`, err);
+      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">⚠️ Error loading damaged items: ${err.message}</div>`;
+    });
 }
 
 

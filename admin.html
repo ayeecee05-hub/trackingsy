@@ -1137,7 +1137,7 @@
 
       <!-- ─── INVENTORY ────────────────────────────── -->
       <div class="page" id="pageItems">
-        <div class="two-col">
+        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; margin-bottom: 20px;">
           <div class="panel" style="align-self:start;">
             <div class="panel-header">
               <span class="panel-title"><span class="panel-title-icon">➕</span> Add Item</span>
@@ -1154,14 +1154,27 @@
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addItem()">Add to Inventory</button>
             </div>
           </div>
-          <div class="panel">
-            <div class="panel-header">
-              <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
-              <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title"><span class="panel-title-icon">📦</span> Current Inventory</span>
+                <button class="btn btn-ghost btn-sm" onclick="loadItemsTable()">↻ Refresh</button>
+              </div>
+              <div class="panel-body-flush" style="padding:12px;">
+                <div id="itemsContainer" style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>
+                </div>
+              </div>
             </div>
-            <div class="panel-body-flush" style="padding:12px;">
-              <div id="itemsContainer" style="display:flex;flex-direction:column;gap:6px;">
-                <div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title"><span class="panel-title-icon">⚠️</span> Damaged Items</span>
+                <button class="btn btn-ghost btn-sm" onclick="loadDamagedItemsTable()">↻ Refresh</button>
+              </div>
+              <div class="panel-body-flush" style="padding:12px;">
+                <div id="damagedItemsContainer" style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="text-align:center;padding:20px;color:var(--text3);">Loading damaged items...</div>
+                </div>
               </div>
             </div>
           </div>
