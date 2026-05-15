@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzjaMPmvDuqSzxePgqdsf56_22P25IzMw1qk4qcUz4O-u_4uhzuUQ0a-900Hz3j09uRFg/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxRkAYoNxJUQb_OOUI2UctADfCYZDmcnt5QztNGuTbwk6-su2B3M7LCyCux2ZXgVwXU1g/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1511,7 +1511,9 @@ function exportTransactionsCSV() {
 // ── Inventory ────────────────────────────────────────────────────────────────
 function loadItemsTable() {
   const container = document.getElementById("itemsContainer");
-  if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
+  if (!container) return;
+  
+  container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
 
   // Fetch BOTH items and active transactions to show TRUE available counts
   Promise.all([
@@ -1520,6 +1522,10 @@ function loadItemsTable() {
   ])
     .then(([items, history]) => {
       if (!container) return;
+      
+      console.log(`[loadItemsTable] Received ${Array.isArray(items) ? items.length : 0} items`);
+      console.log(`[loadItemsTable] Received ${Array.isArray(history) ? history.length : 0} transactions`);
+      
       container.innerHTML = "";
 
       // Build/refresh the itemIdMap so all tables can look up IDs by name
@@ -1530,8 +1536,9 @@ function loadItemsTable() {
         if (!itemIdMap[key]) itemIdMap[key] = it.itemId;
       });
 
-      if (!items || items.length === 0) {
-        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one.</div>`;
+      if (!allItems || allItems.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">No items yet — add one to get started.</div>`;
+        console.log(`[loadItemsTable] No items to display`);
         return;
       }
 
@@ -1548,11 +1555,13 @@ function loadItemsTable() {
 
       // Group items by itemName (category)
       const grouped = {};
-      items.forEach(it => {
+      allItems.forEach(it => {
         const key = normalizeName(it.itemName);
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(it);
       });
+
+      console.log(`[loadItemsTable] Grouped into ${Object.keys(grouped).length} categories`);
 
       // Create a card for each category
       Object.entries(grouped).forEach(([categoryName, categoryItems], catIndex) => {
@@ -1624,9 +1633,12 @@ function loadItemsTable() {
         container.appendChild(cardDiv);
         container.appendChild(itemsDiv);
       });
+      
+      console.log(`[loadItemsTable] Displayed ${allItems.length} items in ${Object.keys(grouped).length} categories`);
     })
-    .catch(() => {
-      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">Error loading items.</div>`;
+    .catch(err => {
+      console.error(`[loadItemsTable] Error:`, err);
+      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">⚠️ Error loading items: ${err.message}</div>`;
     });
 }
 function toggleCategoryExpand(categoryId) {
@@ -1747,8 +1759,16 @@ function addItem() {
   const name = document.getElementById("newItemName").value.trim();
   const id   = document.getElementById("newItemId").value.trim();
   
-  if (!name) { showNotification("Item name is required.", "error"); return; }
-  if (!id)   { showNotification("Item ID is required.", "error"); return; }
+  if (!name) { 
+    showNotification("Item name is required.", "error"); 
+    return; 
+  }
+  if (!id) { 
+    showNotification("Item ID is required.", "error"); 
+    return; 
+  }
+
+  console.log(`[addItem] Adding item: ID="${id}", Name="${name}"`);
 
   fetch(scriptURL, { 
     method: "POST", 
@@ -1759,23 +1779,48 @@ function addItem() {
       adminToken: getAdminToken() 
     }) 
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
     .then(data => {
+      console.log(`[addItem] Server response:`, data);
+      
       if (data.success) {
-        showNotification(`"${name}" (${id}) added.`, "success");
-        document.getElementById("newItemName").value = "";
-        document.getElementById("newItemId").value  = "";
-        loadItemsTable();
+        showNotification(`"${name}" (${id}) added successfully.`, "success");
+        
+        // Clear form fields
+        const nameField = document.getElementById("newItemName");
+        const idField = document.getElementById("newItemId");
+        if (nameField) nameField.value = "";
+        if (idField) idField.value = "";
+        
+        // Reload items table after a brief delay to ensure server-side persistence
+        setTimeout(() => {
+          console.log(`[addItem] Reloading items table...`);
+          loadItemsTable();
+        }, 500);
       } else {
+        console.error(`[addItem] Server returned error:`, data.message);
         showNotification(data.message || "Failed to add item.", "error");
       }
     })
-    .catch(() => showNotification("Error adding item.", "error"));
+    .catch(err => {
+      console.error(`[addItem] Error:`, err);
+      showNotification(`Error adding item: ${err.message}`, "error");
+    });
 }
 
 function deleteItemById(itemId) {
+  if (!itemId) {
+    showNotification("Invalid item ID.", "error");
+    return;
+  }
   
   if (!confirm(`Delete item "${itemId}"? This cannot be undone.`)) return;
+  
+  console.log(`[deleteItemById] Deleting item: ${itemId}`);
+  
   fetch(scriptURL, { 
     method: "POST", 
     body: JSON.stringify({ 
@@ -1784,15 +1829,26 @@ function deleteItemById(itemId) {
       adminToken: getAdminToken() 
     }) 
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
     .then(data => {
+      console.log(`[deleteItemById] Server response:`, data);
+      
       if (data.success) { 
         showNotification(`"${itemId}" deleted.`, "success"); 
         loadItemsTable(); 
       }
-      else showNotification(data.message || "Failed to delete.", "error");
+      else {
+        console.error(`[deleteItemById] Server returned error:`, data.message);
+        showNotification(data.message || "Failed to delete.", "error");
+      }
     })
-    .catch(() => showNotification("Error deleting item.", "error"));
+    .catch(err => {
+      console.error(`[deleteItemById] Error:`, err);
+      showNotification(`Error deleting item: ${err.message}`, "error");
+    });
 }
 
 // ── Students (QR + table) ────────────────────────────────────────────────────
