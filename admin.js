@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxmD0CCSkqSklLyvvsRQQyGH_3Sju1s_Zv7635cKIHP00qeQQMHubFJU93tDSNkpGtXew/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzbxLaHYD9kJukdMoO3vCvJ3XpdFUBXHdNfaTMUioCO6Ak2jYexEMzKD0y7X3jmPLuCBA/exec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTU Danao Borrowing System — admin.js (redesigned)
@@ -1028,6 +1028,10 @@ function confirmReturnRequest(index) {
     modal.classList.remove("open"); 
     const condition = document.getElementById("returnCondition").value;
     executeConfirmReturn(req, today, condition); 
+  };
+  document.getElementById("adminReturnDamage").onclick = () => {
+    modal.classList.remove("open");
+    openDamageReportModal(req.txId || index, req.studentName || req.studentId, req.item);
   };
   document.getElementById("adminReturnNo").onclick  = () => { modal.classList.remove("open"); };
 }
