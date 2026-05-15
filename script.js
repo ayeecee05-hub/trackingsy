@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyEhaa2wPvh9qpdrouTBd0X3bD0jgByuUfusdqB4si43xGLwplaAxmgg8Y69x26qs2I/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwFkrD6bmhxzIXgizqrYYdbhQAaeSDIM7yEbJZA5hSjrHaZpNCq9MlsrbHPfoREiS3c7w/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -1102,9 +1102,12 @@ function populateBorrowSelect() {
     safeFetch(scriptURL + "?action=getItems"),
     safeFetch(scriptURL + "?action=getAllHistory")
   ])
-    .then(([items, history]) => {
+    .then(([response, history]) => {
       const select = document.getElementById("borrowItem");
       select.innerHTML = "";
+
+      // Handle both old and new response formats
+      let items = Array.isArray(response) ? response : (response && response.items ? response.items : []);
 
       // Count total items by name
       const totalByName = {};
@@ -1400,7 +1403,10 @@ function loadStockPanel() {
     safeFetch(scriptURL + "?action=getItems"),
     safeFetch(scriptURL + "?action=getAllHistory")
   ])
-    .then(([items, history]) => {
+    .then(([response, history]) => {
+      // Handle both old and new response formats
+      let items = Array.isArray(response) ? response : (response && response.items ? response.items : []);
+
       // Count total items by name
       const totalByName = {};
       (items || []).forEach(it => {
