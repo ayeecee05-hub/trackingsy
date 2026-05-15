@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyhUi1MXKYj14V_eaFu4xDpMT4QqUL6EhWxqY_bEYniCtJgGANSEDSCiceu0nPxLqVqSA/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbzjaMPmvDuqSzxePgqdsf56_22P25IzMw1qk4qcUz4O-u_4uhzuUQ0a-900Hz3j09uRFg/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1406,13 +1406,14 @@ function renderDamagedItemsTable(items) {
   }
 
   items.forEach(tx => {
-    // Condition pill with color coding
+    // Condition pill with color coding - handle both DAMAGED and Damaged
     let condClass = "c-good";
     let condIcon = "✅";
-    if (tx.condition === "Damaged") {
+    const condValue = String(tx.condition || "").trim();
+    if (condValue === "Damaged") {
       condClass = "c-damaged";
       condIcon = "⚠️";
-    } else if (tx.condition === "Broken") {
+    } else if (condValue === "Broken") {
       condClass = "c-broken";
       condIcon = "❌";
     }
@@ -2497,7 +2498,7 @@ function openDamageReportModal(txId, studentName, item) {
   document.getElementById("damageReportStudent").value = studentName;
   document.getElementById("damageReportItem").value = item;
   document.getElementById("damageReportTxId").value = txId;
-  document.getElementById("damageReportSeverity").value = "DAMAGED";
+  document.getElementById("damageReportSeverity").value = "Damaged";
   document.getElementById("damageReportDescription").value = "";
   const err = document.getElementById("damageReportError");
   if (err) { err.textContent = ""; err.style.display = "none"; }
