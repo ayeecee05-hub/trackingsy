@@ -1533,9 +1533,11 @@ function loadItemsTable() {
         console.log(`  Total Rows: ${response.debug.totalRows}`);
         console.log(`  Header Row:`, response.debug.headerRow);
         console.log(`  Data Rows:`);
-        response.debug.dataRows.forEach(row => {
-          console.log(`    Row ${row.rowNumber}: A="${row.colA}" | B="${row.colB}" | C="${row.colC}"`);
-        });
+        if (response.debug.allDataRows) {
+          response.debug.allDataRows.forEach(row => {
+            console.log(`    Row ${row.rowNumber}: A="${row.colA}" | B="${row.colB}" | C="${row.colC}"`);
+          });
+        }
       }
       
       console.log(`[loadItemsTable] Raw items response:`, items);
