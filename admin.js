@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwRDEQ1lDK1s2676enR9fgGm-ynIeysMRLxmr93LwkpKdXYj4Ss6ZXmegW6CvDi9h61pw/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbz-ZerbGwWT9-bcSfSgTl4CNjuIXdUjAOlqQF1P1QfkNPJ3366SefMjrcYz03hU6SH4aQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -556,7 +556,7 @@ function renderDashPending() {
   if (!tbody) return;
   tbody.innerHTML = "";
   if (!allPending || allPending.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
     return;
   }
   allPending.slice(0, 8).forEach((req, i) => {
@@ -564,32 +564,11 @@ function renderDashPending() {
     row.innerHTML = `
       <td><span class="mono-chip">${req.studentId}</span> <span style="font-size:12px;">${req.studentName || ""}</span></td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip" id="dashAvailableItem_${i}">Loading…</span></td>
       <td><span class="date-chip">${req.dueDate || "—"}</span></td>
       <td>
         <button class="btn btn-success btn-sm" onclick="confirmHandover(${i})">Hand Over</button>
       </td>`;
     tbody.appendChild(row);
-
-    // Fetch the available item ID for this item type (same as pending table)
-    fetch(scriptURL + "?action=getAvailableItemForType&itemName=" + encodeURIComponent(req.item))
-      .then(r => r.json())
-      .then(data => {
-        const availableCell = document.getElementById(`dashAvailableItem_${i}`);
-        if (availableCell) {
-          const itemId = data.itemId || "—";
-          availableCell.textContent = itemId;
-          if (itemId === "NO_AVAILABLE") {
-            availableCell.textContent = "No available";
-            availableCell.style.color = "var(--danger)";
-            availableCell.style.fontWeight = "bold";
-          }
-        }
-      })
-      .catch(() => {
-        const availableCell = document.getElementById(`dashAvailableItem_${i}`);
-        if (availableCell) availableCell.textContent = "—";
-      });
   });
 }
 
@@ -833,9 +812,6 @@ function renderPendingTable(requests) {
     return;
   }
 
-  // Track tentatively assigned items to avoid duplicates (item type -> Set of assigned item IDs)
-  const tentativelyAssigned = new Map();
-
   requests.forEach((req, index) => {
     let durationText = "—";
     if (req.borrowDate && req.dueDate) {
@@ -859,7 +835,7 @@ function renderPendingTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip" id="availableItem_${index}">Loading…</span></td>
+      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
@@ -871,39 +847,6 @@ function renderPendingTable(requests) {
         </div>
       </td>`;
     tbody.appendChild(row);
-
-    // Fetch the available item ID for this item type, excluding already-tentatively-assigned ones
-    const itemType = req.item;
-    const assignedForType = tentativelyAssigned.get(itemType) || new Set();
-    const assignedList = Array.from(assignedForType).join(",");
-    const urlParams = `?action=getAvailableItemForType&itemName=${encodeURIComponent(itemType)}` + 
-                      (assignedList ? `&excludeIds=${encodeURIComponent(assignedList)}` : "");
-
-    fetch(scriptURL + urlParams)
-      .then(r => r.json())
-      .then(data => {
-        const availableCell = document.getElementById(`availableItem_${index}`);
-        if (availableCell) {
-          const itemId = data.itemId || "—";
-          availableCell.textContent = itemId;
-          if (itemId && itemId !== "—" && itemId !== "NO_AVAILABLE") {
-            // Track this tentatively assigned item
-            if (!tentativelyAssigned.has(itemType)) {
-              tentativelyAssigned.set(itemType, new Set());
-            }
-            tentativelyAssigned.get(itemType).add(itemId);
-          }
-          if (itemId === "NO_AVAILABLE") {
-            availableCell.textContent = "No available";
-            availableCell.style.color = "var(--danger)";
-            availableCell.style.fontWeight = "bold";
-          }
-        }
-      })
-      .catch(() => {
-        const availableCell = document.getElementById(`availableItem_${index}`);
-        if (availableCell) availableCell.textContent = "—";
-      });
   });
 
   selectedPending.clear();
