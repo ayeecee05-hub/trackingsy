@@ -835,7 +835,7 @@ function renderPendingTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
+      <td><span class="mono-chip" id="availableItem_${index}">Loading…</span></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
@@ -847,6 +847,26 @@ function renderPendingTable(requests) {
         </div>
       </td>`;
     tbody.appendChild(row);
+
+    // Fetch the available item ID for this item type
+    fetch(scriptURL + "?action=getAvailableItemForType&itemName=" + encodeURIComponent(req.item))
+      .then(r => r.json())
+      .then(data => {
+        const availableCell = document.getElementById(`availableItem_${index}`);
+        if (availableCell) {
+          const itemId = data.itemId || "—";
+          availableCell.textContent = itemId;
+          if (itemId === "NO_AVAILABLE") {
+            availableCell.textContent = "No available";
+            availableCell.style.color = "var(--danger)";
+            availableCell.style.fontWeight = "bold";
+          }
+        }
+      })
+      .catch(() => {
+        const availableCell = document.getElementById(`availableItem_${index}`);
+        if (availableCell) availableCell.textContent = "—";
+      });
   });
 
   selectedPending.clear();
