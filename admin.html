@@ -1417,6 +1417,24 @@
   </div>
 </div>
 
+<!-- Edit Equipment ID Modal -->
+<div class="modal-overlay" id="editEquipmentIdModal">
+  <div class="modal-box">
+    <span class="modal-icon">📦</span>
+    <div class="modal-title">Edit Equipment ID</div>
+    <input type="hidden" id="editEquipIdRowIndex">
+    <div class="modal-form" style="margin:12px 0;">
+      <label class="form-label">Equipment ID</label>
+      <input type="text" class="form-input" id="editEquipIdInput" placeholder="e.g. keyboard09">
+    </div>
+    <span class="form-error" id="editEquipIdError" style="display:block;margin-bottom:12px;"></span>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="editEquipIdSaveBtn" onclick="submitEditEquipmentId()">✓ Update</button>
+      <button class="btn btn-ghost" id="editEquipIdCancelBtn" onclick="closeModal('editEquipmentIdModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Student -->
 <div class="modal-overlay" id="editStudentModal">
   <div class="modal-box wide">

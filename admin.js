@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycby14pk2AEOEVqUiMDkpTf3V76iek4_2to0aG7JcexsyWhCJH2EC-zY8eYEeInEnca_NVQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbwe_qAmtsWmIbF-yK4aJAdQqatcc0hX3pt26JxfEldQA1eyYbZ-lZTOF1XTHdoJUWCMuQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -143,7 +143,7 @@ async function checkPassword() {
     document.getElementById("appShell").style.display     = "flex";
     showNotification("Admin access granted", "success");
     resetSessionTimer();
-    startAutoRefresh();
+    // startAutoRefresh();  // DISABLED - auto-refresh turned off
     
     // Ensure data is migrated to new format on login
     fetch(scriptURL + "?action=diagnostic").then(r => r.json())
@@ -1065,7 +1065,10 @@ function renderReturnsTable(requests) {
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
       <td>
-        <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm Return</button>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditEquipmentIdModal(${index}, '${req.rowIndex}', '${req.equipmentId || ""}')" title="Edit equipment ID">📦 Edit ID</button>
+        </div>
       </td>`;
     tbody.appendChild(row);
   });
@@ -1073,6 +1076,59 @@ function renderReturnsTable(requests) {
   selectedReturns.clear();
   document.getElementById("selectAllReturns").checked = false;
   document.getElementById("bulkConfirmBtn").style.display = "none";
+}
+
+// ─ Edit Equipment ID ─
+function openEditEquipmentIdModal(index, rowIndex, currentEquipmentId) {
+  const req = allReturnRequests[index];
+  if (!req) return;
+  
+  document.getElementById("editEquipIdRowIndex").value = rowIndex;
+  document.getElementById("editEquipIdInput").value = currentEquipmentId || "";
+  document.getElementById("editEquipIdError").innerText = "";
+  openModal("editEquipmentIdModal");
+}
+
+function submitEditEquipmentId() {
+  const rowIndex = parseInt(document.getElementById("editEquipIdRowIndex").value);
+  const newEquipmentId = document.getElementById("editEquipIdInput").value.trim();
+  const errorEl = document.getElementById("editEquipIdError");
+  
+  if (!newEquipmentId) {
+    errorEl.innerText = "❌ Equipment ID cannot be empty.";
+    return;
+  }
+  
+  if (!rowIndex || rowIndex < 3) {
+    errorEl.innerText = "❌ Invalid transaction.";
+    return;
+  }
+  
+  showNotification("Updating equipment ID…", "info");
+  
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "editEquipmentId",
+      rowIndex: rowIndex,
+      newEquipmentId: newEquipmentId,
+      adminToken: getAdminToken()
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`✅ Equipment ID updated to ${newEquipmentId}`, "success");
+      closeModal("editEquipmentIdModal");
+      loadReturnRequests();
+      loadTransactions();
+    } else {
+      errorEl.innerText = "❌ " + (data.message || "Update failed");
+    }
+  })
+  .catch(e => {
+    errorEl.innerText = "❌ Network error: " + e.message;
+  });
 }
 
 function confirmReturnRequest(index) {
