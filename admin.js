@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbziNKu9lYb59ISnfRQm-JlGClmHEOjxZ0OWiDad_mSu-LfVowl4mPImEQnvZGmMBXrzOg/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbwRDEQ1lDK1s2676enR9fgGm-ynIeysMRLxmr93LwkpKdXYj4Ss6ZXmegW6CvDi9h61pw/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -833,6 +833,9 @@ function renderPendingTable(requests) {
     return;
   }
 
+  // Track tentatively assigned items to avoid duplicates (item type -> Set of assigned item IDs)
+  const tentativelyAssigned = new Map();
+
   requests.forEach((req, index) => {
     let durationText = "—";
     if (req.borrowDate && req.dueDate) {
@@ -869,14 +872,27 @@ function renderPendingTable(requests) {
       </td>`;
     tbody.appendChild(row);
 
-    // Fetch the available item ID for this item type
-    fetch(scriptURL + "?action=getAvailableItemForType&itemName=" + encodeURIComponent(req.item))
+    // Fetch the available item ID for this item type, excluding already-tentatively-assigned ones
+    const itemType = req.item;
+    const assignedForType = tentativelyAssigned.get(itemType) || new Set();
+    const assignedList = Array.from(assignedForType).join(",");
+    const urlParams = `?action=getAvailableItemForType&itemName=${encodeURIComponent(itemType)}` + 
+                      (assignedList ? `&excludeIds=${encodeURIComponent(assignedList)}` : "");
+
+    fetch(scriptURL + urlParams)
       .then(r => r.json())
       .then(data => {
         const availableCell = document.getElementById(`availableItem_${index}`);
         if (availableCell) {
           const itemId = data.itemId || "—";
           availableCell.textContent = itemId;
+          if (itemId && itemId !== "—" && itemId !== "NO_AVAILABLE") {
+            // Track this tentatively assigned item
+            if (!tentativelyAssigned.has(itemType)) {
+              tentativelyAssigned.set(itemType, new Set());
+            }
+            tentativelyAssigned.get(itemType).add(itemId);
+          }
           if (itemId === "NO_AVAILABLE") {
             availableCell.textContent = "No available";
             availableCell.style.color = "var(--danger)";
