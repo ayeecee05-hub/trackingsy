@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxnPHi_xAvpKhHWIoHXyLJjW5oXN9bbaARNe9ZhRSMTIQMvEcVZWEUXoiMNkXlDJ85ezQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxLbTukQGMtBKbeMVLo7UHjAHVJFZ5Yoi2EFa6gzG5GS0Yq_EfHpGL5gNXPBujGWbK0XQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1060,17 +1060,56 @@ function renderReturnsTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
+      <td><select id="returnItemSelect_${index}" class="item-dropdown" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:5px;font-family:var(--mono);font-size:11px;" onchange="updateReturnEquipmentId(${index})"><option value="">Loading...</option></select></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
       <td>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm</button>
-          <button class="btn btn-ghost btn-sm" onclick="openEditEquipmentIdModal(${index}, '${req.rowIndex}', '${req.equipmentId || ""}')" title="Edit equipment ID">📦 Edit ID</button>
-        </div>
+        <button class="btn btn-primary btn-sm" onclick="confirmReturnRequest(${index})">✅ Confirm Return</button>
       </td>`;
     tbody.appendChild(row);
+
+    // Fetch available items for this item type and populate dropdown
+    fetch(scriptURL + "?action=getAvailableItemsList&itemName=" + encodeURIComponent(req.item))
+      .then(r => r.json())
+      .then(data => {
+        const selectEl = document.getElementById(`returnItemSelect_${index}`);
+        if (selectEl) {
+          selectEl.innerHTML = "";
+          if (Array.isArray(data) && data.length > 0) {
+            // Add the currently selected item first
+            const currentItemId = req.equipmentId || itemIdMap[normalizeName(req.item).toLowerCase()];
+            if (currentItemId) {
+              const currentOption = document.createElement("option");
+              currentOption.value = currentItemId;
+              currentOption.textContent = currentItemId;
+              currentOption.selected = true;
+              selectEl.appendChild(currentOption);
+            }
+            // Add other available items
+            data.forEach(itemId => {
+              if (itemId !== currentItemId) {
+                const option = document.createElement("option");
+                option.value = itemId;
+                option.textContent = itemId;
+                selectEl.appendChild(option);
+              }
+            });
+          } else {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "❌ No available items";
+            option.disabled = true;
+            selectEl.appendChild(option);
+          }
+        }
+      })
+      .catch(() => {
+        const selectEl = document.getElementById(`returnItemSelect_${index}`);
+        if (selectEl) {
+          selectEl.innerHTML = `<option value="">Error loading items</option>`;
+        }
+      });
   });
   
   selectedReturns.clear();
@@ -1078,29 +1117,21 @@ function renderReturnsTable(requests) {
   document.getElementById("bulkConfirmBtn").style.display = "none";
 }
 
-// ─ Edit Equipment ID ─
-function openEditEquipmentIdModal(index, rowIndex, currentEquipmentId) {
+// ─ Update Equipment ID from Return Dropdown ─
+function updateReturnEquipmentId(index) {
   const req = allReturnRequests[index];
   if (!req) return;
   
-  document.getElementById("editEquipIdRowIndex").value = rowIndex;
-  document.getElementById("editEquipIdInput").value = currentEquipmentId || "";
-  document.getElementById("editEquipIdError").innerText = "";
-  openModal("editEquipmentIdModal");
-}
-
-function submitEditEquipmentId() {
-  const rowIndex = parseInt(document.getElementById("editEquipIdRowIndex").value);
-  const newEquipmentId = document.getElementById("editEquipIdInput").value.trim();
-  const errorEl = document.getElementById("editEquipIdError");
+  const selectEl = document.getElementById(`returnItemSelect_${index}`);
+  const newEquipmentId = selectEl ? selectEl.value : "";
   
   if (!newEquipmentId) {
-    errorEl.innerText = "❌ Equipment ID cannot be empty.";
+    showNotification("❌ Please select a valid item ID.", "error");
     return;
   }
   
-  if (!rowIndex || rowIndex < 3) {
-    errorEl.innerText = "❌ Invalid transaction.";
+  if (!req.rowIndex) {
+    showNotification("❌ Invalid transaction. Cannot update.", "error");
     return;
   }
   
@@ -1110,7 +1141,7 @@ function submitEditEquipmentId() {
     method: "POST",
     body: JSON.stringify({
       action: "editEquipmentId",
-      rowIndex: rowIndex,
+      rowIndex: req.rowIndex,
       newEquipmentId: newEquipmentId,
       adminToken: getAdminToken()
     })
@@ -1119,15 +1150,16 @@ function submitEditEquipmentId() {
   .then(data => {
     if (data.success) {
       showNotification(`✅ Equipment ID updated to ${newEquipmentId}`, "success");
-      closeModal("editEquipmentIdModal");
       loadReturnRequests();
       loadTransactions();
     } else {
-      errorEl.innerText = "❌ " + (data.message || "Update failed");
+      showNotification(`❌ ${data.message || "Update failed"}`, "error");
+      loadReturnRequests();
     }
   })
   .catch(e => {
-    errorEl.innerText = "❌ Network error: " + e.message;
+    showNotification("❌ Network error: " + e.message, "error");
+    loadReturnRequests();
   });
 }
 
