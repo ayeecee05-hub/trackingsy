@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwZ9HhqIWBweX03bWdAhoy-IssgRjB0POox9sKUKdtGq32UgL5lebOq_Fi1SAu_f60mUA/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbyObSPsOdVK4XQ0rrZd4UrDcPzDzQt_VZex2XFS1whkrpy7-WVbQfd2Jzl_Zi492uziIg/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -835,7 +835,7 @@ function renderPendingTable(requests) {
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><span class="mono-chip">${itemIdMap[normalizeName(req.item).toLowerCase()] || "—"}</span></td>
+      <td><select id="itemSelect_${index}" class="item-dropdown" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:5px;font-family:var(--mono);font-size:11px;"><option value="">Loading...</option></select></td>
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td style="font-size:12px;color:var(--text3);">${durationText}</td>
       <td><span class="date-chip" style="color:var(--warning);">${req.dueDate || "—"}</span></td>
@@ -847,6 +847,36 @@ function renderPendingTable(requests) {
         </div>
       </td>`;
     tbody.appendChild(row);
+
+    // Fetch available items for this item type and populate dropdown
+    fetch(scriptURL + "?action=getAvailableItemsList&itemName=" + encodeURIComponent(req.item))
+      .then(r => r.json())
+      .then(data => {
+        const selectEl = document.getElementById(`itemSelect_${index}`);
+        if (selectEl) {
+          selectEl.innerHTML = "";
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach(itemId => {
+              const option = document.createElement("option");
+              option.value = itemId;
+              option.textContent = itemId;
+              selectEl.appendChild(option);
+            });
+          } else {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "❌ No available items";
+            option.disabled = true;
+            selectEl.appendChild(option);
+          }
+        }
+      })
+      .catch(() => {
+        const selectEl = document.getElementById(`itemSelect_${index}`);
+        if (selectEl) {
+          selectEl.innerHTML = `<option value="">Error loading items</option>`;
+        }
+      });
   });
 
   selectedPending.clear();
@@ -910,8 +940,19 @@ function addDaysToPHTString(dateStr, days) {
 function confirmHandover(index) {
   const req = allPending[index];
   if (!req) return;
+
+  // Get selected item ID from dropdown
+  const selectEl = document.getElementById(`itemSelect_${index}`);
+  const selectedItemId = selectEl ? selectEl.value : "";
+  
+  if (!selectedItemId) {
+    showNotification("❌ Please select an item from the dropdown first.", "error");
+    return;
+  }
+
+  req.selectedItemId = selectedItemId;
   document.getElementById("handoverMessage").innerHTML =
-    `Hand over <strong>${req.item}</strong> to <strong>${req.studentName || req.studentId}</strong>?<br>
+    `Hand over <strong>${req.item}</strong> (ID: <strong>${selectedItemId}</strong>) to <strong>${req.studentName || req.studentId}</strong>?<br>
      <small style="color:var(--text3);">Status → <em>Borrowed</em>, stock −1</small>`;
   const modal = document.getElementById("handoverModal");
   modal.classList.add("open");
@@ -926,12 +967,12 @@ function executeHandover(req) {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex , adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "confirmBorrow", studentId: req.studentId, item: req.item, rowIndex: req.rowIndex, selectedItemId: req.selectedItemId, adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
     if (data.success) {
-      showNotification(`✅ "${req.item}" handed over to ${req.studentName || req.studentId}`, "success");
+      showNotification(`✅ "${req.item}" (${req.selectedItemId}) handed over to ${req.studentName || req.studentId}`, "success");
       loadPendingRequests();
       loadTransactions();
       loadItemsTable();
