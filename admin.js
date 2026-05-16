@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbx2nOm8uFReHaDkpzZwsY4JEmSnI8DPviH9-DWyk6FYYGGiSvDGeuAJpJWumbV1eN05CQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbziNKu9lYb59ISnfRQm-JlGClmHEOjxZ0OWiDad_mSu-LfVowl4mPImEQnvZGmMBXrzOg/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -556,7 +556,7 @@ function renderDashPending() {
   if (!tbody) return;
   tbody.innerHTML = "";
   if (!allPending || allPending.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
     return;
   }
   allPending.slice(0, 8).forEach((req, i) => {
@@ -564,11 +564,32 @@ function renderDashPending() {
     row.innerHTML = `
       <td><span class="mono-chip">${req.studentId}</span> <span style="font-size:12px;">${req.studentName || ""}</span></td>
       <td style="font-weight:600;">${req.item}</td>
+      <td><span class="mono-chip" id="dashAvailableItem_${i}">Loading…</span></td>
       <td><span class="date-chip">${req.dueDate || "—"}</span></td>
       <td>
         <button class="btn btn-success btn-sm" onclick="confirmHandover(${i})">Hand Over</button>
       </td>`;
     tbody.appendChild(row);
+
+    // Fetch the available item ID for this item type (same as pending table)
+    fetch(scriptURL + "?action=getAvailableItemForType&itemName=" + encodeURIComponent(req.item))
+      .then(r => r.json())
+      .then(data => {
+        const availableCell = document.getElementById(`dashAvailableItem_${i}`);
+        if (availableCell) {
+          const itemId = data.itemId || "—";
+          availableCell.textContent = itemId;
+          if (itemId === "NO_AVAILABLE") {
+            availableCell.textContent = "No available";
+            availableCell.style.color = "var(--danger)";
+            availableCell.style.fontWeight = "bold";
+          }
+        }
+      })
+      .catch(() => {
+        const availableCell = document.getElementById(`dashAvailableItem_${i}`);
+        if (availableCell) availableCell.textContent = "—";
+      });
   });
 }
 
