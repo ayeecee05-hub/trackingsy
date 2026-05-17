@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzSt38JlBCvvXdqUJSGj-lkfVvxcvznanXY8IpaETGQv8RsGX5UmtXwowaQYqbNeLWrhQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxsSk7bnQW1D5gZcbkws5bEgn0osA0Z12qnSjEcdRbDgvXDcRvHHWM4D-mhSI2YZIaVYA/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -2146,6 +2146,37 @@ function deleteItemById(itemId) {
     .catch(err => {
       console.error(`[deleteItemById] Error:`, err);
       showNotification(`Error deleting item: ${err.message}`, "error");
+    });
+}
+
+// ── Populate missing passwords for existing students ─────────────────────────
+function populateAllPasswords() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+  
+  safeFetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ action: "populateStudentPasswords", adminToken: getAdminToken() })
+  })
+    .then(data => {
+      if (data.success) {
+        showNotification(`✅ ${data.updated} student(s) updated with passwords!`, "success");
+        // Show the passwords in an alert
+        const passwordList = data.report.join("\n");
+        alert(`Student Passwords:\n\n${passwordList}`);
+        // Reload the student list to reflect changes
+        loadQrStudentList();
+      } else {
+        showNotification(data.message || "Failed to populate passwords.", "error");
+      }
+    })
+    .catch(err => {
+      showNotification(`Error: ${err.message}`, "error");
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = "🔑 Generate Missing Passwords";
     });
 }
 
