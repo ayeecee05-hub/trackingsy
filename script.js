@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxLbTukQGMtBKbeMVLo7UHjAHVJFZ5Yoi2EFa6gzG5GS0Yq_EfHpGL5gNXPBujGWbK0XQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxjOOQIa0k9Ekm8MDCttGOk7svaKwIbSa0HUA29mLRzo3eNnylGqvKPu_VbB5HjQyGCRA/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -1185,114 +1185,141 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
 
-  const item       = document.getElementById("borrowItem").value;
-  const borrowDate = document.getElementById("borrowDate").value;
-  const dueDate    = document.getElementById("borrowDueDate").value;
+  // ── CHECK FOR SUSPENSION ──────────────────────────────────────────────────
+  // Load current user's history to check suspension status
+  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
+    .then(history => {
+      const lateReturnCount = history.filter(tx =>
+        (tx.status === "Late Returned" || tx.isLate === true || tx.isLate === "TRUE")
+      ).length;
+      const damagedCount = history.filter(tx =>
+        tx.condition === "Damaged" || tx.condition === "Broken"
+      ).length;
+      const totalViolations = lateReturnCount + damagedCount;
+      
+      if (totalViolations >= 3) {
+        showNotification("🔴 Your account is suspended due to multiple violations. Please contact the admin to restore borrowing privileges.", "error");
+        return;
+      }
 
-  if (!dueDate) {
-    showNotification("Please select an expected return date.", "error");
-    return;
-  }
-  if (dueDate <= borrowDate) {
-    showNotification("Expected return date must be after the borrow date.", "error");
-    return;
-  }
+      // ── PROCEED WITH BORROW REQUEST ──────────────────────────────────────
+      submitBorrowRequest();
+    })
+    .catch(() => {
+      // If we can't check suspension, still proceed to allow offline submission
+      submitBorrowRequest();
+    });
 
-  // Calculate days for display in confirm modal
-  // Parse as local date (split "-") to avoid UTC midnight off-by-one
-  const [by, bm, bd] = borrowDate.split("-").map(Number);
-  const [dy, dm, dd] = dueDate.split("-").map(Number);
-  const b = new Date(by, bm - 1, bd), d = new Date(dy, dm - 1, dd);
-  const days = Math.round((d - b) / 86400000);
+  function submitBorrowRequest() {
+    const item       = document.getElementById("borrowItem").value;
+    const borrowDate = document.getElementById("borrowDate").value;
+    const dueDate    = document.getElementById("borrowDueDate").value;
 
-  showConfirmModal("📋", "Submit Borrow Request",
-    `Request <strong>${item}</strong>?<br>
-     <small style="color:var(--text-muted);">
-       Borrow date: ${borrowDate} · Expected return: ${dueDate} (${days} day${days !== 1 ? "s" : ""})<br>
-       Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
-     </small>`,
-    () => {
-      // Immediately go to dashboard and show an undo-capable toast
-      showPage("userDashboardPage");
+    if (!dueDate) {
+      showNotification("Please select an expected return date.", "error");
+      return;
+    }
+    if (dueDate <= borrowDate) {
+      showNotification("Expected return date must be after the borrow date.", "error");
+      return;
+    }
 
-      let wasCancelled = false;
-      // We need a reference to the pending request to cancel it
-      let submittedTx = null;
+    // Calculate days for display in confirm modal
+    // Parse as local date (split "-") to avoid UTC midnight off-by-one
+    const [by, bm, bd] = borrowDate.split("-").map(Number);
+    const [dy, dm, dd] = dueDate.split("-").map(Number);
+    const b = new Date(by, bm - 1, bd), d = new Date(dy, dm - 1, dd);
+    const days = Math.round((d - b) / 86400000);
 
-      showNotification(`📋 Borrow request for "${item}" submitted!`, "success",
-        "Cancel", () => {
-          wasCancelled = true;
-          if (submittedTx) {
-            // Cancel by calling rejectBorrow on our own pending request
-            safeFetch(scriptURL, {
-              method: "POST",
-              body: JSON.stringify({
-                action: "rejectBorrow",
-                studentId: currentUser.id,
-                item: submittedTx.item,
-                rowIndex: submittedTx.rowIndex
-              })
-            }).then(data => {
-              if (data.success) {
-                showNotification(`Request for "${item}" cancelled.`, "info");
-                loadUserDashboard();
-              } else {
-                showNotification("Could not cancel — the admin may have already processed it.", "error");
-                loadUserDashboard();
-              }
-            })
-            .catch(() => showNotification("Network error. Request may still be active.", "error"));
-          } else {
-            // Request hasn't come back yet — flag it for cancellation on arrival
-            showNotification(`Cancelling request for "${item}"…`, "info");
-          }
-        }
-      );
+    showConfirmModal("📋", "Submit Borrow Request",
+      `Request <strong>${item}</strong>?<br>
+       <small style="color:var(--text-muted);">
+         Borrow date: ${borrowDate} · Expected return: ${dueDate} (${days} day${days !== 1 ? "s" : ""})<br>
+         Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
+       </small>`,
+      () => {
+        // Immediately go to dashboard and show an undo-capable toast
+        showPage("userDashboardPage");
 
-      safeFetch(scriptURL, {
-        method: "POST",
-        body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
-      }).then(data => {
-        if (data.success) {
-          if (wasCancelled) {
-            // Undo was tapped before the request came back — cancel immediately
-            safeFetch(scriptURL + "?action=getPendingRequests")
-              .then(pending => {
-                const match = Array.isArray(pending) && pending.find(p =>
-                  String(p.studentId) === String(currentUser.id) &&
-                  p.item.toLowerCase() === item.toLowerCase()
-                );
-                if (match) {
-                  return safeFetch(scriptURL, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "rejectBorrow", studentId: currentUser.id, item: match.item, rowIndex: match.rowIndex })
-                  }).then(r => r.json());
+        let wasCancelled = false;
+        // We need a reference to the pending request to cancel it
+        let submittedTx = null;
+
+        showNotification(`📋 Borrow request for "${item}" submitted!`, "success",
+          "Cancel", () => {
+            wasCancelled = true;
+            if (submittedTx) {
+              // Cancel by calling rejectBorrow on our own pending request
+              safeFetch(scriptURL, {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "rejectBorrow",
+                  studentId: currentUser.id,
+                  item: submittedTx.item,
+                  rowIndex: submittedTx.rowIndex
+                })
+              }).then(data => {
+                if (data.success) {
+                  showNotification(`Request for "${item}" cancelled.`, "info");
+                  loadUserDashboard();
+                } else {
+                  showNotification("Could not cancel — the admin may have already processed it.", "error");
+                  loadUserDashboard();
                 }
               })
-              .then(() => {
-                showNotification(`Request for "${item}" cancelled.`, "info");
-                loadUserDashboard();
-              })
-              .catch(() => loadUserDashboard());
-          } else {
-            // Store for potential undo
-            safeFetch(scriptURL + "?action=getPendingRequests")
-              .then(pending => {
-                submittedTx = Array.isArray(pending) && pending.find(p =>
-                  String(p.studentId) === String(currentUser.id) &&
-                  p.item.toLowerCase() === item.toLowerCase()
-                );
-              })
-              .catch(() => {});
-            loadUserDashboard();
+              .catch(() => showNotification("Network error. Request may still be active.", "error"));
+            } else {
+              // Request hasn't come back yet — flag it for cancellation on arrival
+              showNotification(`Cancelling request for "${item}"…`, "info");
+            }
           }
-        } else {
-          showNotification(data.message || "Request failed.", "error");
-        }
-      })
-      .catch(() => showNotification("Network error. Please try again.", "error"));
-    }
-  );
+        );
+
+        safeFetch(scriptURL, {
+          method: "POST",
+          body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
+        }).then(data => {
+          if (data.success) {
+            if (wasCancelled) {
+              // Undo was tapped before the request came back — cancel immediately
+              safeFetch(scriptURL + "?action=getPendingRequests")
+                .then(pending => {
+                  const match = Array.isArray(pending) && pending.find(p =>
+                    String(p.studentId) === String(currentUser.id) &&
+                    p.item.toLowerCase() === item.toLowerCase()
+                  );
+                  if (match) {
+                    return safeFetch(scriptURL, {
+                      method: "POST",
+                      body: JSON.stringify({ action: "rejectBorrow", studentId: currentUser.id, item: match.item, rowIndex: match.rowIndex })
+                    }).then(r => r.json());
+                  }
+                })
+                .then(() => {
+                  showNotification(`Request for "${item}" cancelled.`, "info");
+                  loadUserDashboard();
+                })
+                .catch(() => loadUserDashboard());
+            } else {
+              // Store for potential undo
+              safeFetch(scriptURL + "?action=getPendingRequests")
+                .then(pending => {
+                  submittedTx = Array.isArray(pending) && pending.find(p =>
+                    String(p.studentId) === String(currentUser.id) &&
+                    p.item.toLowerCase() === item.toLowerCase()
+                  );
+                })
+                .catch(() => {});
+              loadUserDashboard();
+            }
+          } else {
+            showNotification(data.message || "Request failed.", "error");
+          }
+        })
+        .catch(() => showNotification("Network error. Please try again.", "error"));
+      }
+    );
+  }
 });
 
 function cancelPendingRequest(rowIndex, item) {

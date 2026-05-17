@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxLbTukQGMtBKbeMVLo7UHjAHVJFZ5Yoi2EFa6gzG5GS0Yq_EfHpGL5gNXPBujGWbK0XQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxjOOQIa0k9Ekm8MDCttGOk7svaKwIbSa0HUA29mLRzo3eNnylGqvKPu_VbB5HjQyGCRA/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -414,10 +414,16 @@ function renderDashboard() {
   updateKpiCards();
 }
 
+// ── Active Borrowers Pagination ─────────────────────────────────────────────
+const AB_PER_PAGE    = 10;  // Show 10 active borrowers per page
+let   abPage         = 1;
+let   abFilteredList = [];  // Cache of filtered active borrowers
+
 let abFilter = "all";
 
 function setAbFilter(filter, btn) {
   abFilter = filter;
+  abPage = 1;  // Reset to page 1 when filter changes
   document.querySelectorAll(".ab-filter-btn").forEach(b => {
     b.classList.remove("active","danger","warn");
   });
@@ -432,6 +438,10 @@ function setAbFilter(filter, btn) {
 function renderActiveBorrowers() {
   const grid = document.getElementById("activeBorrowersGrid");
   const countBadge = document.getElementById("activeBorrowersCount");
+  const pagination = document.getElementById("abPagination");
+  const pageLabel = document.getElementById("abPageLabel");
+  const prevBtn = document.getElementById("abPrevBtn");
+  const nextBtn = document.getElementById("abNextBtn");
   if (!grid) return;
 
   const todayStr = getPHTDateString();
@@ -454,6 +464,9 @@ function renderActiveBorrowers() {
     countBadge.style.display = totalActive > 0 ? "inline-block" : "none";
   }
 
+  // Cache the filtered list for pagination
+  abFilteredList = active;
+  
   grid.innerHTML = "";
 
   if (active.length === 0) {
@@ -464,6 +477,7 @@ function renderActiveBorrowers() {
           ? "No active borrowers right now."
           : `No <strong>${abFilter}</strong> borrowers right now.`}
       </div>`;
+    if (pagination) pagination.style.display = "none";
     return;
   }
 
@@ -475,7 +489,14 @@ function renderActiveBorrowers() {
     return (a.dueDate || "").localeCompare(b.dueDate || "");
   });
 
-  active.forEach(tx => {
+  // ── Pagination ──────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(active.length / AB_PER_PAGE);
+  if (abPage > totalPages) abPage = totalPages;
+
+  const start = (abPage - 1) * AB_PER_PAGE;
+  const pageItems = active.slice(start, start + AB_PER_PAGE);
+
+  pageItems.forEach(tx => {
     let daysLabel = "";
     let daysCls   = "ab-days-ok";
     let cardCls   = "";
@@ -549,6 +570,26 @@ ${(tx.equipmentId && tx.equipmentId !== "") || itemIdMap[normalizeName(tx.item).
       </div>`;
     grid.appendChild(card);
   });
+
+  // ── Pagination controls ──────────────────────────────────────────────────────
+  if (pagination) {
+    if (totalPages > 1) {
+      pagination.style.display = "flex";
+      if (pageLabel) pageLabel.textContent = `Page ${abPage} of ${totalPages}  (${active.length} borrowing)`;
+      if (prevBtn) prevBtn.disabled = abPage === 1;
+      if (nextBtn) nextBtn.disabled = abPage === totalPages;
+    } else {
+      pagination.style.display = "none";
+    }
+  }
+}
+
+function changeAbPage(delta) {
+  const totalPages = Math.ceil(abFilteredList.length / AB_PER_PAGE);
+  const next = abPage + delta;
+  if (next < 1 || next > totalPages) return;
+  abPage = next;
+  renderActiveBorrowers();
 }
 
 function renderDashPending() {

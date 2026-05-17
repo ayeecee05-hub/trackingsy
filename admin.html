@@ -726,6 +726,28 @@
     .ab-filter-btn.active.danger { background: rgba(248,81,73,0.12); color: var(--danger); border-color: rgba(248,81,73,0.3); }
     .ab-filter-btn.active.warn   { background: rgba(210,153,34,0.12); color: var(--warning); border-color: rgba(210,153,34,0.3); }
 
+    /* ── Active Borrowers Pagination ── */
+    .active-borrowers-pagination {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .ab-page-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text2);
+      border-radius: 7px;
+      font-family: var(--font);
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ab-page-btn:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: var(--text); border-color: var(--border-mid); }
+    .ab-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ab-page-label { font-size: 12px; color: var(--text3); font-weight: 600; min-width: 200px; text-align: center; }
+
     /* ═══════════════════════════════════════════════
        DIVIDER
     ═══════════════════════════════════════════════ */
@@ -1100,6 +1122,12 @@
             <button class="ab-filter-btn" data-abfilter="Return Pending" onclick="setAbFilter('Return Pending',this)">↩ Return Pending</button>
           </div>
           <div id="activeBorrowersGrid" class="active-borrowers-grid"></div>
+          <!-- Active Borrowers Pagination -->
+          <div id="abPagination" class="active-borrowers-pagination" style="display:none;">
+            <button id="abPrevBtn" class="ab-page-btn" onclick="changeAbPage(-1)" aria-label="Previous active borrowers page">&#8249; Prev</button>
+            <span id="abPageLabel" class="ab-page-label"></span>
+            <button id="abNextBtn" class="ab-page-btn" onclick="changeAbPage(1)" aria-label="Next active borrowers page">Next &#8250;</button>
+          </div>
         </div>
       </div>
 
