@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwihyV3ATzMz4R2KuTYL_Mz4v2-6ecmyaxgd2gXT4Aw1Lw_wFt-1mKHhcj78ueGOJwfog/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxN3wUvFM2wEmIbJaPEMN-Ad6N1QTj3WMyvEGJJ0-OpNCeHDWzNvsOoqq2dU2ireTW2DQ/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -484,7 +484,7 @@ function openPinModal(user) {
 
 function verifyPin(user) {
   const entered  = document.getElementById("pinInput").value.trim();
-  const expected = String(user.id).slice(-4);
+  const expected = String(user.pin || "");  // Use stored PIN from database
   if (entered === expected) {
     document.getElementById("pinModal").style.display = "none";
     currentUser = user;

@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwihyV3ATzMz4R2KuTYL_Mz4v2-6ecmyaxgd2gXT4Aw1Lw_wFt-1mKHhcj78ueGOJwfog/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxN3wUvFM2wEmIbJaPEMN-Ad6N1QTj3WMyvEGJJ0-OpNCeHDWzNvsOoqq2dU2ireTW2DQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
