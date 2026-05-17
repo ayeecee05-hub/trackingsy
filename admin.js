@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxN3wUvFM2wEmIbJaPEMN-Ad6N1QTj3WMyvEGJJ0-OpNCeHDWzNvsOoqq2dU2ireTW2DQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbzSt38JlBCvvXdqUJSGj-lkfVvxcvznanXY8IpaETGQv8RsGX5UmtXwowaQYqbNeLWrhQ/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -2322,6 +2322,12 @@ function filterStudentHistory() {
 function showQrModal(studentId, studentName) {
   document.getElementById("qrPrintName").innerText = studentName;
   document.getElementById("qrPrintId").innerText   = "ID: " + studentId;
+  
+  // Get the student's PIN
+  const student = allUsers.find(u => u.id === String(studentId));
+  const pin = student ? student.pin : "—";
+  document.getElementById("qrPrintPin").innerText = pin;
+  
   const container = document.getElementById("qrPrintCode");
   container.innerHTML = "";
   if (qrInstance) { try { qrInstance.clear(); } catch(e) {} }
@@ -2343,13 +2349,157 @@ function showQrModal(studentId, studentName) {
 function printQr() {
   const name = document.getElementById("qrPrintName").innerText;
   const id   = document.getElementById("qrPrintId").innerText;
+  const pin  = document.getElementById("qrPrintPin").innerText;
   const img  = document.querySelector("#qrPrintCode img");
   if (!img) { showNotification("QR not ready yet.", "error"); return; }
   const win = window.open("", "_blank");
   win.document.write(`<!DOCTYPE html><html><head><title>QR — ${name}</title>
-  <style>body{font-family:sans-serif;text-align:center;padding:40px;}h2{margin:0 0 4px;font-size:20px;}p{margin:0 0 20px;color:#555;font-size:13px;}img{border:2px solid #eee;border-radius:8px;padding:10px;}small{display:block;margin-top:12px;color:#999;font-size:11px;}</style>
-  </head><body><h2>${name}</h2><p>${id}</p><img src="${img.src}" width="200" height="200"><small>CTU Danao Equipment Borrowing System</small>
+  <style>body{font-family:sans-serif;text-align:center;padding:40px;background:#fff;}h2{margin:0 0 4px;font-size:20px;}p{margin:0 0 12px;color:#555;font-size:13px;}.qr-container{margin:20px 0;}.password-box{background:#f0f4ff;border:2px solid #4fc3f7;border-radius:8px;padding:12px;margin:16px 0;font-size:16px;font-weight:bold;font-family:monospace;letter-spacing:2px;color:#0288d1;}img{border:2px solid #eee;border-radius:8px;padding:10px;max-width:250px;}small{display:block;margin-top:12px;color:#999;font-size:11px;}</style>
+  </head><body><h2>${name}</h2><p>${id}</p><div class="qr-container"><img src="${img.src}" width="250" height="250"></div><div class="password-box">🔐 Password: ${pin}</div><small>CTU Danao Equipment Borrowing System</small>
   <script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+  win.document.close();
+}
+
+// ── Bulk QR Print ────────────────────────────────────────────────────────────
+function openBulkQrPrintModal() {
+  openModal("bulkQrPrintModal");
+  updateBulkQrPreview();
+}
+
+function updateBulkQrPreview() {
+  const filterStatus = document.getElementById("bulkQrFilterStatus").value;
+  const perPage = parseInt(document.getElementById("bulkQrPerPage").value) || 20;
+  
+  let studentsToShow = allUsers;
+  if (filterStatus === "active") {
+    // Only show students with active borrows
+    const activeStudentIds = new Set();
+    allTransactions.forEach(tx => {
+      if (tx.Status === "Borrowed" || tx.Status === "Overdue" || tx.Status === "Return Pending") {
+        activeStudentIds.add(tx["Student ID"]);
+      }
+    });
+    studentsToShow = allUsers.filter(u => activeStudentIds.has(u.id));
+  }
+  
+  const preview = document.getElementById("bulkQrPreview");
+  if (studentsToShow.length === 0) {
+    preview.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);">No students to display with current filter.</div>`;
+    return;
+  }
+  
+  const totalPages = Math.ceil(studentsToShow.length / perPage);
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">
+    <span>${studentsToShow.length} students total | ${totalPages} page${totalPages !== 1 ? 's' : ''}</span>
+    <span>Page 1</span>
+  </div>`;
+  
+  for (let page = 0; page < totalPages; page++) {
+    const start = page * perPage;
+    const end = Math.min(start + perPage, studentsToShow.length);
+    const pageStudents = studentsToShow.slice(start, end);
+    
+    html += `<div class="bulk-qr-grid" style="margin-bottom:24px;page-break-after:always;">`;
+    
+    pageStudents.forEach(student => {
+      html += `
+        <div class="bulk-qr-card">
+          <div class="bulk-qr-name">${student.name}</div>
+          <div class="bulk-qr-id">${student.id}</div>
+          <div class="bulk-qr-pin">${student.pin}</div>
+          <div id="qr_${student.id}" style="width:100px;height:100px;display:flex;justify-content:center;align-items:center;"></div>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  }
+  
+  preview.innerHTML = html;
+  
+  // Generate QR codes
+  for (let student of studentsToShow) {
+    const container = document.getElementById(`qr_${student.id}`);
+    if (container) {
+      const basePath = window.location.pathname.replace(/\/[^/]*$/, "/").replace(/\/$/, "");
+      const appUrl = window.location.origin + basePath + "/index.html?user=" + encodeURIComponent(String(student.id));
+      new QRCode(container, {
+        text: appUrl,
+        width: 100,
+        height: 100,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+  }
+}
+
+function printBulkQr() {
+  const preview = document.getElementById("bulkQrPreview").innerHTML;
+  const win = window.open("", "_blank");
+  win.document.write(`<!DOCTYPE html><html><head><title>Student QR Codes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0.5in;
+      background: white;
+    }
+    .bulk-qr-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      page-break-after: always;
+      margin-bottom: 24px;
+    }
+    .bulk-qr-card {
+      border: 1px solid #ddd;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      font-size: 10px;
+      text-align: center;
+    }
+    .bulk-qr-name {
+      font-weight: bold;
+      font-size: 10px;
+      word-break: break-word;
+      color: #333;
+    }
+    .bulk-qr-id {
+      font-size: 9px;
+      color: #666;
+      font-family: monospace;
+    }
+    .bulk-qr-pin {
+      font-size: 11px;
+      font-weight: bold;
+      color: #0288d1;
+      font-family: monospace;
+      letter-spacing: 1px;
+      background: #f0f4ff;
+      padding: 2px 4px;
+      border-radius: 3px;
+      border: 1px solid #4fc3f7;
+    }
+    canvas {
+      border: 1px solid #999 !important;
+      border-radius: 4px;
+    }
+    @media print {
+      body { margin: 0.5in; }
+      .bulk-qr-grid { page-break-inside: avoid; break-inside: avoid; }
+      .bulk-qr-card { page-break-inside: avoid; break-inside: avoid; }
+    }
+  </style>
+  </head><body>
+  ${preview}
+  <script>window.onload=()=>{setTimeout(()=>{window.print();window.close();}, 500);}<\/script>
+  </body></html>`);
   win.document.close();
 }
 
