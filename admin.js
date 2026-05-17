@@ -2405,9 +2405,11 @@ function updateBulkQrPreview() {
       html += `
         <div class="bulk-qr-card">
           <div class="bulk-qr-name">${student.name}</div>
-          <div class="bulk-qr-id">${student.id}</div>
-          <div class="bulk-qr-pin">${student.pin}</div>
           <div id="qr_${student.id}" style="width:100px;height:100px;display:flex;justify-content:center;align-items:center;"></div>
+          <div style="font-size:8px;color:var(--text3);margin-top:2px;">User:</div>
+          <div class="bulk-qr-id">${student.id}</div>
+          <div style="font-size:8px;color:var(--text3);margin-top:2px;">Password:</div>
+          <div class="bulk-qr-pin">${student.pin}</div>
         </div>
       `;
     });
