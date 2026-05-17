@@ -415,7 +415,7 @@ function renderDashboard() {
 }
 
 // ── Active Borrowers Pagination ─────────────────────────────────────────────
-const AB_PER_PAGE    = 10;  // Show 10 active borrowers per page
+const AB_PER_PAGE    = 8;  // Show 8 active borrowers per page
 let   abPage         = 1;
 let   abFilteredList = [];  // Cache of filtered active borrowers
 

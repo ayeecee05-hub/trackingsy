@@ -278,9 +278,9 @@ function refreshStatusBadges() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BORROWER CARDS — pagination (10 per page)
+// BORROWER CARDS — pagination (8 per page)
 // ══════════════════════════════════════════════════════════════════════════════
-const USERS_PER_PAGE    = 10;
+const USERS_PER_PAGE    = 8;
 let   usersPage         = 1;
 let   filteredBorrowers = [];
 let   borrowerActiveFilter = "all";  // "all" | "Overdue" | "Borrowed" | "Pending" | "az"
