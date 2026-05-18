@@ -969,7 +969,7 @@
       <span class="nav-icon">📦</span> Inventory
     </button>
     <button class="nav-item" data-page="pageStudents" onclick="switchPage('pageStudents')">
-      <span class="nav-icon">👥</span> Students
+      <span class="nav-icon">👥</span> Users
     </button>
     <button class="nav-item" data-page="pageAccountability" onclick="switchPage('pageAccountability')">
       <span class="nav-icon">⚠️</span> Accountability
@@ -1026,7 +1026,7 @@
 
         <div class="kpi-row">
           <div class="kpi-card">
-            <div class="kpi-label">Registered Students</div>
+            <div class="kpi-label">Registered Users</div>
             <div class="kpi-value kpi-accent" id="kpiStudents">—</div>
             <div class="kpi-sub">Total enrolled borrowers</div>
           </div>
@@ -1108,7 +1108,7 @@
       <div class="page" id="pagePending">
         <div class="alert-banner warn" style="margin-bottom:16px;">
           <span>⚡</span>
-          <span>Students have submitted these requests. Click <strong>Hand Over</strong> once you physically give the item — stock decreases and status becomes <em>Borrowed</em>.</span>
+          <span>Users have submitted these requests. Click <strong>Hand Over</strong> once you physically give the item — stock decreases and status becomes <em>Borrowed</em>.</span>
         </div>
         <div class="panel one-col">
           <div class="panel-header">
@@ -1139,7 +1139,7 @@
       <div class="page" id="pageReturns">
         <div class="alert-banner info" style="margin-bottom:16px;">
           <span>ℹ️</span>
-          <span>Students have submitted return requests. Click <strong>Confirm Return</strong> once you physically receive the item — stock increases and status becomes <em>Returned</em>.</span>
+          <span>Users have submitted return requests. Click <strong>Confirm Return</strong> once you physically receive the item — stock increases and status becomes <em>Returned</em>.</span>
         </div>
         <div class="panel one-col">
           <div class="panel-header">
@@ -1311,12 +1311,12 @@
         </div>
       </div>
 
-      <!-- ─── STUDENTS ─────────────────────────────── -->
+      <!-- ─── USERS ─────────────────────────────── -->
       <div class="page" id="pageStudents">
         <div class="two-col">
           <div class="panel" style="align-self:start;">
             <div class="panel-header">
-              <span class="panel-title"><span class="panel-title-icon">➕</span> Register Student</span>
+              <span class="panel-title"><span class="panel-title-icon">➕</span> Register Users</span>
             </div>
             <div class="panel-body">
               <!-- User Type Selection -->
@@ -1345,7 +1345,7 @@
                   <span class="form-error" id="adminEmailError"></span>
                 </div>
                 <input type="hidden" id="adminUserType" value="student">
-                <button type="submit" class="btn btn-primary" id="registerBtn" style="width:100%;justify-content:center;">Register Student</button>
+                <button type="submit" class="btn btn-primary" id="registerBtn" style="width:100%;justify-content:center;">Register Users</button>
               </form>
 
               <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
@@ -1366,13 +1366,13 @@
               <div class="panel-title" style="margin-bottom:10px;"><span class="panel-title-icon">�🖨️</span> Print QR Code</div>
               <p style="font-size:11px;color:var(--text3);margin-bottom:12px;"><strong>Two printing options:</strong><br>
               <span style="color:var(--text2);">→ Click a student's <strong>QR</strong> button for individual card (detailed format)<br>
-              → Click <strong>Bulk Print</strong> for multiple students on one sheet</span></p>
+              → Click <strong>Bulk Print</strong> for multiple users on one sheet</span></p>
               <div style="margin-bottom:12px;display:flex;gap:6px;">
-                <input type="text" class="filter-input" id="qrStudentSearch" placeholder="Search students…" style="flex:1;">
+                <input type="text" class="filter-input" id="qrStudentSearch" placeholder="Search users…" style="flex:1;">
                 <button class="btn btn-primary btn-sm" onclick="openBulkQrPrintModal()" style="white-space:nowrap;">📄 Bulk Print</button>
               </div>
               <div class="student-list" id="qrStudentList">
-                <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px;">Loading students…</div>
+                <div style="text-align:center;padding:16px;color:var(--text3);font-size:12px;">Loading users…</div>
               </div>
             </div>
           </div>
@@ -1383,7 +1383,7 @@
               <span id="studentCountBadge" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
             </div>
             <div class="filter-bar">
-              <input type="text" class="filter-input" id="studentTableSearch" placeholder="🔍  Search students…" oninput="filterStudentTable()">
+              <input type="text" class="filter-input" id="studentTableSearch" placeholder="🔍  Search users…" oninput="filterStudentTable()">
             </div>
             <div class="panel-body-flush">
               <div class="table-wrap scrollable-table" style="max-height:440px;">
@@ -1410,7 +1410,7 @@
             </div>
           </div>
           <div class="filter-bar">
-            <input type="text" class="filter-input" id="accountabilitySearch" placeholder="🔍  Search students…" oninput="filterAccountabilityTable()">
+            <input type="text" class="filter-input" id="accountabilitySearch" placeholder="🔍  Search users…" oninput="filterAccountabilityTable()">
             <select class="filter-select" id="accountabilityStatusFilter" onchange="filterAccountabilityTable()">
               <option value="">All Status</option>
               <option value="trusted">🟢 Trusted</option>
@@ -1670,7 +1670,7 @@
     <div id="analyticsContent" style="max-height:500px;overflow-y:auto;"></div>
     <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <button class="btn btn-primary btn-sm" onclick="exportTransactions()">📥 Export Transactions</button>
-      <button class="btn btn-primary btn-sm" onclick="exportStudentAccounts()">📥 Export Students</button>
+      <button class="btn btn-primary btn-sm" onclick="exportStudentAccounts()">📥 Export Users</button>
       <button class="btn btn-primary btn-sm" onclick="exportInventory()">📥 Export Inventory</button>
     </div>
     <div class="modal-actions" style="margin-top:16px;">

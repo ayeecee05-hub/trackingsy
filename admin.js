@@ -221,7 +221,7 @@ const pageMeta = {
   pageReturns:      { title: "Pending Returns",    desc: "Confirm returned items" },
   pageTransactions: { title: "Transaction Log",    desc: "Full history of all borrow events" },
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
-  pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
+  pageStudents:     { title: "Users",           desc: "Register, edit, and manage borrowers" },
   pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
   pageDamagedItems:   { title: "Damaged Items",    desc: "Items returned in damaged or broken condition" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
@@ -737,7 +737,7 @@ function selectUserType(type) {
   
   if (type === "student") {
     idLabel.textContent = "Student";
-    registerBtn.textContent = "Register Student";
+    registerBtn.textContent = "Register Users";
     studentBtn.style.background = "var(--accent-glow)";
     studentBtn.style.borderColor = "var(--accent)";
     studentBtn.style.color = "var(--accent)";
@@ -873,7 +873,7 @@ function submitRegisterForm() {
   })
   .catch(() => showNotification("Network error during registration.", "error"))
   .finally(() => {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = userType === "student" ? "Register Student" : "Register Faculty"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = userType === "student" ? "Register Users" : "Register Faculty"; }
   });
 }
 
