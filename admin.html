@@ -86,6 +86,16 @@
       text-align: center; letter-spacing: 3px; margin-bottom: 16px;
     }
     .login-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .password-wrapper {
+      position: relative; margin-bottom: 16px;
+    }
+    .toggle-password-btn {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text2); cursor: pointer;
+      font-size: 16px; padding: 4px; transition: color 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .toggle-password-btn:hover { color: var(--accent); }
     .login-btn {
       width: 100%; padding: 12px; background: var(--accent); color: #fff;
       border: none; border-radius: var(--radius); font-family: var(--font);
@@ -625,14 +635,18 @@
     }
     .bulk-qr-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px;
+      border: 2px solid rgba(79, 195, 247, 0.3);
+      border-radius: 8px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       page-break-inside: avoid;
+      transition: border-color 0.2s;
+    }
+    .bulk-qr-card:hover {
+      border-color: rgba(79, 195, 247, 0.6);
     }
     .bulk-qr-card canvas {
       width: 100px !important;
@@ -640,12 +654,13 @@
       border-radius: 4px;
     }
     .bulk-qr-name {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--text);
       text-align: center;
       word-break: break-word;
       max-width: 100%;
+      line-height: 1.3;
     }
     .bulk-qr-id {
       font-size: 9px;
@@ -895,7 +910,10 @@
     <div class="login-title">Admin Panel</div>
     <div class="login-sub">Equipment &amp; Device Borrowing System</div>
     <label class="login-label" for="adminPassword">Password</label>
-    <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
+    <div class="password-wrapper">
+      <input type="password" id="adminPassword" class="login-input" placeholder="••••••••" autocomplete="current-password" aria-label="Admin password">
+      <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility()" title="Show/hide password">👁️</button>
+    </div>
     <button class="login-btn" id="adminLoginBtn" onclick="checkPassword()">Sign In</button>
   </div>
 </div>
@@ -1320,12 +1338,12 @@
               <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
 
               <div class="panel-title" style="margin-bottom:10px;"><span class="panel-title-icon">🔑</span> Student Passwords</div>
-              <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Set a 4-digit password for each student.</p>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Set a password for each student. Any format accepted.</p>
               <div style="margin-bottom:12px;">
                 <select class="form-input" id="passwordStudentSelect" style="margin-bottom:8px;">
                   <option value="">Select a student…</option>
                 </select>
-                <input type="text" class="form-input" id="passwordInput" placeholder="4-digit password" inputmode="numeric" maxlength="4" style="margin-bottom:8px;">
+                <input type="text" class="form-input" id="passwordInput" placeholder="Enter password" style="margin-bottom:8px;">
                 <span class="form-error" id="passwordError" style="display:block;margin-bottom:8px;"></span>
                 <button class="btn btn-primary" onclick="setStudentPassword()" style="width:100%;justify-content:center;">🔑 Set Password</button>
               </div>
@@ -1333,7 +1351,9 @@
               <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
 
               <div class="panel-title" style="margin-bottom:10px;"><span class="panel-title-icon">�🖨️</span> Print QR Code</div>
-              <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Select a student to generate their QR login card.</p>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:12px;"><strong>Two printing options:</strong><br>
+              <span style="color:var(--text2);">→ Click a student's <strong>QR</strong> button for individual card (detailed format)<br>
+              → Click <strong>Bulk Print</strong> for multiple students on one sheet</span></p>
               <div style="margin-bottom:12px;display:flex;gap:6px;">
                 <input type="text" class="filter-input" id="qrStudentSearch" placeholder="Search students…" style="flex:1;">
                 <button class="btn btn-primary btn-sm" onclick="openBulkQrPrintModal()" style="white-space:nowrap;">📄 Bulk Print</button>

@@ -166,6 +166,21 @@ async function checkPassword() {
   }
 }
 
+function togglePasswordVisibility() {
+  const input = document.getElementById("adminPassword");
+  const btn = event.target.closest(".toggle-password-btn");
+  if (!input || !btn) return;
+  
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "🙈";
+  } else {
+    input.type = "password";
+    btn.textContent = "👁️";
+  }
+  input.focus();
+}
+
 function logoutAdmin(timedOut = false) {
   _adminSessionToken = "";          // clear token on logout
   stopAutoRefresh();
@@ -2272,8 +2287,8 @@ function setStudentPassword() {
     return;
   }
   
-  if (!/^\d{4}$/.test(password)) {
-    if (errorEl) errorEl.textContent = "Password must be exactly 4 digits.";
+  if (password.length < 4) {
+    if (errorEl) errorEl.textContent = "Password must be at least 4 characters.";
     return;
   }
   
@@ -2427,15 +2442,130 @@ function showQrModal(studentId, studentName) {
 
 function printQr() {
   const name = document.getElementById("qrPrintName").innerText;
-  const id   = document.getElementById("qrPrintId").innerText;
+  const id   = document.getElementById("qrPrintId").innerText.replace("ID: ", "");
   const pin  = document.getElementById("qrPrintPin").innerText;
   const img  = document.querySelector("#qrPrintCode img");
   if (!img) { showNotification("QR not ready yet.", "error"); return; }
   const win = window.open("", "_blank");
-  win.document.write(`<!DOCTYPE html><html><head><title>QR — ${name}</title>
-  <style>body{font-family:sans-serif;text-align:center;padding:40px;background:#fff;}h2{margin:0 0 4px;font-size:20px;}p{margin:0 0 12px;color:#555;font-size:13px;}.qr-container{margin:20px 0;}.password-box{background:#f0f4ff;border:2px solid #4fc3f7;border-radius:8px;padding:12px;margin:16px 0;font-size:16px;font-weight:bold;font-family:monospace;letter-spacing:2px;color:#0288d1;}img{border:2px solid #eee;border-radius:8px;padding:10px;max-width:250px;}small{display:block;margin-top:12px;color:#999;font-size:11px;}</style>
-  </head><body><h2>${name}</h2><p>${id}</p><div class="qr-container"><img src="${img.src}" width="250" height="250"></div><div class="password-box">🔐 Password: ${pin}</div><small>CTU Danao Equipment Borrowing System</small>
-  <script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><title>Student Credential Card — ${name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .credential-card {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto;
+      background: white;
+      border: 3px solid #0288d1;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      text-align: center;
+    }
+    .card-header {
+      border-bottom: 2px solid #0288d1;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0d1117;
+      margin-bottom: 4px;
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .qr-section {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+    .qr-section img {
+      width: 180px;
+      height: 180px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .credential-field {
+      margin: 12px 0;
+      padding: 10px;
+      background: #f0f4ff;
+      border-left: 4px solid #0288d1;
+      border-radius: 6px;
+      text-align: left;
+    }
+    .credential-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .credential-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0d1117;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.5px;
+    }
+    .password-field .credential-value {
+      font-size: 18px;
+      letter-spacing: 2px;
+      color: #0288d1;
+    }
+    .footer {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
+      font-size: 10px;
+      color: #999;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .credential-card { box-shadow: none; border: 2px solid #0288d1; }
+      .footer { page-break-after: avoid; }
+    }
+  </style>
+  </head><body>
+  <div class="credential-card">
+    <div class="card-header">
+      <div class="card-title">${name}</div>
+      <div class="card-subtitle">CTU Danao Borrowing System</div>
+    </div>
+    
+    <div class="qr-section">
+      <img src="${img.src}" alt="QR Code">
+    </div>
+    
+    <div class="credential-field">
+      <div class="credential-label">Student ID</div>
+      <div class="credential-value">${id}</div>
+    </div>
+    
+    <div class="credential-field password-field">
+      <div class="credential-label">🔐 Login Password</div>
+      <div class="credential-value">${pin}</div>
+    </div>
+    
+    <div class="footer">
+      <strong>How to Login:</strong> Visit the borrowing website, enter your Student ID and password, or scan the QR code above.
+    </div>
+  </div>
+  
+  <script>window.onload=()=>{setTimeout(()=>{window.print();window.close();}, 300);}<\/script>
+  </body></html>`);
   win.document.close();
 }
 
@@ -2519,62 +2649,77 @@ function updateBulkQrPreview() {
 function printBulkQr() {
   const preview = document.getElementById("bulkQrPreview").innerHTML;
   const win = window.open("", "_blank");
-  win.document.write(`<!DOCTYPE html><html><head><title>Student QR Codes</title>
+  win.document.write(`<!DOCTYPE html><html><head><title>Student Credential Cards</title>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0.5in;
       background: white;
     }
     .bulk-qr-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
       page-break-after: always;
       margin-bottom: 24px;
     }
     .bulk-qr-card {
-      border: 1px solid #ddd;
-      padding: 12px;
+      border: 2px solid #0288d1;
+      padding: 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       page-break-inside: avoid;
       break-inside: avoid;
-      font-size: 10px;
-      text-align: center;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
     .bulk-qr-name {
-      font-weight: bold;
-      font-size: 10px;
+      font-weight: 700;
+      font-size: 11px;
       word-break: break-word;
-      color: #333;
+      color: #0d1117;
+      line-height: 1.3;
+      max-height: 2.2em;
+      overflow: hidden;
+    }
+    .bulk-qr-label {
+      font-size: 8px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-top: 4px;
     }
     .bulk-qr-id {
-      font-size: 9px;
-      color: #666;
-      font-family: monospace;
+      font-size: 10px;
+      color: #333;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
     }
     .bulk-qr-pin {
-      font-size: 11px;
-      font-weight: bold;
+      font-size: 12px;
+      font-weight: 700;
       color: #0288d1;
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       letter-spacing: 1px;
       background: #f0f4ff;
-      padding: 2px 4px;
-      border-radius: 3px;
+      padding: 3px 6px;
+      border-radius: 4px;
       border: 1px solid #4fc3f7;
     }
-    canvas {
-      border: 1px solid #999 !important;
-      border-radius: 4px;
+    canvas, img {
+      border: 1px solid #ddd !important;
+      border-radius: 6px;
+      width: 90px !important;
+      height: 90px !important;
     }
     @media print {
       body { margin: 0.5in; }
       .bulk-qr-grid { page-break-inside: avoid; break-inside: avoid; }
-      .bulk-qr-card { page-break-inside: avoid; break-inside: avoid; }
+      .bulk-qr-card { page-break-inside: avoid; break-inside: avoid; box-shadow: none; }
     }
   </style>
   </head><body>
