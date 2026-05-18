@@ -1175,6 +1175,11 @@
           </div>
           <div class="filter-bar">
             <input type="text" class="filter-input" id="searchInput" placeholder="🔍  Search by name, ID, or item…">
+            <select class="filter-select" id="classificationFilter" onchange="filterTransactions()">
+              <option value="">All Classifications</option>
+              <option value="Student">Student</option>
+              <option value="Faculty">Faculty</option>
+            </select>
             <select class="filter-select" id="statusFilter" onchange="filterTransactions()">
               <option value="">All Statuses</option>
               <option value="Pending">Pending</option>

@@ -1474,11 +1474,11 @@ function renderTransactions(transactions, resetPage = false) {
   const page  = transactions.slice(start, start + TX_PER_PAGE);
 
   page.forEach(tx => {
-// Use the transaction's own stored equipment ID first,
-// fall back to itemIdMap lookup only if empty
-const itemId = (tx.equipmentId && tx.equipmentId !== "") 
-  ? tx.equipmentId 
-  : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
+    // Use the transaction's own stored equipment ID first,
+    // fall back to itemIdMap lookup only if empty
+    const itemId = (tx.equipmentId && tx.equipmentId !== "") 
+      ? tx.equipmentId 
+      : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
     // Condition pill with color coding
     let condClass = "c-good";
     let condIcon = "✅";
@@ -1580,12 +1580,19 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
   searchTimeout = setTimeout(() => {
     const query  = (document.getElementById("searchInput")?.value || "").toLowerCase();
     const status = document.getElementById("statusFilter")?.value || "";
-    const filtered = allTransactions.filter(tx =>
-      (!query  || String(tx.studentId).toLowerCase().includes(query) ||
+    const classification = document.getElementById("classificationFilter")?.value || "";
+    const filtered = allTransactions.filter(tx => {
+      // Get user classification
+      const user = allUsers.find(u => u.id === tx.studentId);
+      const userType = user?.userType || "Student";
+      const userClassification = (userType === "Faculty" || userType === "faculty") ? "Faculty" : "Student";
+      
+      return (!query  || String(tx.studentId).toLowerCase().includes(query) ||
                   String(tx.item).toLowerCase().includes(query) ||
                   String(tx.studentName || "").toLowerCase().includes(query)) &&
-      (!status || tx.status === status)
-    );
+      (!status || tx.status === status) &&
+      (!classification || userClassification === classification);
+    });
     renderTransactions(filtered, true);
   }, 300);
 }
@@ -1593,8 +1600,10 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
 function resetFilter() {
   const si = document.getElementById("searchInput");
   const sf = document.getElementById("statusFilter");
+  const cf = document.getElementById("classificationFilter");
   if (si) si.value = "";
   if (sf) sf.value = "";
+  if (cf) cf.value = "";
   renderTransactions(allTransactions, true);
 }
 
