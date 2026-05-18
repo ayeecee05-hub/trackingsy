@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzdFlmc4Mv6_M10CYdMPPYVEFvPLABCA6Wd0m_pjw1fTCfhifc2dV8AnMFASaR1NXVqaQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbwtatTZTSiFSUKjQuBqAIdIehVxKifW_s3X5cIi7IgXNjHLdAFatEG-2XNpDs_Z_RBLMg/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -269,11 +269,13 @@ function loadStudentsPage() {
     fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
       allUsers = Array.isArray(u) ? u : [];
       renderStudentsTable(allUsers);
+      populatePasswordStudentSelect();
       const scb = document.getElementById("studentCountBadge");
       if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
     }).catch(() => showNotification("Error loading students.", "error"));
   } else {
     renderStudentsTable(allUsers);
+    populatePasswordStudentSelect();
   }
   if (allHistoryTransactions.length === 0 && allTransactions.length === 0) {
     loadTransactions();
@@ -2149,36 +2151,7 @@ function deleteItemById(itemId) {
     });
 }
 
-// ── Populate missing passwords for existing students ─────────────────────────
-function populateAllPasswords() {
-  const btn = event.target;
-  btn.disabled = true;
-  btn.textContent = "Generating…";
-  
-  safeFetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify({ action: "populateStudentPasswords", adminToken: getAdminToken() })
-  })
-    .then(data => {
-      if (data.success) {
-        showNotification(`✅ ${data.updated} student(s) updated with passwords!`, "success");
-        // Show the passwords in an alert
-        const passwordList = data.report.join("\n");
-        alert(`Student Passwords:\n\n${passwordList}`);
-        // Reload the student list to reflect changes
-        loadQrStudentList();
-      } else {
-        showNotification(data.message || "Failed to populate passwords.", "error");
-      }
-    })
-    .catch(err => {
-      showNotification(`Error: ${err.message}`, "error");
-    })
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = "🔑 Generate Missing Passwords";
-    });
-}
+
 
 // ── Students (QR + table) ────────────────────────────────────────────────────
 function loadQrStudentList() {
@@ -2265,6 +2238,81 @@ function filterStudentTable() {
     String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
   );
   renderStudentsTable(filtered);
+}
+
+// ── Manual password input ────────────────────────────────────────────────────
+function populatePasswordStudentSelect() {
+  const select = document.getElementById("passwordStudentSelect");
+  if (!select) return;
+  
+  select.innerHTML = '<option value="">Select a student…</option>';
+  if (allUsers.length > 0) {
+    allUsers.forEach(u => {
+      const option = document.createElement("option");
+      option.value = u.id;
+      option.textContent = `${u.name} (${u.id})`;
+      select.appendChild(option);
+    });
+  }
+}
+
+function setStudentPassword() {
+  const studentId = document.getElementById("passwordStudentSelect")?.value;
+  const password = document.getElementById("passwordInput")?.value.trim();
+  const errorEl = document.getElementById("passwordError");
+  
+  // Validation
+  if (!studentId) {
+    if (errorEl) errorEl.textContent = "Please select a student.";
+    return;
+  }
+  
+  if (!password) {
+    if (errorEl) errorEl.textContent = "Password is required.";
+    return;
+  }
+  
+  if (!/^\d{4}$/.test(password)) {
+    if (errorEl) errorEl.textContent = "Password must be exactly 4 digits.";
+    return;
+  }
+  
+  if (errorEl) errorEl.textContent = "";
+  
+  // Send to backend
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = "Setting…";
+  
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify({ 
+      action: "setStudentPassword", 
+      studentId: studentId,
+      password: password,
+      adminToken: getAdminToken() 
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showNotification(`✅ Password set for ${data.studentName}!`, "success");
+      document.getElementById("passwordStudentSelect").value = "";
+      document.getElementById("passwordInput").value = "";
+      loadQrStudentList();
+    } else {
+      if (errorEl) errorEl.textContent = data.message || "Failed to set password.";
+      showNotification(data.message || "Failed to set password.", "error");
+    }
+  })
+  .catch(err => {
+    if (errorEl) errorEl.textContent = "Network error.";
+    showNotification(`Error: ${err.message}`, "error");
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = "🔑 Set Password";
+  });
 }
 
 // ── Student History ──────────────────────────────────────────────────────────

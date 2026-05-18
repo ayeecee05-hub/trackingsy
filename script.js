@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzdFlmc4Mv6_M10CYdMPPYVEFvPLABCA6Wd0m_pjw1fTCfhifc2dV8AnMFASaR1NXVqaQ/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwtatTZTSiFSUKjQuBqAIdIehVxKifW_s3X5cIi7IgXNjHLdAFatEG-2XNpDs_Z_RBLMg/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
