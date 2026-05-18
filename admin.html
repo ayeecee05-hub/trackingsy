@@ -1383,7 +1383,7 @@
               <span id="studentCountBadge" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
             </div>
             <div class="filter-bar">
-              <input type="text" class="filter-input" id="studentTableSearch" placeholder="🔍  Search users…" oninput="filterStudentTable()">
+              <input type="text" class="filter-input" id="studentTableSearch" placeholder="🔍  Search students…" oninput="filterStudentTable()">
             </div>
             <div class="panel-body-flush">
               <div class="table-wrap scrollable-table" style="max-height:440px;">
@@ -1392,6 +1392,26 @@
                     <th>Student ID</th><th>Name</th><th>Total Borrows</th><th>Current Items</th><th>Late Returns</th><th>Actions</th>
                   </tr></thead>
                   <tbody id="studentsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><span class="panel-title-icon">👨‍🏫</span> Faculty Borrowing History</span>
+              <span id="facultyCountBadge" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
+            </div>
+            <div class="filter-bar">
+              <input type="text" class="filter-input" id="facultyTableSearch" placeholder="🔍  Search faculty…" oninput="filterFacultyTable()">
+            </div>
+            <div class="panel-body-flush">
+              <div class="table-wrap scrollable-table" style="max-height:440px;">
+                <table class="data-table" id="facultyTable">
+                  <thead><tr>
+                    <th>Faculty ID</th><th>Name</th><th>Total Borrows</th><th>Current Items</th><th>Late Returns</th><th>Actions</th>
+                  </tr></thead>
+                  <tbody id="facultyTableBody"></tbody>
                 </table>
               </div>
             </div>

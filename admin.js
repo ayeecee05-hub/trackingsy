@@ -283,18 +283,35 @@ function loadStudentsPage() {
   if (allUsers.length === 0) {
     fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
       allUsers = Array.isArray(u) ? u : [];
-      renderStudentsTable(allUsers);
+      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
+      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
+      renderStudentsTable(students);
+      renderFacultyTable(faculty);
       populatePasswordStudentSelect();
-      const scb = document.getElementById("studentCountBadge");
-      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+      updateUserCounts();
     }).catch(() => showNotification("Error loading students.", "error"));
   } else {
-    renderStudentsTable(allUsers);
+    const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
+    const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
+    renderStudentsTable(students);
+    renderFacultyTable(faculty);
     populatePasswordStudentSelect();
+    updateUserCounts();
   }
   if (allHistoryTransactions.length === 0 && allTransactions.length === 0) {
     loadTransactions();
   }
+}
+
+function updateUserCounts() {
+  const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
+  const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
+  
+  const scb = document.getElementById("studentCountBadge");
+  if (scb) scb.textContent = `${students.length} student${students.length !== 1 ? "s" : ""}`;
+  
+  const fcb = document.getElementById("facultyCountBadge");
+  if (fcb) fcb.textContent = `${faculty.length} facult${faculty.length !== 1 ? "y" : "y"}`;
 }
 
 function isDateStringOlderThan(dateStr, days) {
@@ -335,14 +352,20 @@ function updateKpiCards() {
 
   // Students count requires separate fetch or uses loaded allUsers
   if (allUsers.length > 0 && kpiStudents) {
-    kpiStudents.textContent = allUsers.length;
+    const studentCount = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty").length;
+    kpiStudents.textContent = studentCount;
   } else {
     fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
       allUsers = Array.isArray(u) ? u : [];
-      if (kpiStudents) kpiStudents.textContent = allUsers.length;
-      renderStudentsTable(allUsers);
-      const scb = document.getElementById("studentCountBadge");
-      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+      if (kpiStudents) {
+        const studentCount = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty").length;
+        kpiStudents.textContent = studentCount;
+      }
+      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
+      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
+      renderStudentsTable(students);
+      renderFacultyTable(faculty);
+      updateUserCounts();
     }).catch(() => {});
   }
 
@@ -2212,12 +2235,16 @@ function loadQrStudentList() {
     .then(r => r.json())
     .then(users => {
       allUsers = Array.isArray(users) ? users : [];
-      renderQrStudentList(allUsers);
-      renderStudentsTable(allUsers);
-      const el = document.getElementById("studentCountBadge");
-      if (el) el.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
+      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
+      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
+      renderQrStudentList(students);
+      renderStudentsTable(students);
+      renderFacultyTable(faculty);
+      updateUserCounts();
       const kpi = document.getElementById("kpiStudents");
-      if (kpi) kpi.textContent = allUsers.length;
+      if (kpi) {
+        kpi.textContent = students.length;
+      }
     })
     .catch(() => {
       const el = document.getElementById("qrStudentList");
@@ -2287,10 +2314,55 @@ function renderStudentsTable(users) {
 
 function filterStudentTable() {
   const q = (document.getElementById("studentTableSearch")?.value || "").toLowerCase();
-  const filtered = allUsers.filter(u =>
-    String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
+  const filtered = allUsers.filter(u => 
+    (u.userType !== "Faculty" && u.userType !== "faculty") &&
+    (String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q))
   );
   renderStudentsTable(filtered);
+}
+
+function renderFacultyTable(users) {
+  const tbody = document.getElementById("facultyTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!users || users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No faculty registered.</td></tr>`;
+    return;
+  }
+  users.forEach(u => {
+    // Calculate borrowing stats for this faculty member
+    const historySource = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
+    const facultyTx = historySource.filter(tx => tx.studentId === u.id);
+    const totalBorrows = facultyTx.length;
+    const currentItems = facultyTx.filter(tx => ["Borrowed", "Overdue", "Return Pending"].includes(tx.status)).length;
+    const lateReturns = facultyTx.filter(tx => tx.status === "Late Returned").length;
+    
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="mono-chip">${u.id}</span></td>
+      <td style="font-weight:600;">${u.name}</td>
+      <td style="text-align:center;font-family:var(--mono);">${totalBorrows}</td>
+      <td style="text-align:center;font-family:var(--mono);">${currentItems}</td>
+      <td style="text-align:center;font-family:var(--mono);${lateReturns > 0 ? 'color:var(--danger);font-weight:600;' : ''}">${lateReturns}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-primary btn-sm" onclick="showStudentHistory('${u.id}','${u.name.replace(/'/g,"\\'")}')">📋 History</button>
+          <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditStudentModal('${u.id}','${u.name.replace(/'/g,"\\'")}','${(u.email||"").replace(/'/g,"\\'")}')">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteStudent('${u.id}','${u.name.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function filterFacultyTable() {
+  const q = (document.getElementById("facultyTableSearch")?.value || "").toLowerCase();
+  const filtered = allUsers.filter(u => 
+    (u.userType === "Faculty" || u.userType === "faculty") &&
+    (String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q))
+  );
+  renderFacultyTable(filtered);
 }
 
 // ── Manual password input ────────────────────────────────────────────────────
