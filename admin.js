@@ -1581,6 +1581,13 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
     const query  = (document.getElementById("searchInput")?.value || "").toLowerCase();
     const status = document.getElementById("statusFilter")?.value || "";
     const classification = document.getElementById("classificationFilter")?.value || "";
+    
+    // Update header based on classification
+    const idHeader = document.getElementById("idHeader");
+    if (idHeader) {
+      idHeader.textContent = classification === "Faculty" ? "Faculty ID" : "Student ID";
+    }
+    
     const filtered = allTransactions.filter(tx => {
       // Get user classification
       const user = allUsers.find(u => u.id === tx.studentId);
@@ -1601,9 +1608,11 @@ function resetFilter() {
   const si = document.getElementById("searchInput");
   const sf = document.getElementById("statusFilter");
   const cf = document.getElementById("classificationFilter");
+  const idHeader = document.getElementById("idHeader");
   if (si) si.value = "";
   if (sf) sf.value = "";
   if (cf) cf.value = "";
+  if (idHeader) idHeader.textContent = "Student ID";
   renderTransactions(allTransactions, true);
 }
 
