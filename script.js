@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbz8ro6djT_unrdCT3nhhnJ29-hM09Oz8tK-lz9bfuisH4LrlYxMYPvBZcmfdG06pl5wwg/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbzB3Q_dhpog2CRzJwcFGKlERZG3B6fXP9m65UxeqA_bSTCv6XNEgXRnaJYXz3A0DYC29A/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -561,7 +561,7 @@ function changeHistoryPage(delta) {
 
 function getFilteredHistory() {
   // Only show "terminal" statuses in history — exclude active/pending items
-  const terminalStatuses = ["Returned", "Late Returned", "Rejected"];
+  const terminalStatuses = ["Returned", "Late Returned", "Rejected", "Damaged"];
   let records = allHistoryRecords.filter(tx => terminalStatuses.includes(tx.status));
   if (historyFilter !== "all") records = records.filter(tx => tx.status === historyFilter);
   // Most recent first (sort by borrowDate desc)
@@ -577,7 +577,7 @@ function renderHistoryTable() {
   const countBadge = document.getElementById("historyCount");
 
   const records    = getFilteredHistory();
-  const total      = allHistoryRecords.filter(tx => ["Returned", "Late Returned", "Rejected"].includes(tx.status)).length;
+  const total      = allHistoryRecords.filter(tx => ["Returned", "Late Returned", "Rejected", "Damaged"].includes(tx.status)).length;
   if (countBadge) countBadge.textContent = total + " record" + (total !== 1 ? "s" : "");
 
   if (records.length === 0) {
@@ -596,6 +596,7 @@ function renderHistoryTable() {
       case "Returned":        return "returned";
       case "Late Returned": return "returned-late";
       case "Rejected":        return "rejected";
+      case "Damaged":         return "damaged";
       case "Borrowed":        return "borrowed";
       case "Overdue":         return "overdue";
       case "Pending":         return "pending";

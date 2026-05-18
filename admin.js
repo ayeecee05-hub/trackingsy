@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbz8ro6djT_unrdCT3nhhnJ29-hM09Oz8tK-lz9bfuisH4LrlYxMYPvBZcmfdG06pl5wwg/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbzB3Q_dhpog2CRzJwcFGKlERZG3B6fXP9m65UxeqA_bSTCv6XNEgXRnaJYXz3A0DYC29A/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -308,7 +308,7 @@ function isDateStringOlderThan(dateStr, days) {
 }
 
 function isArchivedTransaction(tx) {
-  const archiveStatuses = ["Returned", "Late Returned", "Rejected"];
+  const archiveStatuses = ["Returned", "Late Returned", "Rejected", "Damaged"];
   if (!archiveStatuses.includes(tx.status)) return false;
   const compareDate = tx.returnDate || tx.dueDate;
   return compareDate ? isDateStringOlderThan(compareDate, ARCHIVE_DAYS) : false;
@@ -1613,6 +1613,9 @@ function renderDamagedItemsTable(items) {
     let statusIcon = "✅";
     if (tx.status === "Late Returned") {
       statusClass = "s-returned-late";
+      statusIcon = "⚠️";
+    } else if (tx.status === "Damaged") {
+      statusClass = "s-damaged";
       statusIcon = "⚠️";
     }
     

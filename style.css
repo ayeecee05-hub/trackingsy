@@ -2031,6 +2031,7 @@ body.dark .history-pill.returned-late { background: rgba(255,183,77,0.13); color
 .history-pill.overdue    { background: var(--tag-red-bg);    color: var(--tag-red-text);    border: 1px solid var(--tag-red-border); }
 .history-pill.pending    { background: rgba(255,183,77,0.13); color: var(--warning);        border: 1px solid rgba(255,183,77,0.3); }
 .history-pill.rejected   { background: var(--bg-primary);    color: var(--text-muted);      border: 1px solid var(--border); }
+.history-pill.damaged    { background: var(--tag-red-bg);    color: var(--tag-red-text);    border: 1px solid var(--tag-red-border); }
 .history-pill.ret-pend   { background: rgba(79,195,247,0.1); color: var(--accent-primary);  border: 1px solid var(--border); }
 
 .history-late-tag {
