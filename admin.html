@@ -1319,10 +1319,19 @@
               <span class="panel-title"><span class="panel-title-icon">➕</span> Register Student</span>
             </div>
             <div class="panel-body">
+              <!-- User Type Selection -->
+              <div class="form-group">
+                <label class="form-label">Registration Type</label>
+                <div style="display:flex;gap:8px;margin-bottom:16px;">
+                  <button type="button" class="btn btn-outline" id="userTypeStudent" style="flex:1;padding:10px;border:2px solid var(--accent);background:var(--accent-glow);color:var(--accent);font-weight:600;border-radius:8px;cursor:pointer;transition:all 0.2s;" onclick="selectUserType('student')">👤 Student</button>
+                  <button type="button" class="btn btn-outline" id="userTypeFaculty" style="flex:1;padding:10px;border:2px solid var(--text3);background:transparent;color:var(--text3);font-weight:600;border-radius:8px;cursor:pointer;transition:all 0.2s;" onclick="selectUserType('faculty')">👨‍🏫 Faculty</button>
+                </div>
+              </div>
+
               <form id="adminForm">
                 <div class="form-group">
-                  <label class="form-label">Student ID</label>
-                  <input type="text" class="form-input" id="adminId" placeholder="e.g. 20230001" inputmode="numeric" aria-label="Student ID">
+                  <label class="form-label"><span id="idLabel">Student</span> ID</label>
+                  <input type="text" class="form-input" id="adminId" placeholder="e.g. 20230001" inputmode="numeric" aria-label="ID">
                   <span class="form-error" id="adminIdError"></span>
                 </div>
                 <div class="form-group">
@@ -1335,7 +1344,8 @@
                   <input type="email" class="form-input" id="adminEmail" placeholder="student@ctu.edu.ph" aria-label="Email">
                   <span class="form-error" id="adminEmailError"></span>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Register Student</button>
+                <input type="hidden" id="adminUserType" value="student">
+                <button type="submit" class="btn btn-primary" id="registerBtn" style="width:100%;justify-content:center;">Register Student</button>
               </form>
 
               <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">

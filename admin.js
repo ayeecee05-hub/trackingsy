@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzB3Q_dhpog2CRzJwcFGKlERZG3B6fXP9m65UxeqA_bSTCv6XNEgXRnaJYXz3A0DYC29A/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbw4Wa3dwTBLg-9lAOZEu70gPvrLjwbJcaKqiJklrUdmyKymhcHQ_RCN7DaJ9dpZ8osxkw/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -723,6 +723,39 @@ function clearFormState(inputId, errorId) {
   if (err)   { err.style.display = "none"; }
 }
 
+// ── Select user registration type (Student or Faculty) ──────────────────────
+function selectUserType(type) {
+  const userTypeField = document.getElementById("adminUserType");
+  const idLabel = document.getElementById("idLabel");
+  const registerBtn = document.getElementById("registerBtn");
+  const studentBtn = document.getElementById("userTypeStudent");
+  const facultyBtn = document.getElementById("userTypeFaculty");
+  
+  if (!userTypeField) return;
+  
+  userTypeField.value = type;
+  
+  if (type === "student") {
+    idLabel.textContent = "Student";
+    registerBtn.textContent = "Register Student";
+    studentBtn.style.background = "var(--accent-glow)";
+    studentBtn.style.borderColor = "var(--accent)";
+    studentBtn.style.color = "var(--accent)";
+    facultyBtn.style.background = "transparent";
+    facultyBtn.style.borderColor = "var(--text3)";
+    facultyBtn.style.color = "var(--text3)";
+  } else {
+    idLabel.textContent = "Faculty";
+    registerBtn.textContent = "Register Faculty";
+    facultyBtn.style.background = "var(--accent-glow)";
+    facultyBtn.style.borderColor = "var(--accent)";
+    facultyBtn.style.color = "var(--accent)";
+    studentBtn.style.background = "transparent";
+    studentBtn.style.borderColor = "var(--text3)";
+    studentBtn.style.color = "var(--text3)";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // Login on enter
   const pwInput = document.getElementById("adminPassword");
@@ -792,9 +825,10 @@ function submitRegisterForm() {
   const studentId = document.getElementById("adminId").value.trim();
   const name      = document.getElementById("adminName").value.trim();
   const email     = document.getElementById("adminEmail").value.trim();
+  const userType  = document.getElementById("adminUserType").value || "student";
   let   hasError  = false;
 
-  if (!studentId) { setFormError("adminId","adminIdError","Student ID is required."); hasError = true; }
+  if (!studentId) { setFormError("adminId","adminIdError","ID is required."); hasError = true; }
   else if (!/^\d+$/.test(studentId)) { setFormError("adminId","adminIdError","Numbers only."); hasError = true; }
   else if (studentId.length < 5 || studentId.length > 12) { setFormError("adminId","adminIdError","5–12 digits required."); hasError = true; }
   else setFormValid("adminId","adminIdError");
@@ -820,7 +854,7 @@ function submitRegisterForm() {
 
   fetch(scriptURL, {
     method: "POST",
-    body: JSON.stringify({ action: "register", studentId, name: sName, email , adminToken: getAdminToken() })
+    body: JSON.stringify({ action: "register", studentId, name: sName, email, userType, adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
@@ -830,6 +864,7 @@ function submitRegisterForm() {
       ["adminId","adminName","adminEmail"].forEach((id, i) =>
         clearFormState(id, ["adminIdError","adminNameError","adminEmailError"][i])
       );
+      selectUserType("student"); // Reset to student type
       loadQrStudentList();
       updateKpiCards();
     } else {
@@ -838,7 +873,7 @@ function submitRegisterForm() {
   })
   .catch(() => showNotification("Network error during registration.", "error"))
   .finally(() => {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Register Student"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = userType === "student" ? "Register Student" : "Register Faculty"; }
   });
 }
 
