@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwxsif_d9PFitdRc9bnPeJ5llq4oOh8uJ92f0Te12AjgCwgPvscVnEe7TaEgDP9NP99MQ/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbzvHBnohRnZOuVlyKl7s5HfWSt6GEFf5Cw-exXJPhtjV96HhA7AxaPyYklIz-01vFPxKA/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -221,7 +221,7 @@ const pageMeta = {
   pageReturns:      { title: "Pending Returns",    desc: "Confirm returned items" },
   pageTransactions: { title: "Transaction Log",    desc: "Full history of all borrow events" },
   pageItems:        { title: "Inventory",          desc: "Manage available equipment and quantities" },
-  pageStudents:     { title: "Users",           desc: "Register, edit, and manage borrowers" },
+  pageStudents:     { title: "Students",           desc: "Register, edit, and manage borrowers" },
   pageAccountability: { title: "Accountability",   desc: "Monitor student violations and status" },
   pageDamagedItems:   { title: "Damaged Items",    desc: "Items returned in damaged or broken condition" },
   pageArchive:      { title: "Archive",            desc: "Older completed transactions" },
@@ -283,35 +283,18 @@ function loadStudentsPage() {
   if (allUsers.length === 0) {
     fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
       allUsers = Array.isArray(u) ? u : [];
-      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
-      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
-      renderStudentsTable(students);
-      renderFacultyTable(faculty);
+      renderStudentsTable(allUsers);
       populatePasswordStudentSelect();
-      updateUserCounts();
+      const scb = document.getElementById("studentCountBadge");
+      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
     }).catch(() => showNotification("Error loading students.", "error"));
   } else {
-    const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
-    const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
-    renderStudentsTable(students);
-    renderFacultyTable(faculty);
+    renderStudentsTable(allUsers);
     populatePasswordStudentSelect();
-    updateUserCounts();
   }
   if (allHistoryTransactions.length === 0 && allTransactions.length === 0) {
     loadTransactions();
   }
-}
-
-function updateUserCounts() {
-  const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
-  const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
-  
-  const scb = document.getElementById("studentCountBadge");
-  if (scb) scb.textContent = `${students.length} student${students.length !== 1 ? "s" : ""}`;
-  
-  const fcb = document.getElementById("facultyCountBadge");
-  if (fcb) fcb.textContent = `${faculty.length} facult${faculty.length !== 1 ? "y" : "y"}`;
 }
 
 function isDateStringOlderThan(dateStr, days) {
@@ -338,7 +321,7 @@ function updateKpiCards() {
   const today = new Date(ty, tm - 1, td);
 
   const overdue  = allTransactions.filter(tx => tx.status === "Overdue").length;
-  const borrowed = allTransactions.filter(tx => tx.status === "Borrowed").length;
+  const borrowed = allTransactions.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue").length;
   const pending  = allPending.length;
 
   const kpiStudents = document.getElementById("kpiStudents");
@@ -352,20 +335,14 @@ function updateKpiCards() {
 
   // Students count requires separate fetch or uses loaded allUsers
   if (allUsers.length > 0 && kpiStudents) {
-    const studentCount = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty").length;
-    kpiStudents.textContent = studentCount;
+    kpiStudents.textContent = allUsers.length;
   } else {
     fetch(scriptURL + "?action=getUsers").then(r => r.json()).then(u => {
       allUsers = Array.isArray(u) ? u : [];
-      if (kpiStudents) {
-        const studentCount = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty").length;
-        kpiStudents.textContent = studentCount;
-      }
-      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
-      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
-      renderStudentsTable(students);
-      renderFacultyTable(faculty);
-      updateUserCounts();
+      if (kpiStudents) kpiStudents.textContent = allUsers.length;
+      renderStudentsTable(allUsers);
+      const scb = document.getElementById("studentCountBadge");
+      if (scb) scb.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
     }).catch(() => {});
   }
 
@@ -760,7 +737,7 @@ function selectUserType(type) {
   
   if (type === "student") {
     idLabel.textContent = "Student";
-    registerBtn.textContent = "Register Users";
+    registerBtn.textContent = "Register Student";
     studentBtn.style.background = "var(--accent-glow)";
     studentBtn.style.borderColor = "var(--accent)";
     studentBtn.style.color = "var(--accent)";
@@ -896,7 +873,7 @@ function submitRegisterForm() {
   })
   .catch(() => showNotification("Network error during registration.", "error"))
   .finally(() => {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = userType === "student" ? "Register Users" : "Register Faculty"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = userType === "student" ? "Register Student" : "Register Faculty"; }
   });
 }
 
@@ -1474,11 +1451,11 @@ function renderTransactions(transactions, resetPage = false) {
   const page  = transactions.slice(start, start + TX_PER_PAGE);
 
   page.forEach(tx => {
-    // Use the transaction's own stored equipment ID first,
-    // fall back to itemIdMap lookup only if empty
-    const itemId = (tx.equipmentId && tx.equipmentId !== "") 
-      ? tx.equipmentId 
-      : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
+// Use the transaction's own stored equipment ID first,
+// fall back to itemIdMap lookup only if empty
+const itemId = (tx.equipmentId && tx.equipmentId !== "") 
+  ? tx.equipmentId 
+  : (itemIdMap[normalizeName(tx.item).toLowerCase()] || "—");    
     // Condition pill with color coding
     let condClass = "c-good";
     let condIcon = "✅";
@@ -1580,26 +1557,12 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
   searchTimeout = setTimeout(() => {
     const query  = (document.getElementById("searchInput")?.value || "").toLowerCase();
     const status = document.getElementById("statusFilter")?.value || "";
-    const classification = document.getElementById("classificationFilter")?.value || "";
-    
-    // Update header based on classification
-    const idHeader = document.getElementById("idHeader");
-    if (idHeader) {
-      idHeader.textContent = classification === "Faculty" ? "Faculty ID" : "Student ID";
-    }
-    
-    const filtered = allTransactions.filter(tx => {
-      // Get user classification
-      const user = allUsers.find(u => u.id === tx.studentId);
-      const userType = user?.userType || "Student";
-      const userClassification = (userType === "Faculty" || userType === "faculty") ? "Faculty" : "Student";
-      
-      return (!query  || String(tx.studentId).toLowerCase().includes(query) ||
+    const filtered = allTransactions.filter(tx =>
+      (!query  || String(tx.studentId).toLowerCase().includes(query) ||
                   String(tx.item).toLowerCase().includes(query) ||
                   String(tx.studentName || "").toLowerCase().includes(query)) &&
-      (!status || tx.status === status) &&
-      (!classification || userClassification === classification);
-    });
+      (!status || tx.status === status)
+    );
     renderTransactions(filtered, true);
   }, 300);
 }
@@ -1607,12 +1570,8 @@ const itemId = (tx.equipmentId && tx.equipmentId !== "")
 function resetFilter() {
   const si = document.getElementById("searchInput");
   const sf = document.getElementById("statusFilter");
-  const cf = document.getElementById("classificationFilter");
-  const idHeader = document.getElementById("idHeader");
   if (si) si.value = "";
   if (sf) sf.value = "";
-  if (cf) cf.value = "";
-  if (idHeader) idHeader.textContent = "Student ID";
   renderTransactions(allTransactions, true);
 }
 
@@ -2253,16 +2212,12 @@ function loadQrStudentList() {
     .then(r => r.json())
     .then(users => {
       allUsers = Array.isArray(users) ? users : [];
-      const students = allUsers.filter(usr => usr.userType !== "Faculty" && usr.userType !== "faculty");
-      const faculty = allUsers.filter(usr => usr.userType === "Faculty" || usr.userType === "faculty");
-      renderQrStudentList(students);
-      renderStudentsTable(students);
-      renderFacultyTable(faculty);
-      updateUserCounts();
+      renderQrStudentList(allUsers);
+      renderStudentsTable(allUsers);
+      const el = document.getElementById("studentCountBadge");
+      if (el) el.textContent = `${allUsers.length} student${allUsers.length !== 1 ? "s" : ""}`;
       const kpi = document.getElementById("kpiStudents");
-      if (kpi) {
-        kpi.textContent = students.length;
-      }
+      if (kpi) kpi.textContent = allUsers.length;
     })
     .catch(() => {
       const el = document.getElementById("qrStudentList");
@@ -2332,55 +2287,10 @@ function renderStudentsTable(users) {
 
 function filterStudentTable() {
   const q = (document.getElementById("studentTableSearch")?.value || "").toLowerCase();
-  const filtered = allUsers.filter(u => 
-    (u.userType !== "Faculty" && u.userType !== "faculty") &&
-    (String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q))
+  const filtered = allUsers.filter(u =>
+    String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q)
   );
   renderStudentsTable(filtered);
-}
-
-function renderFacultyTable(users) {
-  const tbody = document.getElementById("facultyTableBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-  if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No faculty registered.</td></tr>`;
-    return;
-  }
-  users.forEach(u => {
-    // Calculate borrowing stats for this faculty member
-    const historySource = allHistoryTransactions.length > 0 ? allHistoryTransactions : allTransactions;
-    const facultyTx = historySource.filter(tx => tx.studentId === u.id);
-    const totalBorrows = facultyTx.length;
-    const currentItems = facultyTx.filter(tx => ["Borrowed", "Overdue", "Return Pending"].includes(tx.status)).length;
-    const lateReturns = facultyTx.filter(tx => tx.status === "Late Returned").length;
-    
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td><span class="mono-chip">${u.id}</span></td>
-      <td style="font-weight:600;">${u.name}</td>
-      <td style="text-align:center;font-family:var(--mono);">${totalBorrows}</td>
-      <td style="text-align:center;font-family:var(--mono);">${currentItems}</td>
-      <td style="text-align:center;font-family:var(--mono);${lateReturns > 0 ? 'color:var(--danger);font-weight:600;' : ''}">${lateReturns}</td>
-      <td>
-        <div style="display:flex;gap:4px;">
-          <button class="btn btn-primary btn-sm" onclick="showStudentHistory('${u.id}','${u.name.replace(/'/g,"\\'")}')">📋 History</button>
-          <button class="btn btn-ghost btn-sm" onclick="showQrModal('${u.id}','${u.name.replace(/'/g,"\\'")}')">QR</button>
-          <button class="btn btn-ghost btn-sm" onclick="openEditStudentModal('${u.id}','${u.name.replace(/'/g,"\\'")}','${(u.email||"").replace(/'/g,"\\'")}')">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDeleteStudent('${u.id}','${u.name.replace(/'/g,"\\'")}')">🗑</button>
-        </div>
-      </td>`;
-    tbody.appendChild(row);
-  });
-}
-
-function filterFacultyTable() {
-  const q = (document.getElementById("facultyTableSearch")?.value || "").toLowerCase();
-  const filtered = allUsers.filter(u => 
-    (u.userType === "Faculty" || u.userType === "faculty") &&
-    (String(u.name).toLowerCase().includes(q) || String(u.id).toLowerCase().includes(q))
-  );
-  renderFacultyTable(filtered);
 }
 
 // ── Manual password input ────────────────────────────────────────────────────
