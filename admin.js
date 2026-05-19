@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxxefjtzUXSH69VdZoOGwcB7PP4PSDhwaB2en3Abrpsrl4wTLhNrhpmiaBeBMW6l3FvPA/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbxJvSubAhghiWTD7vTmGScFxCpRvL7oePiRD-9mvqXEtK5hWLAkh4bFky4bnCbsZZ1Sgg/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -3232,7 +3232,7 @@ function drawOnTimeChart(transactions) {
   if (!container) return;
   container.innerHTML = "";
 
-  const returned = transactions.filter(tx => tx.status === "Returned");
+  const returned = transactions.filter(tx => tx.status === "Returned" || tx.status === "Late Returned");
   const onTime   = returned.filter(tx => !tx.isLate).length;
   const late     = returned.filter(tx => tx.isLate).length;
   if (returned.length === 0) { container.innerHTML = "<p class='chart-empty'>No completed returns yet.</p>"; return; }
