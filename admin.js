@@ -616,6 +616,10 @@ function renderDashPending() {
   const tbody = document.getElementById("dashPendingBody");
   if (!tbody) return;
   tbody.innerHTML = "";
+  if (isPendingLoading) {
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading pending requests…</td></tr>`;
+    return;
+  }
   if (!allPending || allPending.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" class="table-empty"><span class="empty-icon">✅</span>No pending requests</td></tr>`;
     return;
@@ -897,8 +901,13 @@ function submitRegisterForm() {
 
 // ── Pending borrow requests ──────────────────────────────────────────────────
 function loadPendingRequests() {
+  isPendingLoading = true;
   const tbody = document.getElementById("pendingTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
+  const selectAll = document.getElementById("selectAllPending");
+  const bulkBtn   = document.getElementById("bulkApproveBtn");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="table-empty">Loading pending requests…</td></tr>`;
+  if (selectAll) selectAll.disabled = true;
+  if (bulkBtn) bulkBtn.style.display = "none";
 
   fetch(scriptURL + "?action=getPendingRequests")
     .then(r => r.json())
@@ -909,7 +918,12 @@ function loadPendingRequests() {
       updateKpiCards();
     })
     .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
+    })
+    .finally(() => {
+      isPendingLoading = false;
+      if (selectAll) selectAll.disabled = false;
+      renderDashPending();
     });
 }
 
@@ -917,6 +931,11 @@ function renderPendingTable(requests) {
   const tbody = document.getElementById("pendingTableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
+
+  if (isPendingLoading) {
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">Loading pending requests…</td></tr>`;
+    return;
+  }
 
   if (!requests || requests.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending requests — all handled.</td></tr>`;
@@ -1067,14 +1086,26 @@ function confirmHandover(index) {
      <small style="color:var(--text3);">Status → <em>Borrowed</em>, stock −1</small>`;
   const modal = document.getElementById("handoverModal");
   modal.classList.add("open");
-  document.getElementById("handoverYes").onclick = () => { modal.classList.remove("open"); executeHandover(req); };
-  document.getElementById("handoverNo").onclick  = () => { modal.classList.remove("open"); };
+
+  const yesBtn = document.getElementById("handoverYes");
+  const noBtn = document.getElementById("handoverNo");
+  yesBtn.onclick = () => { executeHandover(req); };
+  noBtn.onclick  = () => { modal.classList.remove("open"); };
 }
 
 function executeHandover(req) {
-  showNotification("Processing hand-over…", "info");
-  const btns = document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success, #dashPendingBody .btn-success");
-  btns.forEach(b => setButtonLoading(b, true, "Processing…"));
+  const modal = document.getElementById("handoverModal");
+  const yesBtn = document.getElementById("handoverYes");
+  const noBtn = document.getElementById("handoverNo");
+  const message = document.getElementById("handoverMessage");
+
+  if (yesBtn && noBtn) {
+    setButtonLoading(yesBtn, true, "Processing…");
+    noBtn.disabled = true;
+  }
+  if (message) {
+    message.innerHTML = `Processing hand-over... <br><small style="color:var(--text3);">Please wait while the system updates the borrow status.</small>`;
+  }
 
   fetch(scriptURL, {
     method: "POST",
@@ -1083,19 +1114,24 @@ function executeHandover(req) {
   .then(r => r.json())
   .then(data => {
     if (data.success) {
+      if (modal) modal.classList.remove("open");
       showNotification(`✅ "${req.item}" (${req.selectedItemId}) handed over to ${req.studentName || req.studentId}`, "success");
       loadPendingRequests();
       loadTransactions();
       loadItemsTable();
     } else {
+      if (yesBtn) setButtonLoading(yesBtn, false);
+      if (noBtn) noBtn.disabled = false;
+      if (message) message.innerHTML = `Hand over <strong>${req.item}</strong> (ID: <strong>${req.selectedItemId}</strong>) to <strong>${req.studentName || req.studentId}</strong>?<br><small style="color:var(--danger);">${data.message || "Hand-over failed. Please try again."}</small>`;
       showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
-      btns.forEach(b => setButtonLoading(b, false));
       loadPendingRequests();
     }
   })
   .catch(() => {
+    if (yesBtn) setButtonLoading(yesBtn, false);
+    if (noBtn) noBtn.disabled = false;
+    if (message) message.innerHTML = `Hand over <strong>${req.item}</strong> (ID: <strong>${req.selectedItemId}</strong>) to <strong>${req.studentName || req.studentId}</strong>?<br><small style="color:var(--danger);">Network error. Please try again.</small>`;
     showNotification("❌ Network error during hand-over. Please try again.", "error");
-    btns.forEach(b => setButtonLoading(b, false));
     loadPendingRequests();
   });
 }
@@ -1137,8 +1173,11 @@ function executeReject(req) {
 
 // ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
+  isReturnLoading = true;
   const tbody = document.getElementById("returnsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading…</td></tr>`;
+  const selectAll = document.getElementById("selectAllReturns");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading return requests…</td></tr>`;
+  if (selectAll) selectAll.disabled = true;
 
   fetch(scriptURL + "?action=getReturnRequests")
     .then(r => r.json())
@@ -1149,6 +1188,10 @@ function loadReturnRequests() {
     })
     .catch(() => {
       if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
+    })
+    .finally(() => {
+      isReturnLoading = false;
+      if (selectAll) selectAll.disabled = false;
     });
 }
 
@@ -1156,6 +1199,11 @@ function renderReturnsTable(requests) {
   const tbody = document.getElementById("returnsTableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
+
+  if (isReturnLoading) {
+    tbody.innerHTML = `<tr><td colspan="10" class="table-empty">Loading return requests…</td></tr>`;
+    return;
+  }
 
   if (!requests || requests.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" class="table-empty"><span class="empty-icon">✅</span>No pending return requests.</td></tr>`;
@@ -1275,30 +1323,45 @@ function confirmReturnRequest(index) {
   const req = allReturnRequests[index];
   if (!req) return;
   const today = getPHTDateString();
-  document.getElementById("adminReturnMessage").innerHTML =
-    `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br>
-     <small style="color:var(--text3);">Return date: <strong>${today}</strong> · Stock +1</small>`;
+  const messageEl = document.getElementById("adminReturnMessage");
+  if (messageEl) {
+    messageEl.innerHTML =
+      `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br>
+       <small style="color:var(--text3);">Return date: <strong>${today}</strong> · Stock +1</small>`;
+  }
   document.getElementById("returnCondition").value = "Good";
   const modal = document.getElementById("adminReturnModal");
   modal.classList.add("open");
-  document.getElementById("adminReturnYes").onclick = () => { 
-    modal.classList.remove("open"); 
+
+  const yesBtn = document.getElementById("adminReturnYes");
+  const noBtn = document.getElementById("adminReturnNo");
+  const damageBtn = document.getElementById("adminReturnDamage");
+
+  if (yesBtn) yesBtn.onclick = () => {
     const condition = document.getElementById("returnCondition").value;
-    executeConfirmReturn(req, today, condition); 
+    executeConfirmReturn(req, today, condition);
   };
-  document.getElementById("adminReturnDamage").onclick = () => {
+  if (damageBtn) damageBtn.onclick = () => {
     modal.classList.remove("open");
     const txId = req.rowIndex || index;
-    console.log("Opening damage report for:", { txId, studentName: req.studentName, item: req.item });
     openDamageReportModal(txId, req.studentName || req.studentId, req.item);
   };
-  document.getElementById("adminReturnNo").onclick  = () => { modal.classList.remove("open"); };
+  if (noBtn) noBtn.onclick = () => { modal.classList.remove("open"); };
 }
 
 function executeConfirmReturn(req, returnDate, condition = "Good") {
-  showNotification("Confirming return…", "info");
+  const modal = document.getElementById("adminReturnModal");
   const confirmBtn = document.getElementById("adminReturnYes");
-  setButtonLoading(confirmBtn, true, "Confirming…");
+  const noBtn = document.getElementById("adminReturnNo");
+  const damageBtn = document.getElementById("adminReturnDamage");
+  const messageEl = document.getElementById("adminReturnMessage");
+
+  if (confirmBtn) setButtonLoading(confirmBtn, true, "Confirming…");
+  if (noBtn) noBtn.disabled = true;
+  if (damageBtn) damageBtn.disabled = true;
+  if (messageEl) {
+    messageEl.innerHTML = `Processing return confirmation... <br><small style="color:var(--text3);">Please wait while the system updates the return status.</small>`;
+  }
   
   // Check if return is late and add penalty
   let isLate = false;
@@ -1316,12 +1379,13 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       returnDate, 
       rowIndex: req.rowIndex,
       condition: condition,
-      isLate: isLate
-    , adminToken: getAdminToken() })
+      isLate: isLate,
+      adminToken: getAdminToken() })
   })
   .then(r => r.json())
   .then(data => {
     if (data.success) {
+      if (modal) modal.classList.remove("open");
       const conditionIcon = condition === "Good" ? "✅" : condition === "Damaged" ? "⚠️" : "❌";
       const lateText = isLate ? " [LATE]" : "";
       showNotification(`${conditionIcon} "${req.item}" return confirmed (${condition})${lateText}.`, "success");
@@ -1330,11 +1394,30 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       loadItemsTable();
       renderActiveBorrowers();
     } else {
+      if (confirmBtn) setButtonLoading(confirmBtn, false);
+      if (noBtn) noBtn.disabled = false;
+      if (damageBtn) damageBtn.disabled = false;
+      if (messageEl) {
+        messageEl.innerHTML = `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br><small style="color:var(--danger);">${data.message || "Confirmation failed. Please try again."}</small>`;
+      }
       showNotification(data.message || "Confirmation failed.", "error");
     }
   })
-.catch(() => showNotification("Network error during return confirmation.", "error"))
-    .finally(() => { const confirmBtn = document.getElementById("adminReturnYes"); setButtonLoading(confirmBtn, false); });
+  .catch(() => {
+    if (confirmBtn) setButtonLoading(confirmBtn, false);
+    if (noBtn) noBtn.disabled = false;
+    if (damageBtn) damageBtn.disabled = false;
+    if (messageEl) {
+      messageEl.innerHTML = `Confirm return of <strong>${req.item}</strong> from <strong>${req.studentName || req.studentId}</strong>?<br><small style="color:var(--danger);">Network error. Please try again.</small>`;
+    }
+    showNotification("❌ Network error during return confirmation.", "error");
+    loadReturnRequests();
+  })
+  .finally(() => {
+    if (confirmBtn) setButtonLoading(confirmBtn, false);
+    if (noBtn) noBtn.disabled = false;
+    if (damageBtn) damageBtn.disabled = false;
+  });
 }
 
 // ── Bulk Return Confirmation ────────────────────────────────────────────────
@@ -1621,13 +1704,21 @@ let allDamagedItems = [];
 let filteredDamagedItems = [];
 
 function loadDamagedItems() {
+  isDamagedLoading = true;
+  const tbody = document.getElementById("damagedItemsBody");
+  const badge = document.getElementById("damagedItemsCount");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading damaged items…</td></tr>`;
+  if (badge) {
+    badge.textContent = "Loading…";
+    badge.style.display = "inline-block";
+  }
+
   fetch(scriptURL + "?action=getDamagedItems")
     .then(r => r.json())
     .then(data => {
       allDamagedItems = Array.isArray(data) ? data : [];
       filteredDamagedItems = allDamagedItems;
       renderDamagedItemsTable(allDamagedItems);
-      const badge = document.getElementById("damagedItemsCount");
       if (badge) {
         badge.textContent = `${allDamagedItems.length} item${allDamagedItems.length !== 1 ? "s" : ""}`;
         badge.style.display = allDamagedItems.length > 0 ? "inline-block" : "none";
@@ -1635,7 +1726,12 @@ function loadDamagedItems() {
     })
     .catch(err => {
       console.error("Error loading damaged items:", err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">Error loading damaged items.</td></tr>`;
+      if (badge) badge.style.display = "none";
       showNotification("Error loading damaged items.", "error");
+    })
+    .finally(() => {
+      isDamagedLoading = false;
     });
 }
 
@@ -1643,6 +1739,11 @@ function renderDamagedItemsTable(items) {
   const tbody = document.getElementById("damagedItemsBody");
   if (!tbody) return;
   tbody.innerHTML = "";
+
+  if (isDamagedLoading) {
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading damaged items…</td></tr>`;
+    return;
+  }
 
   if (!items || items.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" class="table-empty"><span class="empty-icon">✅</span>No damaged or broken items on record.</td></tr>`;
