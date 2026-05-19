@@ -1280,8 +1280,30 @@ function populateReturnSelect() {
         const opt = document.createElement("option");
         opt.value       = tx.item;
         opt.textContent = `${tx.item} (due ${tx.dueDate})`;
+        // Keep a reference to the original rowIndex/item id for server actions
+        if (tx.rowIndex !== undefined) opt.dataset.rowIndex = tx.rowIndex;
         select.appendChild(opt);
       });
+
+      // If there's only one eligible item, auto-select it and set hidden row id
+      const rowHidden = document.getElementById("returnItemRow");
+      if (eligible.length === 1) {
+        select.selectedIndex = 0;
+        select.disabled = true;
+        const first = select.querySelector("option");
+        if (first && first.dataset && first.dataset.rowIndex) rowHidden.value = first.dataset.rowIndex;
+      } else {
+        select.disabled = false;
+        if (rowHidden) rowHidden.value = "";
+      }
+
+      // Update hidden row id whenever selection changes
+      select.onchange = () => {
+        const opt = select.options[select.selectedIndex];
+        const rowHidden = document.getElementById("returnItemRow");
+        if (opt && opt.dataset && opt.dataset.rowIndex) rowHidden.value = opt.dataset.rowIndex || "";
+      };
+
     })
     .catch(() => showNotification("Error loading items.", "error"));
 }
@@ -1461,6 +1483,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
 
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
+  const rowIndex   = document.getElementById("returnItemRow") ? document.getElementById("returnItemRow").value : "";
 
   if (!item) {
     showNotification("Please select an item to return.", "error");
@@ -1474,14 +1497,18 @@ document.getElementById("returnForm").addEventListener("submit", e => {
        Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
+      const payload = {
+        action:     "requestReturn",   // sets status = "Return Pending"
+        studentId:  currentUser.id,
+        item,
+        returnDate
+      };
+      // Include rowIndex when available to make server-side matching exact
+      if (rowIndex) payload.rowIndex = rowIndex;
+
       safeFetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify({
-          action:     "requestReturn",   // sets status = "Return Pending"
-          studentId:  currentUser.id,
-          item,
-          returnDate
-        })
+        body: JSON.stringify(payload)
       }).then(data => {
         if (data.success) {
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
