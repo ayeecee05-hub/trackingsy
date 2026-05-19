@@ -1659,6 +1659,7 @@
         <textarea class="form-input" id="damageReportDescription" placeholder="Describe the damage..." style="min-height:100px;"></textarea>
       </div>
       <span class="form-error" id="damageReportError" style="display:block;"></span>
+      <span class="form-status" id="damageReportStatus" style="display:none;color:var(--accent);margin-top:8px;font-size:13px;"></span>
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger" onclick="submitDamageReport()">📋 Submit Report</button>
@@ -1889,9 +1890,10 @@ function openDamageReportModal(txId, studentName, itemName) {
   const descEl = document.getElementById("damageReportDescription");
   const sevEl = document.getElementById("damageReportSeverity");
   const errEl = document.getElementById("damageReportError");
+  const statusEl = document.getElementById("damageReportStatus");
   const modalEl = document.getElementById("damageReportModal");
 
-  console.log("Elements found:", { txIdEl, studentEl, itemEl, descEl, sevEl, errEl, modalEl });
+  console.log("Elements found:", { txIdEl, studentEl, itemEl, descEl, sevEl, errEl, statusEl, modalEl });
 
   if (!txIdEl || !studentEl || !itemEl || !modalEl) {
     console.error("Damage report modal elements not found:", { 
@@ -1908,7 +1910,14 @@ function openDamageReportModal(txId, studentName, itemName) {
   itemEl.value = itemName;
   if (descEl) descEl.value = "";
   if (sevEl) sevEl.value = "Minor";
-  if (errEl) errEl.innerText = "";
+  if (errEl) {
+    errEl.innerText = "";
+    errEl.style.display = "none";
+  }
+  if (statusEl) {
+    statusEl.innerText = "";
+    statusEl.style.display = "none";
+  }
   
   console.log("Opening modal...");
   setTimeout(() => {
@@ -1922,10 +1931,32 @@ async function submitDamageReport() {
   const severity = document.getElementById("damageReportSeverity").value;
   const description = document.getElementById("damageReportDescription").value;
   const reportDate = getPHTDateString();
-  
+  const errorEl = document.getElementById("damageReportError");
+  const statusEl = document.getElementById("damageReportStatus");
+  const submitBtn = document.querySelector("#damageReportModal .btn-danger");
+  const cancelBtn = document.querySelector("#damageReportModal .btn-ghost");
+
   if (!description.trim()) {
-    document.getElementById("damageReportError").innerText = "⚠️ Please describe the damage.";
+    if (errorEl) {
+      errorEl.innerText = "⚠️ Please describe the damage.";
+      errorEl.style.display = "block";
+    }
     return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting…";
+  }
+  if (cancelBtn) cancelBtn.disabled = true;
+  if (statusEl) {
+    statusEl.innerText = "Submitting damage report...";
+    statusEl.style.display = "block";
+    statusEl.style.color = "var(--accent)";
+  }
+  if (errorEl) {
+    errorEl.innerText = "";
+    errorEl.style.display = "none";
   }
 
   try {
@@ -1946,10 +1977,32 @@ async function submitDamageReport() {
       closeModal("damageReportModal");
       loadReturnRequests();
     } else {
-      document.getElementById("damageReportError").innerText = "❌ " + (result.message || "Failed to log report");
+      if (statusEl) {
+        statusEl.innerText = "Failed to submit damage report.";
+        statusEl.style.color = "var(--danger)";
+        statusEl.style.display = "block";
+      }
+      if (errorEl) {
+        errorEl.innerText = "❌ " + (result.message || "Failed to log report");
+        errorEl.style.display = "block";
+      }
     }
   } catch(e) {
-    document.getElementById("damageReportError").innerText = "❌ Error: " + e.message;
+    if (statusEl) {
+      statusEl.innerText = "Error submitting damage report.";
+      statusEl.style.color = "var(--danger)";
+      statusEl.style.display = "block";
+    }
+    if (errorEl) {
+      errorEl.innerText = "❌ Error: " + e.message;
+      errorEl.style.display = "block";
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "📋 Submit Report";
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
   }
 }
 

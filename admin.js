@@ -1342,6 +1342,12 @@ function confirmReturnRequest(index) {
     executeConfirmReturn(req, today, condition);
   };
   if (damageBtn) damageBtn.onclick = () => {
+    if (damageBtn) setButtonLoading(damageBtn, true, "Opening…");
+    if (noBtn) noBtn.disabled = true;
+    if (yesBtn) yesBtn.disabled = true;
+    if (messageEl) {
+      messageEl.innerHTML = `Opening damage report... <br><small style="color:var(--text3);">Please wait.</small>`;
+    }
     modal.classList.remove("open");
     const txId = req.rowIndex || index;
     openDamageReportModal(txId, req.studentName || req.studentId, req.item);
@@ -3391,7 +3397,9 @@ function openDamageReportModal(txId, studentName, item) {
   document.getElementById("damageReportSeverity").value = "Damaged";
   document.getElementById("damageReportDescription").value = "";
   const err = document.getElementById("damageReportError");
+  const status = document.getElementById("damageReportStatus");
   if (err) { err.textContent = ""; err.style.display = "none"; }
+  if (status) { status.textContent = ""; status.style.display = "none"; }
   openModal("damageReportModal");
 }
 
@@ -3408,7 +3416,16 @@ function submitDamageReport() {
   }
 
   const submitBtn = document.querySelector("#damageReportModal .btn-danger");
+  const cancelBtn = document.querySelector("#damageReportModal .btn-ghost");
+  const statusEl = document.getElementById("damageReportStatus");
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
+  if (cancelBtn) cancelBtn.disabled = true;
+  if (statusEl) {
+    statusEl.textContent = "Submitting damage report...";
+    statusEl.style.display = "block";
+    statusEl.style.color = "var(--accent)";
+  }
+  if (errEl) { errEl.textContent = ""; errEl.style.display = "none"; }
 
   const reportDate = getPHTDateString();
 
@@ -3432,15 +3449,26 @@ function submitDamageReport() {
       loadReturnRequests();
       loadTransactions();
     } else {
+      if (statusEl) {
+        statusEl.textContent = "Failed to submit damage report.";
+        statusEl.style.color = "var(--danger)";
+        statusEl.style.display = "block";
+      }
       errEl.textContent = data.message || "Failed to submit report.";
       errEl.style.display = "block";
     }
   })
   .catch(() => {
+    if (statusEl) {
+      statusEl.textContent = "Network error while submitting report.";
+      statusEl.style.color = "var(--danger)";
+      statusEl.style.display = "block";
+    }
     errEl.textContent = "Network error while submitting report.";
     errEl.style.display = "block";
   })
   .finally(() => {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "📋 Submit Report"; }
+    if (cancelBtn) cancelBtn.disabled = false;
   });
 }
