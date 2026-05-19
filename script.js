@@ -75,6 +75,8 @@ function addDaysToPHTString(dateStr, days) {
 
 let currentUser      = null;
 let allBorrowers     = [];
+let isBorrowSubmitting = false;
+let isReturnSubmitting = false;
 
 // ── Restore session on page refresh ──────────────────────────────────────────
 (function restoreSession() {
@@ -1312,6 +1314,7 @@ function populateReturnSelect() {
 document.getElementById("borrowForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
+  if (isBorrowSubmitting) { showNotification("Borrow request is already processing. Please wait.", "info"); return; }
 
   // ── CHECK FOR SUSPENSION ──────────────────────────────────────────────────
   // Load current user's history to check suspension status
@@ -1366,50 +1369,23 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
          Status will be <strong style="color:var(--warning);">Pending</strong> until the admin hands over the item.
        </small>`,
       () => {
-        // Immediately go to dashboard and show an undo-capable toast
-        showPage("userDashboardPage");
+        isBorrowSubmitting = true;
+        const confirmBtn = document.getElementById("confirmYes");
+        const confirmMsg = document.getElementById("confirmMessage");
+        if (confirmMsg) {
+          confirmMsg.innerHTML = `Processing borrow request... <br><small style="color:var(--text3);">Please wait while the system submits your request.</small>`;
+        }
+        setConfirmModalLoading(true, "Requesting…");
 
         let wasCancelled = false;
-        // We need a reference to the pending request to cancel it
         let submittedTx = null;
 
-        showNotification(`📋 Borrow request for "${item}" submitted!`, "success",
-          "Cancel", () => {
-            wasCancelled = true;
-            if (submittedTx) {
-              // Cancel by calling rejectBorrow on our own pending request
-              safeFetch(scriptURL, {
-                method: "POST",
-                body: JSON.stringify({
-                  action: "rejectBorrow",
-                  studentId: currentUser.id,
-                  item: submittedTx.item,
-                  rowIndex: submittedTx.rowIndex
-                })
-              }).then(data => {
-                if (data.success) {
-                  showNotification(`Request for "${item}" cancelled.`, "info");
-                  loadUserDashboard();
-                } else {
-                  showNotification("Could not cancel — the admin may have already processed it.", "error");
-                  loadUserDashboard();
-                }
-              })
-              .catch(() => showNotification("Network error. Request may still be active.", "error"));
-            } else {
-              // Request hasn't come back yet — flag it for cancellation on arrival
-              showNotification(`Cancelling request for "${item}"…`, "info");
-            }
-          }
-        );
-
-        const confirmBtn = document.getElementById("confirmYes");
-        setConfirmModalLoading(true, "Requesting…");
         safeFetch(scriptURL, {
           method: "POST",
           body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
         }).then(data => {
           setConfirmModalLoading(false);
+          isBorrowSubmitting = false;
           if (data.success) {
             document.getElementById("confirmModal").style.display = "none";
             showPage("userDashboardPage");
@@ -1473,10 +1449,17 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
             }
           } else {
             showNotification(data.message || "Request failed.", "error");
+            if (confirmMsg) {
+              confirmMsg.innerHTML = `Request <strong>${item}</strong> failed.<br><small style="color:var(--danger);">${data.message || "Please try again."}</small>`;
+            }
           }
         })
         .catch(() => {
           setConfirmModalLoading(false);
+          isBorrowSubmitting = false;
+          if (confirmMsg) {
+            confirmMsg.innerHTML = `Request <strong>${item}</strong> failed.<br><small style="color:var(--danger);">Network error. Please try again.</small>`;
+          }
           showNotification("Network error. Please try again.", "error");
         });
       }
@@ -1514,6 +1497,7 @@ function cancelPendingRequest(rowIndex, item) {
 document.getElementById("returnForm").addEventListener("submit", e => {
   e.preventDefault();
   if (!currentUser) { showNotification("No user selected.", "error"); return; }
+  if (isReturnSubmitting) { showNotification("Return request is already processing. Please wait.", "info"); return; }
 
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
@@ -1530,7 +1514,12 @@ document.getElementById("returnForm").addEventListener("submit", e => {
        Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
+      isReturnSubmitting = true;
       const confirmBtn = document.getElementById("confirmYes");
+      const confirmMsg = document.getElementById("confirmMessage");
+      if (confirmMsg) {
+        confirmMsg.innerHTML = `Processing return request... <br><small style="color:var(--text3);">Please wait while the system submits your return.</small>`;
+      }
       setConfirmModalLoading(true, "Submitting…");
       safeFetch(scriptURL, {
         method: "POST",
@@ -1542,6 +1531,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
         })
       }).then(data => {
         setConfirmModalLoading(false);
+        isReturnSubmitting = false;
         if (data.success) {
           document.getElementById("confirmModal").style.display = "none";
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
@@ -1549,10 +1539,17 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           loadUserDashboard();
         } else {
           showNotification(data.message || "Return request failed.", "error");
+          if (confirmMsg) {
+            confirmMsg.innerHTML = `Return request for <strong>${item}</strong> failed.<br><small style="color:var(--danger);">${data.message || "Please try again."}</small>`;
+          }
         }
       })
       .catch(() => {
         setConfirmModalLoading(false);
+        isReturnSubmitting = false;
+        if (confirmMsg) {
+          confirmMsg.innerHTML = `Return request for <strong>${item}</strong> failed.<br><small style="color:var(--danger);">Network error. Please try again.</small>`;
+        }
         showNotification("Network error. Please try again.", "error");
       });
     }
