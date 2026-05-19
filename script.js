@@ -554,11 +554,8 @@ function updatePinModalLockUI(userId) {
     // Not locked — enable input and show remaining attempts if any
     pinInput.disabled = false;
     submitBtn.disabled = false;
-    if (state.count && state.count > 0) {
-      hintEl.textContent = `Attempts: ${state.count}/${PIN_MAX_ATTEMPTS}`;
-    } else {
-      hintEl.textContent = "";
-    }
+    // Do not display attempt counts (professional UX)
+    hintEl.textContent = "";
   }
 }
 
