@@ -9,7 +9,7 @@
 //            Admin clicks "Confirm Return"  → status = "Returned"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzbnY_8jGkJQsFf31ZHzP3Xn8WfteArLd04CIgM5GmA1uIbdDxNk4vFuBSO-OJslw0N0g/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwnZtG4gRunAKthjbt_n3cv5co7A7RP85ZmTWhaMa7e7bJy8LRprOIlMIiI50299PWJmA/exec";
 
 // ── Safe JSON fetch — prevents crash when Apps Script returns HTML ────────────
 // Google Apps Script sometimes returns an HTML redirect/error page instead of
@@ -1203,17 +1203,19 @@ function populateBorrowSelect() {
   dueDateInput.min   = addDaysToPHTString(todayStr, 1);
   dueDateInput.max   = addDaysToPHTString(todayStr, 30);
 
-  // Fetch BOTH items and active transactions to show TRUE available count
+  // Fetch BOTH items, active transactions, and damaged records to show TRUE available count
   Promise.all([
     safeFetch(scriptURL + "?action=getItems"),
-    safeFetch(scriptURL + "?action=getAllHistory")
+    safeFetch(scriptURL + "?action=getAllHistory"),
+    safeFetch(scriptURL + "?action=getDamagedItems")
   ])
-    .then(([response, history]) => {
+    .then(([response, history, damaged]) => {
       const select = document.getElementById("borrowItem");
       select.innerHTML = "";
 
       // Handle both old and new response formats
       let items = Array.isArray(response) ? response : (response && response.items ? response.items : []);
+      let damagedList = Array.isArray(damaged) ? damaged : (damaged && damaged.data ? damaged.data : []);
 
       // Count total items by name
       const totalByName = {};
@@ -1234,12 +1236,21 @@ function populateBorrowSelect() {
         }
       });
 
-      // Calculate available = total - borrowed
+      // Count damaged items by name so damaged units are not offered for new borrows
+      const damagedByName = {};
+      (damagedList || []).forEach(tx => {
+        const key = (tx.item || "").trim().replace(/\s+/g, " ");
+        if (!key) return;
+        damagedByName[key] = (damagedByName[key] || 0) + 1;
+      });
+
+      // Calculate available = total - borrowed - damaged
       const available = [];
       Object.keys(totalByName).forEach(key => {
         const total = totalByName[key] || 0;
         const out = borrowedByName[key] || 0;
-        const qty = Math.max(0, total - out);
+        const damagedCount = damagedByName[key] || 0;
+        const qty = Math.max(0, total - out - damagedCount);
         if (qty > 0) available.push([key, qty]);
       });
 
