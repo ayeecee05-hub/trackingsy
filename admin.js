@@ -320,18 +320,21 @@ function updateKpiCards() {
   const [ty, tm, td] = todayStr.split("-").map(Number);
   const today = new Date(ty, tm - 1, td);
 
-  const overdue  = allTransactions.filter(tx => tx.status === "Overdue").length;
-  const borrowed = allTransactions.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue").length;
-  const pending  = allPending.length;
+  const overdue       = allTransactions.filter(tx => tx.status === "Overdue").length;
+  const borrowed      = allTransactions.filter(tx => tx.status === "Borrowed" || tx.status === "Overdue").length;
+  const returnPending = allTransactions.filter(tx => tx.status === "Return Pending").length;
+  const pending       = allPending.length;
 
-  const kpiStudents = document.getElementById("kpiStudents");
-  const kpiPending  = document.getElementById("kpiPending");
-  const kpiBorrowed = document.getElementById("kpiBorrowed");
-  const kpiOverdue  = document.getElementById("kpiOverdue");
+  const kpiStudents      = document.getElementById("kpiStudents");
+  const kpiPending       = document.getElementById("kpiPending");
+  const kpiReturnPending = document.getElementById("kpiReturnPending");
+  const kpiBorrowed      = document.getElementById("kpiBorrowed");
+  const kpiOverdue       = document.getElementById("kpiOverdue");
 
-  if (kpiPending)  kpiPending.textContent  = pending;
-  if (kpiBorrowed) kpiBorrowed.textContent = borrowed;
-  if (kpiOverdue)  kpiOverdue.textContent  = overdue;
+  if (kpiPending)       kpiPending.textContent       = pending;
+  if (kpiReturnPending) kpiReturnPending.textContent = returnPending;
+  if (kpiBorrowed)      kpiBorrowed.textContent      = borrowed;
+  if (kpiOverdue)       kpiOverdue.textContent       = overdue;
 
   // Students count requires separate fetch or uses loaded allUsers
   if (allUsers.length > 0 && kpiStudents) {
