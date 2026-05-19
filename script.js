@@ -36,6 +36,20 @@ function safeFetch(url, options) {
     });
 }
 
+function setButtonLoading(button, loading, loadingText = "Processing…") {
+  if (!button) return;
+  if (loading) {
+    if (!button.dataset.originalHtml) button.dataset.originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = `⏳ ${loadingText}`;
+  } else {
+    button.disabled = false;
+    if (button.dataset.originalHtml) {
+      button.innerHTML = button.dataset.originalHtml;
+      delete button.dataset.originalHtml;
+    }
+  }
+}
 
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 // Always derive the PHT date from Intl/toLocaleDateString so the result is
@@ -1381,11 +1395,14 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
           }
         );
 
+        const confirmBtn = document.getElementById("confirmYes");
+        setButtonLoading(confirmBtn, true, "Requesting…");
         safeFetch(scriptURL, {
           method: "POST",
           body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
         }).then(data => {
           if (data.success) {
+            setButtonLoading(confirmBtn, false);
             if (wasCancelled) {
               // Undo was tapped before the request came back — cancel immediately
               safeFetch(scriptURL + "?action=getPendingRequests")
@@ -1474,6 +1491,8 @@ document.getElementById("returnForm").addEventListener("submit", e => {
        Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
+      const confirmBtn = document.getElementById("confirmYes");
+      setButtonLoading(confirmBtn, true, "Submitting…");
       safeFetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
@@ -1483,6 +1502,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           returnDate
         })
       }).then(data => {
+        setButtonLoading(confirmBtn, false);
         if (data.success) {
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
           showPage("userDashboardPage");
@@ -1490,7 +1510,10 @@ document.getElementById("returnForm").addEventListener("submit", e => {
           showNotification(data.message || "Return request failed.", "error");
         }
       })
-      .catch(() => showNotification("Network error. Please try again.", "error"));
+      .catch(() => {
+        setButtonLoading(confirmBtn, false);
+        showNotification("Network error. Please try again.", "error");
+      });
     }
   );
 });

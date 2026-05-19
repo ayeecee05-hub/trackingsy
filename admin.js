@@ -706,6 +706,21 @@ function statusPill(status) {
   return `<span class="status-pill ${cls}">${safeStatus}</span>`;
 }
 
+function setButtonLoading(btn, loading, loadingText = "Processing…") {
+  if (!btn) return;
+  if (loading) {
+    if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">⏳ ${loadingText}</span>`;
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.originalHtml) {
+      btn.innerHTML = btn.dataset.originalHtml;
+      delete btn.dataset.originalHtml;
+    }
+  }
+}
+
 // ── Registration form ─────────────────────────────────────────────────────────
 function setFormError(inputId, errorId, msg) {
   const input = document.getElementById(inputId);
@@ -1059,7 +1074,7 @@ function confirmHandover(index) {
 function executeHandover(req) {
   showNotification("Processing hand-over…", "info");
   const btns = document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success, #dashPendingBody .btn-success");
-  btns.forEach(b => { b.disabled = true; b.textContent = "Processing…"; });
+  btns.forEach(b => setButtonLoading(b, true, "Processing…"));
 
   fetch(scriptURL, {
     method: "POST",
@@ -1074,13 +1089,13 @@ function executeHandover(req) {
       loadItemsTable();
     } else {
       showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
-      btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+      btns.forEach(b => setButtonLoading(b, false));
       loadPendingRequests();
     }
   })
   .catch(() => {
     showNotification("❌ Network error during hand-over. Please try again.", "error");
-    btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+    btns.forEach(b => setButtonLoading(b, false));
     loadPendingRequests();
   });
 }
@@ -1100,7 +1115,7 @@ function confirmReject(index) {
 function executeReject(req) {
   showNotification("Rejecting request…", "info");
   const btn = document.getElementById("rejectYes");
-  if (btn) { btn.disabled = true; btn.textContent = "Rejecting…"; }
+  setButtonLoading(btn, true, "Rejecting…");
 
   fetch(scriptURL, {
     method: "POST",
@@ -1117,7 +1132,7 @@ function executeReject(req) {
     }
   })
   .catch(() => showNotification("Network error during rejection.", "error"))
-  .finally(() => { if (btn) { btn.disabled = false; btn.textContent = "Yes, Reject"; } });
+  .finally(() => { setButtonLoading(btn, false); });
 }
 
 // ── Pending return requests ──────────────────────────────────────────────────
@@ -1282,6 +1297,8 @@ function confirmReturnRequest(index) {
 
 function executeConfirmReturn(req, returnDate, condition = "Good") {
   showNotification("Confirming return…", "info");
+  const confirmBtn = document.getElementById("adminReturnYes");
+  setButtonLoading(confirmBtn, true, "Confirming…");
   
   // Check if return is late and add penalty
   let isLate = false;
@@ -1316,7 +1333,8 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       showNotification(data.message || "Confirmation failed.", "error");
     }
   })
-  .catch(() => showNotification("Network error during return confirmation.", "error"));
+.catch(() => showNotification("Network error during return confirmation.", "error"))
+    .finally(() => { const confirmBtn = document.getElementById("adminReturnYes"); setButtonLoading(confirmBtn, false); });
 }
 
 // ── Bulk Return Confirmation ────────────────────────────────────────────────
@@ -1355,6 +1373,8 @@ function bulkConfirmReturns() {
   let confirmed = 0;
   showNotification(`Confirming ${itemsToConfirm.length} items…`, "info");
   
+  const bulkBtn = document.getElementById("bulkConfirmBtn");
+  setButtonLoading(bulkBtn, true, "Confirming…");
   Promise.all(itemsToConfirm.map(req => {
     const isLate = req.dueDate && today > req.dueDate;
     if (isLate && !studentPenalties[req.studentId]) studentPenalties[req.studentId] = 0;
@@ -1377,7 +1397,8 @@ function bulkConfirmReturns() {
     loadTransactions();
     loadItemsTable();
     renderActiveBorrowers();
-  }).catch(() => showNotification("Error during bulk confirmation.", "error"));
+  }).catch(() => showNotification("Error during bulk confirmation.", "error"))
+    .finally(() => { const bulkBtn = document.getElementById("bulkConfirmBtn"); setButtonLoading(bulkBtn, false); });
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────
