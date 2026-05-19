@@ -1147,13 +1147,18 @@ function renderReturnsTable(requests) {
   requests.forEach((req, index) => {
     const today = getPHTDateString();
     const isOverdue = req.dueDate && req.dueDate < today;
+    const currentItemId = req.equipmentId || req.itemId || itemIdMap[normalizeName(req.item).toLowerCase()];
+    const itemIdCell = currentItemId
+      ? `<td><span class="mono-chip">${currentItemId}</span></td>`
+      : `<td><select id="returnItemSelect_${index}" class="item-dropdown" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:5px;font-family:var(--mono);font-size:11px;" onchange="updateReturnEquipmentId(${index})"><option value="">Loading...</option></select></td>`;
+
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><input type="checkbox" class="return-checkbox" data-index="${index}" onchange="updateReturnSelection()"></td>
       <td><span class="mono-chip">${req.studentId}</span></td>
       <td style="font-weight:600;">${req.studentName || "—"}</td>
       <td style="font-weight:600;">${req.item}</td>
-      <td><select id="returnItemSelect_${index}" class="item-dropdown" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:5px;font-family:var(--mono);font-size:11px;" onchange="updateReturnEquipmentId(${index})"><option value="">Loading...</option></select></td>
+      ${itemIdCell}
       <td><span class="date-chip">${req.borrowDate || "—"}</span></td>
       <td><span class="date-chip" style="color:${isOverdue ? 'var(--danger)' : 'var(--warning)'};">${req.dueDate || "—"}${isOverdue ? ' ⚠️' : ''}</span></td>
       <td><span class="date-chip" style="color:var(--success);">${req.returnDate || today}</span></td>
@@ -1162,6 +1167,10 @@ function renderReturnsTable(requests) {
       </td>`;
     tbody.appendChild(row);
 
+    if (currentItemId) {
+      return;
+    }
+
     // Fetch available items for this item type and populate dropdown
     fetch(scriptURL + "?action=getAvailableItemsList&itemName=" + encodeURIComponent(req.item))
       .then(r => r.json())
@@ -1169,34 +1178,13 @@ function renderReturnsTable(requests) {
         const selectEl = document.getElementById(`returnItemSelect_${index}`);
         if (selectEl) {
           selectEl.innerHTML = "";
-          const currentItemId = req.equipmentId || req.itemId || itemIdMap[normalizeName(req.item).toLowerCase()];
-
           if (Array.isArray(data) && data.length > 0) {
-            if (currentItemId) {
-              const currentOption = document.createElement("option");
-              currentOption.value = currentItemId;
-              currentOption.textContent = currentItemId;
-              currentOption.selected = true;
-              selectEl.appendChild(currentOption);
-            }
             data.forEach(itemId => {
-              if (itemId !== currentItemId) {
-                const option = document.createElement("option");
-                option.value = itemId;
-                option.textContent = itemId;
-                selectEl.appendChild(option);
-              }
+              const option = document.createElement("option");
+              option.value = itemId;
+              option.textContent = itemId;
+              selectEl.appendChild(option);
             });
-
-            if (!currentItemId) {
-              selectEl.selectedIndex = 0;
-            }
-          } else if (currentItemId) {
-            const currentOption = document.createElement("option");
-            currentOption.value = currentItemId;
-            currentOption.textContent = currentItemId;
-            currentOption.selected = true;
-            selectEl.appendChild(currentOption);
           } else {
             const option = document.createElement("option");
             option.value = "";
