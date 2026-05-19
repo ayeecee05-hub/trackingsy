@@ -2,7 +2,7 @@
 // CTU Danao Borrowing System — admin.js (redesigned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbzCK45F0j-Oe-CyGCq30tmIX3lx58HKCMdXahtEeCWELfnaid9UIQdKo_RQLWQu3a64MA/exec"
+const scriptURL = "https://script.google.com/macros/s/AKfycbytPD8lwz0AQkqbdsr8gmVeoxKDJGbhpvxSgEOkM6Ym9tIRV_WK5qTpEXP4pMbtuB6pTA/exec"
 // ── SafeFetch utility (safe JSON parsing from Apps Script) ──────────────────
 function safeFetch(url, options) {
   return fetch(url, options)
@@ -1738,12 +1738,13 @@ function loadItemsTable() {
   
   container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
 
-  // Fetch BOTH items and active transactions to show TRUE available counts
+  // Fetch items, transaction history, and damaged-items so availability excludes damaged units
   Promise.all([
     fetch(scriptURL + "?action=getItems").then(r => r.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
+    fetch(scriptURL + "?action=getAllHistory").then(r => r.json()),
+    fetch(scriptURL + "?action=getDamagedItems").then(r => r.json())
   ])
-    .then(([response, history]) => {
+    .then(([response, history, damagedResp]) => {
       if (!container) return;
       
       // Handle both old and new response formats
@@ -1791,11 +1792,34 @@ function loadItemsTable() {
         return;
       }
 
-      // Count currently borrowed items by name AND build a set of borrowed itemIds
+      // Count currently borrowed items by name AND build sets for borrowed/damaged itemIds
       // Include "Return Pending" so items don't show as available until return is confirmed
       const borrowedByName = {};
       const borrowedItemIds = new Set();
+      const damagedItemIds = new Set();
+
+      // Collect damaged IDs from the damaged-items response (if present)
+      const damagedItemsList = Array.isArray(damagedResp) ? damagedResp : (damagedResp && damagedResp.data ? damagedResp.data : (damagedResp && damagedResp.items ? damagedResp.items : []));
+      (damagedItemsList || []).forEach(d => {
+        if (d && d.itemId) damagedItemIds.add(d.itemId);
+        // sometimes the damaged item is recorded as 'item' (string) matching itemId or itemName
+        if (d && d.item) {
+          // if it exactly matches an itemId, add it
+          const matchById = allItems && allItems.find(it => it.itemId === d.item);
+          if (matchById && matchById.itemId) damagedItemIds.add(matchById.itemId);
+        }
+      });
+
       (transactionsList || []).forEach(tx => {
+        // Track damaged items (explicit condition on transaction)
+        if (tx.condition === "Damaged" || tx.condition === "Broken") {
+          if (tx.itemId) damagedItemIds.add(tx.itemId);
+          // sometimes tx.item holds the itemId string
+          if (!tx.itemId && tx.item) {
+            const match = allItems && allItems.find(it => normalizeName(it.itemName) === normalizeName(tx.item) || it.itemId === tx.item);
+            if (match && match.itemId) damagedItemIds.add(match.itemId);
+          }
+        }
         if (tx.status === "Borrowed" || tx.status === "Overdue" || tx.status === "Return Pending") {
           const key = normalizeName(tx.item);
           if (!key) return;
@@ -1803,12 +1827,15 @@ function loadItemsTable() {
           // Track the specific itemId from transaction if available
           if (tx.itemId) {
             borrowedItemIds.add(tx.itemId);
+          } else if (tx.equipmentId) {
+            borrowedItemIds.add(tx.equipmentId);
           }
         }
       });
 
       console.log(`[loadItemsTable] Borrowed items by name:`, borrowedByName);
       console.log(`[loadItemsTable] Borrowed item IDs:`, Array.from(borrowedItemIds));
+      console.log(`[loadItemsTable] Damaged item IDs:`, Array.from(damagedItemIds));
 
       // Group items by itemName (category)
       const grouped = {};
@@ -1830,7 +1857,9 @@ function loadItemsTable() {
         const categoryId = `cat-idx-${catIndex}`;
         const total = categoryItems.length;
         const out = borrowedByName[categoryName] || 0;
-        const available = Math.max(0, total - out);
+        // Count damaged items in this category (specific itemIds flagged damaged)
+        const damagedCount = categoryItems.filter(it => it.itemId && damagedItemIds.has(it.itemId)).length;
+        const available = Math.max(0, total - out - damagedCount);
 
         console.log(`[loadItemsTable] Creating category card ${catIndex}: "${categoryName}" (${available}/${total})`);
 
@@ -1910,7 +1939,7 @@ function loadItemsTable() {
           idText.textContent = item.itemId;
           idText.style.cssText = "font-family:var(--mono);font-weight:600;color:var(--accent);";
 
-          // Add borrowed indicator if needed
+          // Add borrowed/damaged indicators if needed
           const statusDiv = document.createElement("div");
           statusDiv.style.cssText = "display:flex;align-items:center;gap:8px;margin-left:auto;";
 
@@ -1919,6 +1948,15 @@ function loadItemsTable() {
             borrowedBadge.textContent = "🔴 Borrowed";
             borrowedBadge.style.cssText = "font-size:12px;color:var(--warning);font-weight:600;";
             statusDiv.appendChild(borrowedBadge);
+          }
+
+          const isDamaged = item.itemId && damagedItemIds.has(item.itemId);
+          if (isDamaged) {
+            const damagedBadge = document.createElement("span");
+            damagedBadge.textContent = "⚠️ Damaged";
+            damagedBadge.style.cssText = "font-size:12px;color:var(--danger);font-weight:700;";
+            statusDiv.appendChild(damagedBadge);
+            idText.style.color = "var(--danger)";
           }
 
           const deleteBtn = document.createElement("button");
