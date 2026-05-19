@@ -470,8 +470,12 @@ function openPinModal(user) {
   document.getElementById("pinModalTitle").textContent = `Hello, ${user.name}`;
   document.getElementById("pinInput").value = "";
   document.getElementById("pinError").style.display = "none";
+  document.getElementById("pinModalHint").textContent = "";
   document.getElementById("pinModal").style.display = "flex";
   setTimeout(() => document.getElementById("pinInput").focus(), 50);
+
+  // Update UI based on lock/attempt state
+  updatePinModalLockUI(String(user.id));
 
   document.getElementById("pinSubmitBtn").onclick = () => verifyPin(user);
   document.getElementById("pinCancelBtn").onclick = () => {
@@ -482,19 +486,123 @@ function openPinModal(user) {
   };
 }
 
+// ── PIN attempt tracking and lockout (per-user, persisted in localStorage) ──
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_LOCK_MS = 3 * 60 * 1000; // 3 minutes
+window._pinTimerMap = window._pinTimerMap || {};
+
+function _readPinAttempts() {
+  try {
+    return JSON.parse(localStorage.getItem("pinAttempts") || "{}");
+  } catch (e) { return {}; }
+}
+
+function _writePinAttempts(obj) {
+  try { localStorage.setItem("pinAttempts", JSON.stringify(obj)); } catch (e) {}
+}
+
+function getPinState(userId) {
+  const all = _readPinAttempts();
+  return all[userId] || { count: 0, lockedUntil: 0 };
+}
+
+function setPinState(userId, state) {
+  const all = _readPinAttempts();
+  all[userId] = state;
+  _writePinAttempts(all);
+}
+
+function clearPinState(userId) {
+  const all = _readPinAttempts();
+  delete all[userId];
+  _writePinAttempts(all);
+}
+
+function updatePinModalLockUI(userId) {
+  const state = getPinState(userId);
+  const now = Date.now();
+  const pinInput = document.getElementById("pinInput");
+  const submitBtn = document.getElementById("pinSubmitBtn");
+  const hintEl = document.getElementById("pinModalHint");
+
+  if (state.lockedUntil && state.lockedUntil > now) {
+    // Locked — calculate remaining
+    const remaining = state.lockedUntil - now;
+    pinInput.disabled = true;
+    submitBtn.disabled = true;
+    hintEl.textContent = `Too many attempts. Try again in ${msToClock(remaining)}.`;
+
+    // Start timer to update countdown in modal
+    if (window._pinTimerMap[userId]) clearInterval(window._pinTimerMap[userId]);
+    window._pinTimerMap[userId] = setInterval(() => {
+      const s = getPinState(userId);
+      const r = (s.lockedUntil || 0) - Date.now();
+      if (r <= 0) {
+        clearInterval(window._pinTimerMap[userId]);
+        delete window._pinTimerMap[userId];
+        clearPinState(userId);
+        pinInput.disabled = false;
+        submitBtn.disabled = false;
+        hintEl.textContent = "";
+        document.getElementById("pinError").style.display = "none";
+        pinInput.focus();
+      } else {
+        hintEl.textContent = `Too many attempts. Try again in ${msToClock(r)}.`;
+      }
+    }, 1000);
+  } else {
+    // Not locked — enable input and show remaining attempts if any
+    pinInput.disabled = false;
+    submitBtn.disabled = false;
+    if (state.count && state.count > 0) {
+      hintEl.textContent = `Attempts: ${state.count}/${PIN_MAX_ATTEMPTS}`;
+    } else {
+      hintEl.textContent = "";
+    }
+  }
+}
+
+function msToClock(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function verifyPin(user) {
   const entered  = document.getElementById("pinInput").value.trim();
   const expected = String(user.pin || "");  // Use stored PIN from database
+  const uid = String(user.id);
+
+  // Check lock state first
+  const state = getPinState(uid);
+  if (state.lockedUntil && state.lockedUntil > Date.now()) {
+    updatePinModalLockUI(uid);
+    return;
+  }
+
   if (entered === expected) {
+    // Successful login — clear any attempt data
+    clearPinState(uid);
     document.getElementById("pinModal").style.display = "none";
     currentUser = user;
     sessionStorage.setItem("currentUser", JSON.stringify(user));
     resetBorrowerSession();
     showPage("userDashboardPage");
   } else {
+    // Failed attempt — increment count and possibly lock
+    const nextCount = (state.count || 0) + 1;
+    const newState = { count: nextCount, lockedUntil: 0 };
+    if (nextCount >= PIN_MAX_ATTEMPTS) {
+      newState.lockedUntil = Date.now() + PIN_LOCK_MS;
+    }
+    setPinState(uid, newState);
+
+    // Update UI
     document.getElementById("pinError").style.display = "block";
     document.getElementById("pinInput").value = "";
     document.getElementById("pinInput").focus();
+    updatePinModalLockUI(uid);
   }
 }
 
