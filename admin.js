@@ -95,6 +95,10 @@ let filteredTx            = [];
 let archiveFilteredTx     = [];
 let allItems              = [];  // raw items list from server
 let itemIdMap             = {};  // normalizedItemName -> itemId
+// Track returns currently being processed to avoid duplicate submissions
+let processingReturns     = new Set();
+// Track handovers in-flight to avoid duplicate confirmations
+let processingHandovers   = new Set();
 
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
@@ -880,7 +884,15 @@ function submitRegisterForm() {
 // ── Pending borrow requests ──────────────────────────────────────────────────
 function loadPendingRequests() {
   const tbody = document.getElementById("pendingTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Loading…</td></tr>`;
+  if (tbody) {
+    tbody.innerHTML = "";
+    // show three skeleton rows matching table height
+    for (let i = 0; i < 3; i++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="8" style="padding:8px;"><div class="skeleton-row" style="height:36px;border-radius:6px;"></div></td>`;
+      tbody.appendChild(tr);
+    }
+  }
 
   fetch(scriptURL + "?action=getPendingRequests")
     .then(r => r.json())
@@ -1054,9 +1066,15 @@ function confirmHandover(index) {
 }
 
 function executeHandover(req) {
+  const key = req.rowIndex || (req.studentId + '::' + req.item);
+  if (processingHandovers.has(key)) {
+    showNotification("Already processing this hand-over…", "info");
+    return;
+  }
+  processingHandovers.add(key);
   showNotification("Processing hand-over…", "info");
   const btns = document.querySelectorAll(".handover-btn, #pendingTableBody .btn-success, #dashPendingBody .btn-success");
-  btns.forEach(b => { b.disabled = true; b.textContent = "Processing…"; });
+  btns.forEach(b => { b.disabled = true; b.dataset._prevText = b.textContent; b.textContent = "Processing…"; });
 
   fetch(scriptURL, {
     method: "POST",
@@ -1071,14 +1089,17 @@ function executeHandover(req) {
       loadItemsTable();
     } else {
       showNotification(`❌ ${data.message || "Hand-over failed. Please try again."}`, "error");
-      btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+      btns.forEach(b => { b.disabled = false; b.textContent = b.dataset._prevText || "✅ Hand Over"; delete b.dataset._prevText; });
       loadPendingRequests();
     }
   })
   .catch(() => {
     showNotification("❌ Network error during hand-over. Please try again.", "error");
-    btns.forEach(b => { b.disabled = false; b.textContent = "✅ Hand Over"; });
+    btns.forEach(b => { b.disabled = false; b.textContent = b.dataset._prevText || "✅ Hand Over"; delete b.dataset._prevText; });
     loadPendingRequests();
+  })
+  .finally(() => {
+    processingHandovers.delete(key);
   });
 }
 
@@ -1120,7 +1141,17 @@ function executeReject(req) {
 // ── Pending return requests ──────────────────────────────────────────────────
 function loadReturnRequests() {
   const tbody = document.getElementById("returnsTableBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading…</td></tr>`;
+  if (tbody) {
+    // Insert skeleton rows so user sees a loading state that matches the table layout
+    tbody.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="9" style="padding:8px;">
+          <div class="skeleton-row" style="height:36px;border-radius:6px;"></div>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+  }
 
   fetch(scriptURL + "?action=getReturnRequests")
     .then(r => r.json())
@@ -1278,7 +1309,17 @@ function confirmReturnRequest(index) {
 }
 
 function executeConfirmReturn(req, returnDate, condition = "Good") {
+  const key = req.rowIndex || (req.studentId + '::' + req.item);
+  if (processingReturns.has(key)) {
+    showNotification("Already processing this return…", "info");
+    return;
+  }
+  processingReturns.add(key);
   showNotification("Confirming return…", "info");
+
+  // Disable the modal Confirm button to avoid double-clicks
+  const adminYesBtn = document.getElementById("adminReturnYes");
+  if (adminYesBtn) { adminYesBtn.disabled = true; adminYesBtn.dataset._prevText = adminYesBtn.textContent; adminYesBtn.textContent = "Processing…"; }
   
   // Check if return is late and add penalty
   let isLate = false;
@@ -1288,6 +1329,10 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
     studentPenalties[req.studentId]++;
   }
   
+  // Disable confirm buttons in the returns table while processing to prevent double actions
+  const rowBtns = document.querySelectorAll('#returnsTableBody .btn-primary');
+  rowBtns.forEach(b => { b.disabled = true; b.dataset._wasDisabled = 'true'; });
+
   fetch(scriptURL, {
     method: "POST",
     body: JSON.stringify({ action: "confirmReturn", 
@@ -1313,7 +1358,14 @@ function executeConfirmReturn(req, returnDate, condition = "Good") {
       showNotification(data.message || "Confirmation failed.", "error");
     }
   })
-  .catch(() => showNotification("Network error during return confirmation.", "error"));
+  .catch(() => showNotification("Network error during return confirmation.", "error"))
+  .finally(() => {
+    // Re-enable buttons and clear processing flag
+    const rowBtns2 = document.querySelectorAll('#returnsTableBody .btn-primary');
+    rowBtns2.forEach(b => { b.disabled = false; delete b.dataset._wasDisabled; });
+    processingReturns.delete(key);
+    if (adminYesBtn) { adminYesBtn.disabled = false; adminYesBtn.textContent = adminYesBtn.dataset._prevText || "Yes"; delete adminYesBtn.dataset._prevText; }
+  });
 }
 
 // ── Bulk Return Confirmation ────────────────────────────────────────────────
@@ -1379,6 +1431,17 @@ function bulkConfirmReturns() {
 
 // ── Transactions ─────────────────────────────────────────────────────────────
 function loadTransactions() {
+  const tbody = document.querySelector("#transactionsTable tbody");
+  if (tbody) {
+    tbody.innerHTML = "";
+    // show 4 skeleton rows to indicate loading
+    for (let i = 0; i < 4; i++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="10" style="padding:8px;"><div class="skeleton-row" style="height:36px;border-radius:6px;"></div></td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
   fetch(scriptURL + "?action=getAllHistory")
     .then(r => r.json())
     .then(history => {
@@ -1736,7 +1799,14 @@ function loadItemsTable() {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
   
-  container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);">Loading items...</div>`;
+  // Show skeleton cards while items load
+  container.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const card = document.createElement('div');
+    card.className = 'skeleton-card';
+    card.style.cssText = 'margin-bottom:12px;';
+    container.appendChild(card);
+  }
 
   // Fetch BOTH items and active transactions to show TRUE available counts
   Promise.all([

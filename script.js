@@ -53,6 +53,9 @@ function addDaysToPHTString(dateStr, days) {
 
 let currentUser      = null;
 let allBorrowers     = [];
+// Prevent duplicate borrower actions
+let processingBorrowRequests = new Set();
+let processingReturnRequests = new Set();
 
 // ── Restore session on page refresh ──────────────────────────────────────────
 (function restoreSession() {
@@ -315,6 +318,17 @@ function computeStatusMap(history) {
 }
 
 function loadBorrowers() {
+  const container = document.getElementById("usersContainer");
+  if (container) {
+    container.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const ph = document.createElement('div');
+      ph.className = 'skeleton-row';
+      ph.style.cssText = 'height:40px;margin-bottom:8px;border-radius:8px;';
+      container.appendChild(ph);
+    }
+  }
+
   Promise.all([
     safeFetch(scriptURL + "?action=getUsers"),
     safeFetch(scriptURL + "?action=getAllHistory")
@@ -758,6 +772,19 @@ function loadUserDashboard() {
     currentUser.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   document.getElementById("profileName").textContent = currentUser.name;
   document.getElementById("profileId").textContent   = "ID: " + currentUser.id;
+
+  // Show skeletons for history and pending actions while loading
+  const historyWrap = document.getElementById("historyTableWrap");
+  if (historyWrap) {
+    historyWrap.innerHTML = "";
+    for (let i = 0; i < 4; i++) {
+      historyWrap.innerHTML += `<div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div>`;
+    }
+  }
+  const pendingList = document.getElementById("pendingList");
+  if (pendingList) {
+    pendingList.innerHTML = `<div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div><div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div>`;
+  }
 
   safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
     .then(history => {
@@ -1403,7 +1430,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
           }
         );
 
-        safeFetch(scriptURL, {
+        return safeFetch(scriptURL, {
           method: "POST",
           body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
         }).then(data => {
@@ -1506,7 +1533,7 @@ document.getElementById("returnForm").addEventListener("submit", e => {
       // Include rowIndex when available to make server-side matching exact
       if (rowIndex) payload.rowIndex = rowIndex;
 
-      safeFetch(scriptURL, {
+      return safeFetch(scriptURL, {
         method: "POST",
         body: JSON.stringify(payload)
       }).then(data => {
@@ -1529,8 +1556,23 @@ function showConfirmModal(icon, title, message, onConfirm) {
   document.getElementById("confirmMessage").innerHTML   = message;
   document.getElementById("confirmModal").style.display = "flex";
   document.getElementById("confirmYes").onclick = () => {
+    const yesBtn = document.getElementById("confirmYes");
+    const prevText = yesBtn ? yesBtn.textContent : null;
+    if (yesBtn) { yesBtn.disabled = true; yesBtn.textContent = "Processing…"; }
     document.getElementById("confirmModal").style.display = "none";
-    onConfirm();
+    try {
+      const res = onConfirm();
+      if (res && typeof res.then === 'function') {
+        res.finally(() => {
+          if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
+        });
+      } else {
+        if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
+      }
+    } catch (e) {
+      if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
+      throw e;
+    }
   };
   document.getElementById("confirmNo").onclick = () => {
     document.getElementById("confirmModal").style.display = "none";
