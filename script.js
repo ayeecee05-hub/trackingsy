@@ -57,6 +57,16 @@ let allBorrowers     = [];
 let processingBorrowRequests = new Set();
 let processingReturnRequests = new Set();
 
+// ── Fetch with timeout to prevent stuck pages ──────────────────────────────
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  return Promise.race([
+    fetch(url, options).then(r => r.json()),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timeout")), timeoutMs)
+    )
+  ]);
+}
+
 // ── Restore session on page refresh ──────────────────────────────────────────
 (function restoreSession() {
   try {
@@ -330,8 +340,8 @@ function loadBorrowers() {
   }
 
   Promise.all([
-    safeFetch(scriptURL + "?action=getUsers"),
-    safeFetch(scriptURL + "?action=getAllHistory")
+    fetchWithTimeout(scriptURL + "?action=getUsers", {}, 8000),
+    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
   ])
   .then(([users, history]) => {
     borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
@@ -341,14 +351,15 @@ function loadBorrowers() {
     renderBorrowerPage();
     handleDeepLink(users);
   })
-  .catch(() => {
+  .catch(err => {
+    console.error("loadBorrowers error:", err);
     const container = document.getElementById("usersContainer");
     if (container) {
       container.innerHTML = `
         <div class="empty-state-full">
           <div class="empty-icon">⚠️</div>
           <p style="color:var(--highlight,#ef4444);">Could not load users.</p>
-          <small>Check your connection, then <a href="" style="color:var(--accent-primary);">refresh the page</a>.</small>
+          <small>${err.message === "Request timeout" ? "The server took too long to respond." : "Check your connection, then refresh the page."}</small>
         </div>`;
     }
   });
@@ -786,7 +797,7 @@ function loadUserDashboard() {
     pendingList.innerHTML = `<div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div><div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div>`;
   }
 
-  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
+  fetchWithTimeout(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id), {}, 8000)
     .then(history => {
       if (!Array.isArray(history)) {
         console.error("getHistory returned non-array:", history);
@@ -809,7 +820,7 @@ function loadUserDashboard() {
       const pendingSection = document.getElementById("pendingSection");
       const pendingList = document.getElementById("pendingList");
       if (pending.length > 0) {
-        safeFetch(scriptURL + "?action=getPendingRequests")
+        fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
           .then(allPending => {
             const userPending = Array.isArray(allPending)
               ? allPending.filter(p => String(p.studentId) === String(currentUser.id))
@@ -836,7 +847,8 @@ function loadUserDashboard() {
               pendingSection.style.display = "none";
             }
           })
-          .catch(() => {
+          .catch(err => {
+            console.error("loadUserDashboard pending requests error:", err);
             pendingSection.style.display = "none";
             pendingList.innerHTML = `<li style='color:var(--text-muted);'>Unable to load pending request actions right now.</li>`;
           });
@@ -1141,12 +1153,28 @@ function loadUserDashboard() {
       }
     })
     .catch(err => {
-      // Show an inline error inside the borrowedList instead of a toast
-      // so it doesn't keep popping up every 15 s from the poll.
+      // Show an inline error instead of leaving skeletons in place.
       console.error("loadUserDashboard error:", err);
+      const errMsg = err && err.message ? err.message : "Check your connection and try again.";
       const borrowedList = document.getElementById("borrowedList");
+      const historyWrap = document.getElementById("historyTableWrap");
+      const pendingList = document.getElementById("pendingList");
+
+      if (historyWrap) {
+        historyWrap.innerHTML = `<div class="empty-state-full">
+          <div class="empty-icon">⚠️</div>
+          <p>Unable to load dashboard history.</p>
+          <small>${errMsg}</small>
+        </div>`;
+      }
+      if (pendingList) {
+        pendingList.innerHTML = `<div class="empty-state-full">
+          <div class="empty-icon">⚠️</div>
+          <p>Unable to load pending requests.</p>
+          <small>${errMsg}</small>
+        </div>`;
+      }
       if (borrowedList) {
-        const errMsg = err && err.message ? err.message : "Check your connection and try again.";
         borrowedList.innerHTML = `
           <li style="list-style:none;padding:0;margin:0;">
             <div style="
@@ -1232,8 +1260,8 @@ function populateBorrowSelect() {
 
   // Fetch BOTH items and active transactions to show TRUE available count
   Promise.all([
-    safeFetch(scriptURL + "?action=getItems"),
-    safeFetch(scriptURL + "?action=getAllHistory")
+    fetchWithTimeout(scriptURL + "?action=getItems", {}, 8000),
+    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
   ])
     .then(([response, history]) => {
       const select = document.getElementById("borrowItem");
@@ -1291,7 +1319,7 @@ function populateReturnSelect() {
   document.getElementById("returnDate").value = getPHTDateString();
   if (!currentUser) return;
 
-  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
+  fetchWithTimeout(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id), {}, 8000)
     .then(history => {
       // Show items with status "Borrowed" OR "Overdue"
       // "Return Pending" items are already submitted and awaiting admin
@@ -1437,7 +1465,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
           if (data.success) {
             if (wasCancelled) {
               // Undo was tapped before the request came back — cancel immediately
-              safeFetch(scriptURL + "?action=getPendingRequests")
+              fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
                 .then(pending => {
                   const match = Array.isArray(pending) && pending.find(p =>
                     String(p.studentId) === String(currentUser.id) &&
@@ -1457,7 +1485,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
                 .catch(() => loadUserDashboard());
             } else {
               // Store for potential undo
-              safeFetch(scriptURL + "?action=getPendingRequests")
+              fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
                 .then(pending => {
                   submittedTx = Array.isArray(pending) && pending.find(p =>
                     String(p.studentId) === String(currentUser.id) &&
@@ -1602,8 +1630,8 @@ function loadStockPanel() {
 
   // Fetch BOTH items and active transactions to calculate TRUE available stock
   Promise.all([
-    safeFetch(scriptURL + "?action=getItems"),
-    safeFetch(scriptURL + "?action=getAllHistory")
+    fetchWithTimeout(scriptURL + "?action=getItems", {}, 8000),
+    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
   ])
     .then(([response, history]) => {
       // Handle both old and new response formats
@@ -1640,9 +1668,10 @@ function loadStockPanel() {
       stockPage     = 1;
       renderStockPage();
     })
-    .catch(() => {
+    .catch(err => {
+      console.error("loadStockPanel error:", err);
       document.getElementById("stockList").innerHTML =
-        `<div class="empty-state">Could not load stock info.</div>`;
+        `<div class="empty-state">${err.message === "Request timeout" ? "Stock request timed out." : "Could not load stock info."}</div>`;
     });
 }
 

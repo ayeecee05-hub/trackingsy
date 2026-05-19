@@ -100,6 +100,16 @@ let processingReturns     = new Set();
 // Track handovers in-flight to avoid duplicate confirmations
 let processingHandovers   = new Set();
 
+// ── Fetch with timeout to prevent stuck pages ──────────────────────────────
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  return Promise.race([
+    fetch(url, options).then(r => r.json()),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timeout")), timeoutMs)
+    )
+  ]);
+}
+
 // ── Transaction log pagination ───────────────────────────────────────────────
 const TX_PER_PAGE    = 20;
 let   txCurrentPage  = 1;
@@ -894,16 +904,21 @@ function loadPendingRequests() {
     }
   }
 
-  fetch(scriptURL + "?action=getPendingRequests")
-    .then(r => r.json())
+  fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
     .then(data => {
       allPending = Array.isArray(data) ? data : [];
       renderPendingTable(allPending);
       renderDashPending();
       updateKpiCards();
     })
-    .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color:var(--danger);">Error loading requests.</td></tr>`;
+    .catch(err => {
+      if (tbody) {
+        const errorMsg = err.message === "Request timeout" 
+          ? "Request timed out. Please refresh the page." 
+          : "Error loading requests.";
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color:var(--danger);">${errorMsg}</td></tr>`;
+      }
+      console.error("loadPendingRequests error:", err);
     });
 }
 
@@ -1153,15 +1168,20 @@ function loadReturnRequests() {
     }
   }
 
-  fetch(scriptURL + "?action=getReturnRequests")
-    .then(r => r.json())
+  fetchWithTimeout(scriptURL + "?action=getReturnRequests", {}, 8000)
     .then(data => {
       allReturnRequests = Array.isArray(data) ? data : [];
       renderReturnsTable(allReturnRequests);
       updateNavBadge("navBadgeReturns", allReturnRequests.length);
     })
-    .catch(() => {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">Error loading return requests.</td></tr>`;
+    .catch(err => {
+      if (tbody) {
+        const errorMsg = err.message === "Request timeout" 
+          ? "Request timed out. Please refresh the page." 
+          : "Error loading return requests.";
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty" style="color:var(--danger);">${errorMsg}</td></tr>`;
+      }
+      console.error("loadReturnRequests error:", err);
     });
 }
 
@@ -1442,8 +1462,7 @@ function loadTransactions() {
     }
   }
 
-  fetch(scriptURL + "?action=getAllHistory")
-    .then(r => r.json())
+  fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
     .then(history => {
       const todayStr = getPHTDateString();
       const [ty, tm, td] = todayStr.split("-").map(Number);
@@ -1479,7 +1498,13 @@ function loadTransactions() {
       updateKpiCards();
       renderDashboard();
     })
-    .catch(() => showNotification("Error loading transactions.", "error"));
+    .catch(err => {
+      const errorMsg = err.message === "Request timeout" 
+        ? "Request timed out. Please refresh the page." 
+        : "Error loading transactions.";
+      showNotification(errorMsg, "error");
+      console.error("loadTransactions error:", err);
+    });
 }
 
 function renderTransactions(transactions, resetPage = false) {
@@ -1810,8 +1835,8 @@ function loadItemsTable() {
 
   // Fetch BOTH items and active transactions to show TRUE available counts
   Promise.all([
-    fetch(scriptURL + "?action=getItems").then(r => r.json()),
-    fetch(scriptURL + "?action=getAllHistory").then(r => r.json())
+    fetchWithTimeout(scriptURL + "?action=getItems", {}, 8000),
+    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
   ])
     .then(([response, history]) => {
       if (!container) return;
@@ -2027,7 +2052,10 @@ function loadItemsTable() {
     })
     .catch(err => {
       console.error(`[loadItemsTable] Error:`, err);
-      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">⚠️ Error loading items: ${err.message}</div>`;
+      const errorMsg = err.message === "Request timeout" 
+        ? "⚠️ Request timed out. Please refresh the page." 
+        : `⚠️ Error loading items: ${err.message}`;
+      if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--danger);">${errorMsg}</div>`;
     });
 }
 
