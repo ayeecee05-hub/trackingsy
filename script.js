@@ -51,6 +51,14 @@ function setButtonLoading(button, loading, loadingText = "Processing…") {
   }
 }
 
+function setConfirmModalLoading(loading, loadingText = "Processing…") {
+  const confirmBtn = document.getElementById("confirmYes");
+  const cancelBtn  = document.getElementById("confirmNo");
+  if (!confirmBtn || !cancelBtn) return;
+  setButtonLoading(confirmBtn, loading, loadingText);
+  cancelBtn.disabled = loading;
+}
+
 // ── Philippine Time (UTC+8) helpers ────────────────────────────────────────────
 // Always derive the PHT date from Intl/toLocaleDateString so the result is
 // correct regardless of the device's own timezone (PH phone, UTC server, etc.)
@@ -1396,15 +1404,44 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
         );
 
         const confirmBtn = document.getElementById("confirmYes");
-        setButtonLoading(confirmBtn, true, "Requesting…");
+        setConfirmModalLoading(true, "Requesting…");
         safeFetch(scriptURL, {
           method: "POST",
           body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
         }).then(data => {
+          setConfirmModalLoading(false);
           if (data.success) {
-            setButtonLoading(confirmBtn, false);
+            document.getElementById("confirmModal").style.display = "none";
+            showPage("userDashboardPage");
+            showNotification(`📋 Borrow request for "${item}" submitted!`, "success",
+              "Cancel", () => {
+                wasCancelled = true;
+                if (submittedTx) {
+                  safeFetch(scriptURL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      action: "rejectBorrow",
+                      studentId: currentUser.id,
+                      item: submittedTx.item,
+                      rowIndex: submittedTx.rowIndex
+                    })
+                  }).then(data => {
+                    if (data.success) {
+                      showNotification(`Request for "${item}" cancelled.`, "info");
+                      loadUserDashboard();
+                    } else {
+                      showNotification("Could not cancel — the admin may have already processed it.", "error");
+                      loadUserDashboard();
+                    }
+                  })
+                  .catch(() => showNotification("Network error. Request may still be active.", "error"));
+                } else {
+                  showNotification(`Cancelling request for "${item}"…`, "info");
+                }
+              }
+            );
+
             if (wasCancelled) {
-              // Undo was tapped before the request came back — cancel immediately
               safeFetch(scriptURL + "?action=getPendingRequests")
                 .then(pending => {
                   const match = Array.isArray(pending) && pending.find(p =>
@@ -1424,7 +1461,6 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
                 })
                 .catch(() => loadUserDashboard());
             } else {
-              // Store for potential undo
               safeFetch(scriptURL + "?action=getPendingRequests")
                 .then(pending => {
                   submittedTx = Array.isArray(pending) && pending.find(p =>
@@ -1439,7 +1475,10 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
             showNotification(data.message || "Request failed.", "error");
           }
         })
-        .catch(() => showNotification("Network error. Please try again.", "error"));
+        .catch(() => {
+          setConfirmModalLoading(false);
+          showNotification("Network error. Please try again.", "error");
+        });
       }
     );
   }
@@ -1492,26 +1531,28 @@ document.getElementById("returnForm").addEventListener("submit", e => {
      </small>`,
     () => {
       const confirmBtn = document.getElementById("confirmYes");
-      setButtonLoading(confirmBtn, true, "Submitting…");
+      setConfirmModalLoading(true, "Submitting…");
       safeFetch(scriptURL, {
         method: "POST",
         body: JSON.stringify({
-          action:     "requestReturn",   // sets status = "Return Pending"
+          action:     "requestReturn",
           studentId:  currentUser.id,
           item,
           returnDate
         })
       }).then(data => {
-        setButtonLoading(confirmBtn, false);
+        setConfirmModalLoading(false);
         if (data.success) {
+          document.getElementById("confirmModal").style.display = "none";
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
           showPage("userDashboardPage");
+          loadUserDashboard();
         } else {
           showNotification(data.message || "Return request failed.", "error");
         }
       })
       .catch(() => {
-        setButtonLoading(confirmBtn, false);
+        setConfirmModalLoading(false);
         showNotification("Network error. Please try again.", "error");
       });
     }
@@ -1520,16 +1561,22 @@ document.getElementById("returnForm").addEventListener("submit", e => {
 
 // ── Confirm modal ─────────────────────────────────────────────────────────────
 function showConfirmModal(icon, title, message, onConfirm) {
-  document.getElementById("confirmIcon").textContent    = icon;
-  document.getElementById("confirmTitle").textContent   = title;
-  document.getElementById("confirmMessage").innerHTML   = message;
-  document.getElementById("confirmModal").style.display = "flex";
-  document.getElementById("confirmYes").onclick = () => {
-    document.getElementById("confirmModal").style.display = "none";
+  const modal      = document.getElementById("confirmModal");
+  const confirmBtn = document.getElementById("confirmYes");
+  const cancelBtn  = document.getElementById("confirmNo");
+
+  document.getElementById("confirmIcon").textContent  = icon;
+  document.getElementById("confirmTitle").textContent = title;
+  document.getElementById("confirmMessage").innerHTML = message;
+
+  setConfirmModalLoading(false);
+  modal.style.display = "flex";
+  confirmBtn.onclick = () => {
     onConfirm();
   };
-  document.getElementById("confirmNo").onclick = () => {
-    document.getElementById("confirmModal").style.display = "none";
+  cancelBtn.onclick = () => {
+    modal.style.display = "none";
+    setConfirmModalLoading(false);
   };
 }
 
