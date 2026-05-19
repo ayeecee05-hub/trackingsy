@@ -1169,9 +1169,9 @@ function renderReturnsTable(requests) {
         const selectEl = document.getElementById(`returnItemSelect_${index}`);
         if (selectEl) {
           selectEl.innerHTML = "";
+          const currentItemId = req.equipmentId || req.itemId || itemIdMap[normalizeName(req.item).toLowerCase()];
+
           if (Array.isArray(data) && data.length > 0) {
-            // Add the currently selected item first
-            const currentItemId = req.equipmentId || itemIdMap[normalizeName(req.item).toLowerCase()];
             if (currentItemId) {
               const currentOption = document.createElement("option");
               currentOption.value = currentItemId;
@@ -1179,7 +1179,6 @@ function renderReturnsTable(requests) {
               currentOption.selected = true;
               selectEl.appendChild(currentOption);
             }
-            // Add other available items
             data.forEach(itemId => {
               if (itemId !== currentItemId) {
                 const option = document.createElement("option");
@@ -1188,6 +1187,16 @@ function renderReturnsTable(requests) {
                 selectEl.appendChild(option);
               }
             });
+
+            if (!currentItemId) {
+              selectEl.selectedIndex = 0;
+            }
+          } else if (currentItemId) {
+            const currentOption = document.createElement("option");
+            currentOption.value = currentItemId;
+            currentOption.textContent = currentItemId;
+            currentOption.selected = true;
+            selectEl.appendChild(currentOption);
           } else {
             const option = document.createElement("option");
             option.value = "";
