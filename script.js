@@ -53,19 +53,6 @@ function addDaysToPHTString(dateStr, days) {
 
 let currentUser      = null;
 let allBorrowers     = [];
-// Prevent duplicate borrower actions
-let processingBorrowRequests = new Set();
-let processingReturnRequests = new Set();
-
-// ── Fetch with timeout to prevent stuck pages ──────────────────────────────
-function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
-  return Promise.race([
-    fetch(url, options).then(r => r.json()),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timeout")), timeoutMs)
-    )
-  ]);
-}
 
 // ── Restore session on page refresh ──────────────────────────────────────────
 (function restoreSession() {
@@ -328,20 +315,9 @@ function computeStatusMap(history) {
 }
 
 function loadBorrowers() {
-  const container = document.getElementById("usersContainer");
-  if (container) {
-    container.innerHTML = "";
-    for (let i = 0; i < 3; i++) {
-      const ph = document.createElement('div');
-      ph.className = 'skeleton-row';
-      ph.style.cssText = 'height:40px;margin-bottom:8px;border-radius:8px;';
-      container.appendChild(ph);
-    }
-  }
-
   Promise.all([
-    fetchWithTimeout(scriptURL + "?action=getUsers", {}, 8000),
-    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
+    safeFetch(scriptURL + "?action=getUsers"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
   .then(([users, history]) => {
     borrowerStatusMap = computeStatusMap(Array.isArray(history) ? history : []);
@@ -351,15 +327,14 @@ function loadBorrowers() {
     renderBorrowerPage();
     handleDeepLink(users);
   })
-  .catch(err => {
-    console.error("loadBorrowers error:", err);
+  .catch(() => {
     const container = document.getElementById("usersContainer");
     if (container) {
       container.innerHTML = `
         <div class="empty-state-full">
           <div class="empty-icon">⚠️</div>
           <p style="color:var(--highlight,#ef4444);">Could not load users.</p>
-          <small>${err.message === "Request timeout" ? "The server took too long to respond." : "Check your connection, then refresh the page."}</small>
+          <small>Check your connection, then <a href="" style="color:var(--accent-primary);">refresh the page</a>.</small>
         </div>`;
     }
   });
@@ -784,20 +759,7 @@ function loadUserDashboard() {
   document.getElementById("profileName").textContent = currentUser.name;
   document.getElementById("profileId").textContent   = "ID: " + currentUser.id;
 
-  // Show skeletons for history and pending actions while loading
-  const historyWrap = document.getElementById("historyTableWrap");
-  if (historyWrap) {
-    historyWrap.innerHTML = "";
-    for (let i = 0; i < 4; i++) {
-      historyWrap.innerHTML += `<div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div>`;
-    }
-  }
-  const pendingList = document.getElementById("pendingList");
-  if (pendingList) {
-    pendingList.innerHTML = `<div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div><div class="skeleton-row" style="height:36px;margin-bottom:8px;border-radius:6px;"></div>`;
-  }
-
-  fetchWithTimeout(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id), {}, 8000)
+  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
     .then(history => {
       if (!Array.isArray(history)) {
         console.error("getHistory returned non-array:", history);
@@ -820,7 +782,7 @@ function loadUserDashboard() {
       const pendingSection = document.getElementById("pendingSection");
       const pendingList = document.getElementById("pendingList");
       if (pending.length > 0) {
-        fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
+        safeFetch(scriptURL + "?action=getPendingRequests")
           .then(allPending => {
             const userPending = Array.isArray(allPending)
               ? allPending.filter(p => String(p.studentId) === String(currentUser.id))
@@ -847,8 +809,7 @@ function loadUserDashboard() {
               pendingSection.style.display = "none";
             }
           })
-          .catch(err => {
-            console.error("loadUserDashboard pending requests error:", err);
+          .catch(() => {
             pendingSection.style.display = "none";
             pendingList.innerHTML = `<li style='color:var(--text-muted);'>Unable to load pending request actions right now.</li>`;
           });
@@ -1153,28 +1114,12 @@ function loadUserDashboard() {
       }
     })
     .catch(err => {
-      // Show an inline error instead of leaving skeletons in place.
+      // Show an inline error inside the borrowedList instead of a toast
+      // so it doesn't keep popping up every 15 s from the poll.
       console.error("loadUserDashboard error:", err);
-      const errMsg = err && err.message ? err.message : "Check your connection and try again.";
       const borrowedList = document.getElementById("borrowedList");
-      const historyWrap = document.getElementById("historyTableWrap");
-      const pendingList = document.getElementById("pendingList");
-
-      if (historyWrap) {
-        historyWrap.innerHTML = `<div class="empty-state-full">
-          <div class="empty-icon">⚠️</div>
-          <p>Unable to load dashboard history.</p>
-          <small>${errMsg}</small>
-        </div>`;
-      }
-      if (pendingList) {
-        pendingList.innerHTML = `<div class="empty-state-full">
-          <div class="empty-icon">⚠️</div>
-          <p>Unable to load pending requests.</p>
-          <small>${errMsg}</small>
-        </div>`;
-      }
       if (borrowedList) {
+        const errMsg = err && err.message ? err.message : "Check your connection and try again.";
         borrowedList.innerHTML = `
           <li style="list-style:none;padding:0;margin:0;">
             <div style="
@@ -1260,8 +1205,8 @@ function populateBorrowSelect() {
 
   // Fetch BOTH items and active transactions to show TRUE available count
   Promise.all([
-    fetchWithTimeout(scriptURL + "?action=getItems", {}, 8000),
-    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
+    safeFetch(scriptURL + "?action=getItems"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
     .then(([response, history]) => {
       const select = document.getElementById("borrowItem");
@@ -1319,7 +1264,7 @@ function populateReturnSelect() {
   document.getElementById("returnDate").value = getPHTDateString();
   if (!currentUser) return;
 
-  fetchWithTimeout(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id), {}, 8000)
+  safeFetch(scriptURL + "?action=getHistory&studentId=" + encodeURIComponent(currentUser.id))
     .then(history => {
       // Show items with status "Borrowed" OR "Overdue"
       // "Return Pending" items are already submitted and awaiting admin
@@ -1335,30 +1280,8 @@ function populateReturnSelect() {
         const opt = document.createElement("option");
         opt.value       = tx.item;
         opt.textContent = `${tx.item} (due ${tx.dueDate})`;
-        // Keep a reference to the original rowIndex/item id for server actions
-        if (tx.rowIndex !== undefined) opt.dataset.rowIndex = tx.rowIndex;
         select.appendChild(opt);
       });
-
-      // If there's only one eligible item, auto-select it and set hidden row id
-      const rowHidden = document.getElementById("returnItemRow");
-      if (eligible.length === 1) {
-        select.selectedIndex = 0;
-        select.disabled = true;
-        const first = select.querySelector("option");
-        if (first && first.dataset && first.dataset.rowIndex) rowHidden.value = first.dataset.rowIndex;
-      } else {
-        select.disabled = false;
-        if (rowHidden) rowHidden.value = "";
-      }
-
-      // Update hidden row id whenever selection changes
-      select.onchange = () => {
-        const opt = select.options[select.selectedIndex];
-        const rowHidden = document.getElementById("returnItemRow");
-        if (opt && opt.dataset && opt.dataset.rowIndex) rowHidden.value = opt.dataset.rowIndex || "";
-      };
-
     })
     .catch(() => showNotification("Error loading items.", "error"));
 }
@@ -1458,14 +1381,14 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
           }
         );
 
-        return safeFetch(scriptURL, {
+        safeFetch(scriptURL, {
           method: "POST",
           body: JSON.stringify({ action: "requestBorrow", studentId: currentUser.id, item, borrowDate, dueDate })
         }).then(data => {
           if (data.success) {
             if (wasCancelled) {
               // Undo was tapped before the request came back — cancel immediately
-              fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
+              safeFetch(scriptURL + "?action=getPendingRequests")
                 .then(pending => {
                   const match = Array.isArray(pending) && pending.find(p =>
                     String(p.studentId) === String(currentUser.id) &&
@@ -1485,7 +1408,7 @@ document.getElementById("borrowForm").addEventListener("submit", e => {
                 .catch(() => loadUserDashboard());
             } else {
               // Store for potential undo
-              fetchWithTimeout(scriptURL + "?action=getPendingRequests", {}, 8000)
+              safeFetch(scriptURL + "?action=getPendingRequests")
                 .then(pending => {
                   submittedTx = Array.isArray(pending) && pending.find(p =>
                     String(p.studentId) === String(currentUser.id) &&
@@ -1538,7 +1461,6 @@ document.getElementById("returnForm").addEventListener("submit", e => {
 
   const item       = document.getElementById("returnItem").value;
   const returnDate = document.getElementById("returnDate").value;
-  const rowIndex   = document.getElementById("returnItemRow") ? document.getElementById("returnItemRow").value : "";
 
   if (!item) {
     showNotification("Please select an item to return.", "error");
@@ -1552,18 +1474,14 @@ document.getElementById("returnForm").addEventListener("submit", e => {
        Status will update to <strong style="color:var(--success);">Returned</strong> once the admin confirms receipt.
      </small>`,
     () => {
-      const payload = {
-        action:     "requestReturn",   // sets status = "Return Pending"
-        studentId:  currentUser.id,
-        item,
-        returnDate
-      };
-      // Include rowIndex when available to make server-side matching exact
-      if (rowIndex) payload.rowIndex = rowIndex;
-
-      return safeFetch(scriptURL, {
+      safeFetch(scriptURL, {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          action:     "requestReturn",   // sets status = "Return Pending"
+          studentId:  currentUser.id,
+          item,
+          returnDate
+        })
       }).then(data => {
         if (data.success) {
           showNotification("Return request submitted! Hand the item to the admin. ⏳", "success");
@@ -1584,23 +1502,8 @@ function showConfirmModal(icon, title, message, onConfirm) {
   document.getElementById("confirmMessage").innerHTML   = message;
   document.getElementById("confirmModal").style.display = "flex";
   document.getElementById("confirmYes").onclick = () => {
-    const yesBtn = document.getElementById("confirmYes");
-    const prevText = yesBtn ? yesBtn.textContent : null;
-    if (yesBtn) { yesBtn.disabled = true; yesBtn.textContent = "Processing…"; }
     document.getElementById("confirmModal").style.display = "none";
-    try {
-      const res = onConfirm();
-      if (res && typeof res.then === 'function') {
-        res.finally(() => {
-          if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
-        });
-      } else {
-        if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
-      }
-    } catch (e) {
-      if (yesBtn) { yesBtn.disabled = false; yesBtn.textContent = prevText; }
-      throw e;
-    }
+    onConfirm();
   };
   document.getElementById("confirmNo").onclick = () => {
     document.getElementById("confirmModal").style.display = "none";
@@ -1630,8 +1533,8 @@ function loadStockPanel() {
 
   // Fetch BOTH items and active transactions to calculate TRUE available stock
   Promise.all([
-    fetchWithTimeout(scriptURL + "?action=getItems", {}, 8000),
-    fetchWithTimeout(scriptURL + "?action=getAllHistory", {}, 8000)
+    safeFetch(scriptURL + "?action=getItems"),
+    safeFetch(scriptURL + "?action=getAllHistory")
   ])
     .then(([response, history]) => {
       // Handle both old and new response formats
@@ -1668,10 +1571,9 @@ function loadStockPanel() {
       stockPage     = 1;
       renderStockPage();
     })
-    .catch(err => {
-      console.error("loadStockPanel error:", err);
+    .catch(() => {
       document.getElementById("stockList").innerHTML =
-        `<div class="empty-state">${err.message === "Request timeout" ? "Stock request timed out." : "Could not load stock info."}</div>`;
+        `<div class="empty-state">Could not load stock info.</div>`;
     });
 }
 
